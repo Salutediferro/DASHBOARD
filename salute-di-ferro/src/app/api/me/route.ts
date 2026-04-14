@@ -3,7 +3,29 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
 
-function serializeUser(u: {
+const USER_SELECT = {
+  id: true,
+  email: true,
+  fullName: true,
+  firstName: true,
+  lastName: true,
+  sex: true,
+  birthDate: true,
+  heightCm: true,
+  phone: true,
+  avatarUrl: true,
+  role: true,
+  onboardingCompleted: true,
+  primaryGoal: true,
+  fitnessLevel: true,
+  weeklyActivityHours: true,
+  medicalConditions: true,
+  allergies: true,
+  medications: true,
+  injuries: true,
+} as const;
+
+type DbUser = {
   id: string;
   email: string;
   fullName: string;
@@ -16,20 +38,19 @@ function serializeUser(u: {
   avatarUrl: string | null;
   role: "ADMIN" | "COACH" | "CLIENT";
   onboardingCompleted: boolean;
-}) {
+  primaryGoal: string | null;
+  fitnessLevel: string | null;
+  weeklyActivityHours: number | null;
+  medicalConditions: string | null;
+  allergies: string | null;
+  medications: string | null;
+  injuries: string | null;
+};
+
+function serializeUser(u: DbUser) {
   return {
-    id: u.id,
-    email: u.email,
-    fullName: u.fullName,
-    firstName: u.firstName,
-    lastName: u.lastName,
-    sex: u.sex,
+    ...u,
     birthDate: u.birthDate ? u.birthDate.toISOString().slice(0, 10) : null,
-    heightCm: u.heightCm,
-    phone: u.phone,
-    avatarUrl: u.avatarUrl,
-    role: u.role,
-    onboardingCompleted: u.onboardingCompleted,
   };
 }
 
@@ -43,20 +64,7 @@ export async function GET() {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      firstName: true,
-      lastName: true,
-      sex: true,
-      birthDate: true,
-      heightCm: true,
-      phone: true,
-      avatarUrl: true,
-      role: true,
-      onboardingCompleted: true,
-    },
+    select: USER_SELECT,
   });
 
   if (!dbUser) return NextResponse.json(null, { status: 404 });
@@ -77,7 +85,6 @@ export async function PATCH(req: Request) {
   }
   const data = parsed.data;
 
-  // Derive fullName from first/last if either is provided
   const updates: Record<string, unknown> = {};
   if (data.firstName !== undefined) updates.firstName = data.firstName;
   if (data.lastName !== undefined) updates.lastName = data.lastName;
@@ -87,6 +94,17 @@ export async function PATCH(req: Request) {
   }
   if (data.heightCm !== undefined) updates.heightCm = data.heightCm;
   if (data.phone !== undefined) updates.phone = data.phone;
+
+  if (data.primaryGoal !== undefined) updates.primaryGoal = data.primaryGoal;
+  if (data.fitnessLevel !== undefined) updates.fitnessLevel = data.fitnessLevel;
+  if (data.weeklyActivityHours !== undefined)
+    updates.weeklyActivityHours = data.weeklyActivityHours;
+
+  if (data.medicalConditions !== undefined)
+    updates.medicalConditions = data.medicalConditions;
+  if (data.allergies !== undefined) updates.allergies = data.allergies;
+  if (data.medications !== undefined) updates.medications = data.medications;
+  if (data.injuries !== undefined) updates.injuries = data.injuries;
 
   // Keep fullName in sync when first/last name changes
   if (data.firstName !== undefined || data.lastName !== undefined) {
@@ -103,20 +121,7 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: updates,
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      firstName: true,
-      lastName: true,
-      sex: true,
-      birthDate: true,
-      heightCm: true,
-      phone: true,
-      avatarUrl: true,
-      role: true,
-      onboardingCompleted: true,
-    },
+    select: USER_SELECT,
   });
 
   return NextResponse.json(serializeUser(updated));

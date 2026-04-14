@@ -20,6 +20,14 @@ export type UserProfile = {
   avatarUrl: string | null;
   role: UserRole;
   onboardingCompleted: boolean;
+  // Goals & health (persisted)
+  primaryGoal: string | null;
+  fitnessLevel: string | null;
+  weeklyActivityHours: number | null;
+  medicalConditions: string | null;
+  allergies: string | null;
+  medications: string | null;
+  injuries: string | null;
 };
 
 export function useUser() {

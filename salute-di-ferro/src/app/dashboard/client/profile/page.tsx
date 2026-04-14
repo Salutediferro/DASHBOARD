@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { LogOut, Save, Loader2, ShieldAlert, User as UserIcon } from "lucide-react";
+import { LogOut, Save, Loader2, ShieldCheck, User as UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -46,20 +46,7 @@ function initialsOf(name: string, email: string) {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
-// ----- Local-only (localStorage) section types -----
-
-type GoalsState = {
-  primaryGoal: string;
-  fitnessLevel: string;
-  weeklyHours: number | null;
-};
-
-type HealthState = {
-  medicalConditions: string;
-  allergies: string;
-  medications: string;
-  injuries: string;
-};
+// ----- Local-only (localStorage) preferences only -----
 
 type PreferencesState = {
   unit: "KG" | "LBS";
@@ -68,19 +55,6 @@ type PreferencesState = {
   notifMeal: boolean;
   notifCheckin: boolean;
   notifCoach: boolean;
-};
-
-const DEFAULT_GOALS: GoalsState = {
-  primaryGoal: "MASS",
-  fitnessLevel: "INTERMEDIATE",
-  weeklyHours: null,
-};
-
-const DEFAULT_HEALTH: HealthState = {
-  medicalConditions: "",
-  allergies: "",
-  medications: "",
-  injuries: "",
 };
 
 const DEFAULT_PREFS: PreferencesState = {
@@ -92,18 +66,17 @@ const DEFAULT_PREFS: PreferencesState = {
   notifCoach: true,
 };
 
-function useLocalState<T>(key: string, initial: T): [T, (v: T) => void] {
-  const [state, setState] = React.useState<T>(initial);
+function useLocalPrefs(key: string): [PreferencesState, (v: PreferencesState) => void] {
+  const [state, setState] = React.useState<PreferencesState>(DEFAULT_PREFS);
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) setState({ ...initial, ...JSON.parse(raw) });
+      if (raw) setState({ ...DEFAULT_PREFS, ...JSON.parse(raw) });
     } catch {
       /* ignore */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  function update(v: T) {
+  function update(v: PreferencesState) {
     setState(v);
     try {
       localStorage.setItem(key, JSON.stringify(v));
@@ -122,7 +95,7 @@ export default function ClientProfilePage() {
   const qc = useQueryClient();
   const { profile } = useUser();
 
-  // Anagrafica form state (synced from server profile)
+  // Single form state for everything DB-backed
   const [form, setForm] = React.useState<Partial<UserProfile>>({});
   React.useEffect(() => {
     if (profile) {
@@ -133,39 +106,41 @@ export default function ClientProfilePage() {
         birthDate: profile.birthDate,
         heightCm: profile.heightCm,
         phone: profile.phone,
+        primaryGoal: profile.primaryGoal,
+        fitnessLevel: profile.fitnessLevel,
+        weeklyActivityHours: profile.weeklyActivityHours,
+        medicalConditions: profile.medicalConditions,
+        allergies: profile.allergies,
+        medications: profile.medications,
+        injuries: profile.injuries,
       });
     }
   }, [profile]);
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
+  function set<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  const saveSection = useMutation({
+    mutationFn: async (patch: Partial<UserProfile>) => {
       const res = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
       return res.json();
     },
     onSuccess: () => {
-      toast.success("Anagrafica salvata");
+      toast.success("Salvato");
       qc.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: () => toast.error("Errore salvataggio"),
   });
 
-  // Goals, Health, Preferences — localStorage only
-  const [goals, setGoals] = useLocalState<GoalsState>(
-    `sdf:profile:goals:${profile?.id ?? "anon"}`,
-    DEFAULT_GOALS,
-  );
-  const [health, setHealth] = useLocalState<HealthState>(
-    `sdf:profile:health:${profile?.id ?? "anon"}`,
-    DEFAULT_HEALTH,
-  );
-  const [prefs, setPrefs] = useLocalState<PreferencesState>(
+  // Preferences (still localStorage — these are pure UI prefs)
+  const [prefs, setPrefs] = useLocalPrefs(
     `sdf:profile:prefs:${profile?.id ?? "anon"}`,
-    DEFAULT_PREFS,
   );
 
   async function logout() {
@@ -211,7 +186,7 @@ export default function ClientProfilePage() {
         </TabsList>
 
         {/* =========================
-            TAB 1 — ANAGRAFICA (DB)
+            TAB 1 — ANAGRAFICA
            ========================= */}
         <TabsContent value="personal" className="mt-4 flex flex-col gap-4">
           <Card>
@@ -228,9 +203,7 @@ export default function ClientProfilePage() {
                   <Input
                     id="firstName"
                     value={form.firstName ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, firstName: e.target.value || null })
-                    }
+                    onChange={(e) => set("firstName", e.target.value || null)}
                     placeholder="Mario"
                   />
                 </div>
@@ -239,9 +212,7 @@ export default function ClientProfilePage() {
                   <Input
                     id="lastName"
                     value={form.lastName ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, lastName: e.target.value || null })
-                    }
+                    onChange={(e) => set("lastName", e.target.value || null)}
                     placeholder="Rossi"
                   />
                 </div>
@@ -253,10 +224,7 @@ export default function ClientProfilePage() {
                   <Select
                     value={form.sex ?? ""}
                     onValueChange={(v) =>
-                      setForm({
-                        ...form,
-                        sex: (v as "MALE" | "FEMALE" | "OTHER") || null,
-                      })
+                      set("sex", (v as "MALE" | "FEMALE" | "OTHER") || null)
                     }
                   >
                     <SelectTrigger id="sex">
@@ -275,9 +243,7 @@ export default function ClientProfilePage() {
                     id="birthDate"
                     type="date"
                     value={form.birthDate ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, birthDate: e.target.value || null })
-                    }
+                    onChange={(e) => set("birthDate", e.target.value || null)}
                   />
                 </div>
               </div>
@@ -297,9 +263,7 @@ export default function ClientProfilePage() {
                     inputMode="decimal"
                     step="0.5"
                     value={form.heightCm ?? ""}
-                    onChange={(e) =>
-                      setForm({ ...form, heightCm: num(e.target.value) })
-                    }
+                    onChange={(e) => set("heightCm", num(e.target.value))}
                     placeholder="178"
                     className="tabular-nums"
                   />
@@ -313,9 +277,7 @@ export default function ClientProfilePage() {
                   type="tel"
                   inputMode="tel"
                   value={form.phone ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, phone: e.target.value || null })
-                  }
+                  onChange={(e) => set("phone", e.target.value || null)}
                   placeholder="+39 333 1234567"
                 />
               </div>
@@ -330,13 +292,22 @@ export default function ClientProfilePage() {
 
               <button
                 type="button"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                onClick={() =>
+                  saveSection.mutate({
+                    firstName: form.firstName ?? null,
+                    lastName: form.lastName ?? null,
+                    sex: form.sex ?? null,
+                    birthDate: form.birthDate ?? null,
+                    heightCm: form.heightCm ?? null,
+                    phone: form.phone ?? null,
+                  })
+                }
+                disabled={saveSection.isPending}
                 className={cn(
                   "bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold disabled:opacity-50",
                 )}
               >
-                {saveMutation.isPending ? (
+                {saveSection.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="h-4 w-4" />
@@ -348,19 +319,18 @@ export default function ClientProfilePage() {
         </TabsContent>
 
         {/* =========================
-            TAB 2 — SALUTE & OBIETTIVI (local)
+            TAB 2 — SALUTE & OBIETTIVI (DB)
            ========================= */}
         <TabsContent value="health" className="mt-4 flex flex-col gap-4">
-          <div className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/20 flex gap-2 rounded-md border p-3 text-xs">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/20 flex gap-2 rounded-md border p-3 text-xs">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
             <div>
-              <p className="font-semibold text-amber-900 dark:text-amber-200">
-                Dati salvati solo sul dispositivo
+              <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Dati sincronizzati e protetti
               </p>
-              <p className="text-amber-800/80 dark:text-amber-300/80">
-                Obiettivi e informazioni sanitarie sono attualmente conservati
-                in locale. La sincronizzazione su server (con accesso protetto
-                medico/coach) arriverà nel prossimo aggiornamento.
+              <p className="text-emerald-800/80 dark:text-emerald-300/80">
+                Obiettivi e informazioni sanitarie sono salvati sul server.
+                Sono visibili al tuo coach e al medico autorizzato.
               </p>
             </div>
           </div>
@@ -373,13 +343,11 @@ export default function ClientProfilePage() {
               <div className="flex flex-col gap-1.5">
                 <Label>Obiettivo principale</Label>
                 <Select
-                  value={goals.primaryGoal}
-                  onValueChange={(v) =>
-                    setGoals({ ...goals, primaryGoal: v ?? "MASS" })
-                  }
+                  value={form.primaryGoal ?? ""}
+                  onValueChange={(v) => set("primaryGoal", v || null)}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleziona" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MASS">Massa muscolare</SelectItem>
@@ -396,13 +364,11 @@ export default function ClientProfilePage() {
                 <div className="flex flex-col gap-1.5">
                   <Label>Livello esperienza</Label>
                   <Select
-                    value={goals.fitnessLevel}
-                    onValueChange={(v) =>
-                      setGoals({ ...goals, fitnessLevel: v ?? "INTERMEDIATE" })
-                    }
+                    value={form.fitnessLevel ?? ""}
+                    onValueChange={(v) => set("fitnessLevel", v || null)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Seleziona" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="BEGINNER">Principiante</SelectItem>
@@ -419,9 +385,9 @@ export default function ClientProfilePage() {
                     type="number"
                     inputMode="decimal"
                     step="0.5"
-                    value={goals.weeklyHours ?? ""}
+                    value={form.weeklyActivityHours ?? ""}
                     onChange={(e) =>
-                      setGoals({ ...goals, weeklyHours: num(e.target.value) })
+                      set("weeklyActivityHours", num(e.target.value))
                     }
                     className="tabular-nums"
                     placeholder="4"
@@ -430,12 +396,19 @@ export default function ClientProfilePage() {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setGoals(goals); // trigger write
-                  toast.success("Obiettivi aggiornati");
-                }}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md text-sm font-medium"
+                onClick={() =>
+                  saveSection.mutate({
+                    primaryGoal: form.primaryGoal ?? null,
+                    fitnessLevel: form.fitnessLevel ?? null,
+                    weeklyActivityHours: form.weeklyActivityHours ?? null,
+                  })
+                }
+                disabled={saveSection.isPending}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-50"
               >
+                {saveSection.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 Salva obiettivi
               </button>
             </CardContent>
@@ -453,9 +426,9 @@ export default function ClientProfilePage() {
                 <Textarea
                   id="conditions"
                   rows={3}
-                  value={health.medicalConditions}
+                  value={form.medicalConditions ?? ""}
                   onChange={(e) =>
-                    setHealth({ ...health, medicalConditions: e.target.value })
+                    set("medicalConditions", e.target.value || null)
                   }
                   placeholder="Es. ipertensione, diabete tipo 2..."
                 />
@@ -465,10 +438,8 @@ export default function ClientProfilePage() {
                 <Textarea
                   id="allergies"
                   rows={2}
-                  value={health.allergies}
-                  onChange={(e) =>
-                    setHealth({ ...health, allergies: e.target.value })
-                  }
+                  value={form.allergies ?? ""}
+                  onChange={(e) => set("allergies", e.target.value || null)}
                   placeholder="Es. lattosio, arachidi..."
                 />
               </div>
@@ -477,10 +448,8 @@ export default function ClientProfilePage() {
                 <Textarea
                   id="medications"
                   rows={2}
-                  value={health.medications}
-                  onChange={(e) =>
-                    setHealth({ ...health, medications: e.target.value })
-                  }
+                  value={form.medications ?? ""}
+                  onChange={(e) => set("medications", e.target.value || null)}
                   placeholder="Es. Ramipril 5mg/die..."
                 />
               </div>
@@ -489,21 +458,27 @@ export default function ClientProfilePage() {
                 <Textarea
                   id="injuries"
                   rows={2}
-                  value={health.injuries}
-                  onChange={(e) =>
-                    setHealth({ ...health, injuries: e.target.value })
-                  }
+                  value={form.injuries ?? ""}
+                  onChange={(e) => set("injuries", e.target.value || null)}
                   placeholder="Es. ernia L5-S1, frattura polso dx 2022..."
                 />
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setHealth(health);
-                  toast.success("Dati sanitari aggiornati");
-                }}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md text-sm font-medium"
+                onClick={() =>
+                  saveSection.mutate({
+                    medicalConditions: form.medicalConditions ?? null,
+                    allergies: form.allergies ?? null,
+                    medications: form.medications ?? null,
+                    injuries: form.injuries ?? null,
+                  })
+                }
+                disabled={saveSection.isPending}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-50"
               >
+                {saveSection.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 Salva dati sanitari
               </button>
             </CardContent>

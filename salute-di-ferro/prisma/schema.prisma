@@ -193,6 +193,16 @@ model User {
   stripeCustomerId    String?             @unique
   subscriptionStatus  SubscriptionStatus?
   onboardingCompleted Boolean             @default(false)
+
+  // Health & goals profile (free-text, PII — visible to coach/medic)
+  primaryGoal         String?
+  fitnessLevel        String?
+  weeklyActivityHours Float?
+  medicalConditions   String?
+  allergies           String?
+  medications         String?
+  injuries            String?
+
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
