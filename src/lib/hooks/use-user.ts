@@ -67,6 +67,7 @@ export function useUser() {
   return {
     user: authUser,
     profile,
+    role: (role ?? null) as UserRole | null,
     isLoading: authLoading || profileQuery.isLoading,
     isAdmin: role === "ADMIN",
     isDoctor: role === "DOCTOR",

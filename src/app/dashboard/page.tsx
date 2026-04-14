@@ -4,6 +4,13 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const ROLE_HOME: Record<string, string> = {
+  ADMIN: "/dashboard/admin",
+  DOCTOR: "/dashboard/doctor",
+  COACH: "/dashboard/coach",
+  PATIENT: "/dashboard/client",
+};
+
 export default async function DashboardIndex() {
   const supabase = await createClient();
   const {
@@ -12,22 +19,18 @@ export default async function DashboardIndex() {
 
   if (!user) redirect("/login");
 
-  const metaRole =
+  // Prefer DB role (source of truth); fall back to app_metadata hint.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
+  const role =
+    dbUser?.role ??
     (user.app_metadata?.role as string | undefined) ??
     (user.user_metadata?.role as string | undefined);
 
-  let role = metaRole;
-  if (!role) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { role: true },
-    });
-    role = dbUser?.role;
-  }
+  if (role && ROLE_HOME[role]) redirect(ROLE_HOME[role]);
 
-  if (role === "COACH" || role === "ADMIN") redirect("/dashboard/coach");
-  if (role === "CLIENT") redirect("/dashboard/client");
-
-  // No profile yet — send to register to complete onboarding.
+  // No role on record — send to register to complete onboarding.
   redirect("/register");
 }
