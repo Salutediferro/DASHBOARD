@@ -2,18 +2,41 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
 loadEnv();
 
-import { PrismaClient, type ProfessionalRole } from "@prisma/client";
+import {
+  PrismaClient,
+  type ProfessionalRole,
+  type UserRole,
+} from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { createClient, type User as AuthUser } from "@supabase/supabase-js";
 
-const connectionString =
-  process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// ── Env / clients ─────────────────────────────────────────────────────────
+const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DATABASE_URL / DIRECT_URL is not set");
 }
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
 
-// Epoch-based helper so AvailabilitySlot @db.Time gets a sane time-of-day.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error(
+    "Set SUPABASE_SERVICE_ROLE_KEY (and NEXT_PUBLIC_SUPABASE_URL) in .env.local to seed auth users",
+  );
+}
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString }),
+});
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+// ── Constants ─────────────────────────────────────────────────────────────
+const SEED_PASSWORD = "Password123!";
+const TEST_EMAIL_DOMAINS = ["@salutediferro.test", "@test.local"];
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 const timeOfDay = (hh: number, mm = 0) =>
   new Date(Date.UTC(1970, 0, 1, hh, mm, 0));
 
@@ -24,10 +47,111 @@ const daysFromNow = (n: number) => {
   return d;
 };
 
+function isTestEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  return TEST_EMAIL_DOMAINS.some((d) => email.endsWith(d));
+}
+
+/**
+ * List every Supabase auth user whose email matches our test domains,
+ * paging through the admin API until we reach the end.
+ */
+async function listTestAuthUsers(): Promise<AuthUser[]> {
+  const out: AuthUser[] = [];
+  let page = 1;
+  const perPage = 1000;
+  for (;;) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    for (const u of users) if (isTestEmail(u.email)) out.push(u);
+    if (users.length < perPage) break;
+    page += 1;
+  }
+  return out;
+}
+
+/**
+ * Create a Supabase auth user. If the email is already registered (e.g. a
+ * stray record survived the cleanup step) delete it once and retry.
+ */
+async function createAuthUser(input: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+}): Promise<AuthUser | null> {
+  const attempt = () =>
+    supabaseAdmin.auth.admin.createUser({
+      email: input.email,
+      password: SEED_PASSWORD,
+      email_confirm: true,
+      app_metadata: { role: input.role },
+      user_metadata: { firstName: input.firstName, lastName: input.lastName },
+    });
+
+  let { data, error } = await attempt();
+  if (error && /already.*(registered|exists)/i.test(error.message)) {
+    const stale = (await listTestAuthUsers()).find(
+      (u) => u.email === input.email,
+    );
+    if (stale) {
+      await supabaseAdmin.auth.admin.deleteUser(stale.id);
+    }
+    ({ data, error } = await attempt());
+  }
+  if (error || !data?.user) {
+    console.error(
+      `  ⚠ Failed to create auth user ${input.email}: ${error?.message ?? "unknown"}`,
+    );
+    return null;
+  }
+  return data.user;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────
+type UserSpec = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  sex?: "MALE" | "FEMALE" | "OTHER";
+  birthDate?: Date;
+  heightCm?: number;
+  phone?: string;
+  taxCode?: string;
+  emergencyContact?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  medications?: string;
+  injuries?: string;
+};
+
 async function main() {
   console.log("🌱 Seeding health-service database...");
 
-  // ---- Organization --------------------------------------------------------
+  // ── 1. Auth cleanup ─────────────────────────────────────────────────────
+  const stale = await listTestAuthUsers();
+  for (const u of stale) {
+    await supabaseAdmin.auth.admin.deleteUser(u.id);
+  }
+  console.log(`  ✓ Cleaned up ${stale.length} stale auth users`);
+
+  // ── 2. Prisma cleanup (cascades) ────────────────────────────────────────
+  // Delete every User row for the test domains; CareRelationship,
+  // BiometricLog, MedicalReport, Appointment, AvailabilitySlot all cascade
+  // via onDelete: Cascade from the FK.
+  const deletedUsers = await prisma.user.deleteMany({
+    where: {
+      OR: TEST_EMAIL_DOMAINS.map((d) => ({ email: { endsWith: d } })),
+    },
+  });
+  console.log(`  ✓ Deleted ${deletedUsers.count} stale Prisma users (cascade)`);
+
+  // ── 3. Organization ─────────────────────────────────────────────────────
   const org = await prisma.organization.upsert({
     where: { slug: "salute-di-ferro" },
     update: { name: "Salute di Ferro Clinic" },
@@ -40,122 +164,204 @@ async function main() {
   });
   console.log(`  ✓ Organization: ${org.name}`);
 
-  // ---- Users ---------------------------------------------------------------
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@salutediferro.test" },
-    update: {},
-    create: {
-      email: "admin@salutediferro.test",
-      fullName: "Admin Sistema",
-      firstName: "Admin",
-      lastName: "Sistema",
-      role: "ADMIN",
-      organizationId: org.id,
-      onboardingCompleted: true,
+  // ── 4. Users (auth first, then Prisma with the auth id) ────────────────
+  const adminSpec: UserSpec = {
+    email: "admin@salutediferro.test",
+    firstName: "Admin",
+    lastName: "Sistema",
+    role: "ADMIN",
+  };
+
+  const doctorSpecs: UserSpec[] = [
+    {
+      email: "dott.rossi@salutediferro.test",
+      firstName: "Giulia",
+      lastName: "Rossi",
+      role: "DOCTOR",
+      phone: "+39 02 000 0000",
     },
-  });
-
-  const doctors = await Promise.all(
-    [
-      { email: "dott.rossi@salutediferro.test", first: "Giulia", last: "Rossi" },
-      { email: "dott.bianchi@salutediferro.test", first: "Marco", last: "Bianchi" },
-    ].map((d) =>
-      prisma.user.upsert({
-        where: { email: d.email },
-        update: {},
-        create: {
-          email: d.email,
-          fullName: `Dr. ${d.first} ${d.last}`,
-          firstName: d.first,
-          lastName: d.last,
-          role: "DOCTOR",
-          organizationId: org.id,
-          onboardingCompleted: true,
-          phone: "+39 02 000 0000",
-        },
-      }),
-    ),
-  );
-
-  const coaches = await Promise.all(
-    [
-      { email: "coach.ferri@salutediferro.test", first: "Luca", last: "Ferri" },
-      { email: "coach.greco@salutediferro.test", first: "Sara", last: "Greco" },
-    ].map((c) =>
-      prisma.user.upsert({
-        where: { email: c.email },
-        update: {},
-        create: {
-          email: c.email,
-          fullName: `${c.first} ${c.last}`,
-          firstName: c.first,
-          lastName: c.last,
-          role: "COACH",
-          organizationId: org.id,
-          onboardingCompleted: true,
-          phone: "+39 02 111 1111",
-        },
-      }),
-    ),
-  );
-
-  const patientSpecs = [
-    { email: "paziente1@test.local", first: "Alessandro", last: "Conti", sex: "MALE" as const, height: 178, goal: "Controllo pressione arteriosa" },
-    { email: "paziente2@test.local", first: "Francesca", last: "Marino", sex: "FEMALE" as const, height: 165, goal: "Monitoraggio post-operatorio" },
-    { email: "paziente3@test.local", first: "Davide", last: "Russo", sex: "MALE" as const, height: 182, goal: "Diabete tipo 2" },
-    { email: "paziente4@test.local", first: "Giorgia", last: "Esposito", sex: "FEMALE" as const, height: 170, goal: "Prevenzione cardiovascolare" },
-    { email: "paziente5@test.local", first: "Matteo", last: "Galli", sex: "MALE" as const, height: 175, goal: "Recupero infortunio ginocchio" },
+    {
+      email: "dott.bianchi@salutediferro.test",
+      firstName: "Marco",
+      lastName: "Bianchi",
+      role: "DOCTOR",
+      phone: "+39 02 000 0000",
+    },
   ];
 
-  const patients = await Promise.all(
-    patientSpecs.map((p, i) =>
-      prisma.user.upsert({
-        where: { email: p.email },
-        update: {},
-        create: {
-          email: p.email,
-          fullName: `${p.first} ${p.last}`,
-          firstName: p.first,
-          lastName: p.last,
-          sex: p.sex,
-          birthDate: new Date(1980 + i * 3, 2, 15),
-          heightCm: p.height,
-          phone: `+39 333 000 000${i + 1}`,
-          taxCode: `TESTPT${String(i + 1).padStart(11, "0")}`,
-          emergencyContact: "Mario Contatto +39 333 111 2222",
-          role: "PATIENT",
-          organizationId: org.id,
-          onboardingCompleted: true,
-          medicalConditions: p.goal,
-          allergies: i % 2 === 0 ? "Pollini, acari" : null,
-          medications: i % 3 === 0 ? "Ramipril 5mg" : null,
-          injuries: null,
-        },
-      }),
-    ),
-  );
+  const coachSpecs: UserSpec[] = [
+    {
+      email: "coach.ferri@salutediferro.test",
+      firstName: "Luca",
+      lastName: "Ferri",
+      role: "COACH",
+      phone: "+39 02 111 1111",
+    },
+    {
+      email: "coach.greco@salutediferro.test",
+      firstName: "Sara",
+      lastName: "Greco",
+      role: "COACH",
+      phone: "+39 02 111 1111",
+    },
+  ];
+
+  const patientSpecs: UserSpec[] = [
+    {
+      email: "paziente1@test.local",
+      firstName: "Alessandro",
+      lastName: "Conti",
+      role: "PATIENT",
+      sex: "MALE",
+      birthDate: new Date(1980, 2, 15),
+      heightCm: 178,
+      phone: "+39 333 000 0001",
+      taxCode: "TESTPT00000000001",
+      emergencyContact: "Mario Contatto +39 333 111 2222",
+      medicalConditions: "Controllo pressione arteriosa",
+      allergies: "Pollini, acari",
+      medications: "Ramipril 5mg",
+    },
+    {
+      email: "paziente2@test.local",
+      firstName: "Francesca",
+      lastName: "Marino",
+      role: "PATIENT",
+      sex: "FEMALE",
+      birthDate: new Date(1983, 2, 15),
+      heightCm: 165,
+      phone: "+39 333 000 0002",
+      taxCode: "TESTPT00000000002",
+      emergencyContact: "Mario Contatto +39 333 111 2222",
+      medicalConditions: "Monitoraggio post-operatorio",
+    },
+    {
+      email: "paziente3@test.local",
+      firstName: "Davide",
+      lastName: "Russo",
+      role: "PATIENT",
+      sex: "MALE",
+      birthDate: new Date(1986, 2, 15),
+      heightCm: 182,
+      phone: "+39 333 000 0003",
+      taxCode: "TESTPT00000000003",
+      emergencyContact: "Mario Contatto +39 333 111 2222",
+      medicalConditions: "Diabete tipo 2",
+      allergies: "Pollini, acari",
+    },
+    {
+      email: "paziente4@test.local",
+      firstName: "Giorgia",
+      lastName: "Esposito",
+      role: "PATIENT",
+      sex: "FEMALE",
+      birthDate: new Date(1989, 2, 15),
+      heightCm: 170,
+      phone: "+39 333 000 0004",
+      taxCode: "TESTPT00000000004",
+      emergencyContact: "Mario Contatto +39 333 111 2222",
+      medicalConditions: "Prevenzione cardiovascolare",
+    },
+    {
+      email: "paziente5@test.local",
+      firstName: "Matteo",
+      lastName: "Galli",
+      role: "PATIENT",
+      sex: "MALE",
+      birthDate: new Date(1992, 2, 15),
+      heightCm: 175,
+      phone: "+39 333 000 0005",
+      taxCode: "TESTPT00000000005",
+      emergencyContact: "Mario Contatto +39 333 111 2222",
+      medicalConditions: "Recupero infortunio ginocchio",
+      allergies: "Pollini, acari",
+    },
+  ];
+
+  /**
+   * Create the auth user first and mirror the resulting id into Prisma.
+   * Returns null for specs that failed at the auth step (already logged).
+   */
+  async function provisionUser(spec: UserSpec) {
+    const authUser = await createAuthUser({
+      email: spec.email,
+      firstName: spec.firstName,
+      lastName: spec.lastName,
+      role: spec.role,
+    });
+    if (!authUser) return null;
+
+    const fullName =
+      spec.role === "DOCTOR"
+        ? `Dr. ${spec.firstName} ${spec.lastName}`
+        : `${spec.firstName} ${spec.lastName}`;
+
+    return prisma.user.create({
+      data: {
+        id: authUser.id,
+        email: spec.email,
+        fullName,
+        firstName: spec.firstName,
+        lastName: spec.lastName,
+        sex: spec.sex ?? null,
+        birthDate: spec.birthDate ?? null,
+        heightCm: spec.heightCm ?? null,
+        phone: spec.phone ?? null,
+        taxCode: spec.taxCode ?? null,
+        emergencyContact: spec.emergencyContact ?? null,
+        role: spec.role,
+        organizationId: org.id,
+        onboardingCompleted: true,
+        medicalConditions: spec.medicalConditions ?? null,
+        allergies: spec.allergies ?? null,
+        medications: spec.medications ?? null,
+        injuries: spec.injuries ?? null,
+      },
+    });
+  }
+
+  const admin = await provisionUser(adminSpec);
+  const doctors = (
+    await Promise.all(doctorSpecs.map(provisionUser))
+  ).filter((u): u is NonNullable<typeof u> => u !== null);
+  const coaches = (
+    await Promise.all(coachSpecs.map(provisionUser))
+  ).filter((u): u is NonNullable<typeof u> => u !== null);
+  const patients = (
+    await Promise.all(patientSpecs.map(provisionUser))
+  ).filter((u): u is NonNullable<typeof u> => u !== null);
+
+  if (!admin) {
+    throw new Error("Failed to provision admin user — aborting seed");
+  }
+
+  const createdTotal =
+    1 + doctors.length + coaches.length + patients.length;
   console.log(
     `  ✓ Users: 1 admin, ${doctors.length} doctors, ${coaches.length} coaches, ${patients.length} patients`,
   );
 
-  // ---- CareRelationships ---------------------------------------------------
-  // Each patient gets one primary doctor and one primary coach (round-robin).
-  const relRows: { professional: typeof doctors[number]; patient: typeof patients[number]; role: ProfessionalRole }[] = [];
+  // ── 5. CareRelationships ────────────────────────────────────────────────
+  const relRows: {
+    professional: (typeof doctors)[number];
+    patient: (typeof patients)[number];
+    role: ProfessionalRole;
+  }[] = [];
   patients.forEach((pt, i) => {
-    relRows.push({ professional: doctors[i % doctors.length]!, patient: pt, role: "DOCTOR" });
-    relRows.push({ professional: coaches[i % coaches.length]!, patient: pt, role: "COACH" });
+    relRows.push({
+      professional: doctors[i % doctors.length]!,
+      patient: pt,
+      role: "DOCTOR",
+    });
+    relRows.push({
+      professional: coaches[i % coaches.length]!,
+      patient: pt,
+      role: "COACH",
+    });
   });
   for (const r of relRows) {
-    await prisma.careRelationship.upsert({
-      where: {
-        professionalId_patientId_professionalRole: {
-          professionalId: r.professional.id,
-          patientId: r.patient.id,
-          professionalRole: r.role,
-        },
-      },
-      update: {},
-      create: {
+    await prisma.careRelationship.create({
+      data: {
         professionalId: r.professional.id,
         patientId: r.patient.id,
         professionalRole: r.role,
@@ -165,11 +371,7 @@ async function main() {
   }
   console.log(`  ✓ CareRelationships: ${relRows.length}`);
 
-  // ---- BiometricLogs (2-3 per patient) ------------------------------------
-  // Delete any existing to keep seed deterministic.
-  await prisma.biometricLog.deleteMany({
-    where: { patientId: { in: patients.map((p) => p.id) } },
-  });
+  // ── 6. BiometricLogs ────────────────────────────────────────────────────
   for (const pt of patients) {
     const baseWeight = 60 + Math.random() * 30;
     for (let i = 0; i < 3; i++) {
@@ -194,10 +396,7 @@ async function main() {
   }
   console.log(`  ✓ BiometricLogs: ${patients.length * 3}`);
 
-  // ---- MedicalReports (1-2 per patient) ------------------------------------
-  await prisma.medicalReport.deleteMany({
-    where: { patientId: { in: patients.map((p) => p.id) } },
-  });
+  // ── 7. MedicalReports ───────────────────────────────────────────────────
   for (const pt of patients) {
     await prisma.medicalReport.create({
       data: {
@@ -229,15 +428,12 @@ async function main() {
   }
   console.log(`  ✓ MedicalReports: ${patients.length * 2}`);
 
-  // ---- Appointments --------------------------------------------------------
-  await prisma.appointment.deleteMany({
-    where: { patientId: { in: patients.map((p) => p.id) } },
-  });
+  // ── 8. Appointments ─────────────────────────────────────────────────────
   for (let i = 0; i < patients.length; i++) {
     const pt = patients[i]!;
     const doc = doctors[i % doctors.length]!;
     const coach = coaches[i % coaches.length]!;
-    // Doctor visit in +3..+7 days
+
     const docStart = daysFromNow(3 + i);
     docStart.setHours(10, 0, 0, 0);
     await prisma.appointment.create({
@@ -252,7 +448,7 @@ async function main() {
         notes: "Follow-up trimestrale",
       },
     });
-    // Coaching session in +1..+5 days
+
     const coachStart = daysFromNow(1 + i);
     coachStart.setHours(17, 0, 0, 0);
     await prisma.appointment.create({
@@ -268,7 +464,6 @@ async function main() {
       },
     });
 
-    // Past doctor follow-up (~2 weeks ago) — COMPLETED
     const pastDocStart = daysFromNow(-14 - i);
     pastDocStart.setHours(10, 0, 0, 0);
     await prisma.appointment.create({
@@ -284,7 +479,6 @@ async function main() {
       },
     });
 
-    // Past coaching session (~1 week ago) — COMPLETED
     const pastCoachStart = daysFromNow(-7 - i);
     pastCoachStart.setHours(17, 0, 0, 0);
     await prisma.appointment.create({
@@ -300,15 +494,13 @@ async function main() {
       },
     });
   }
-  console.log(`  ✓ Appointments: ${patients.length * 4} (2 future + 2 past per patient)`);
+  console.log(
+    `  ✓ Appointments: ${patients.length * 4} (2 future + 2 past per patient)`,
+  );
 
-  // ---- AvailabilitySlots ---------------------------------------------------
+  // ── 9. AvailabilitySlots ────────────────────────────────────────────────
   const professionals = [...doctors, ...coaches];
-  await prisma.availabilitySlot.deleteMany({
-    where: { professionalId: { in: professionals.map((p) => p.id) } },
-  });
   for (const pro of professionals) {
-    // Mon–Fri (1..5), one 09:00-13:00 and one 14:00-18:00 recurring slot
     for (let dow = 1; dow <= 5; dow++) {
       await prisma.availabilitySlot.create({
         data: {
@@ -335,6 +527,8 @@ async function main() {
   console.log(`  ✓ AvailabilitySlots: ${professionals.length * 10}`);
 
   console.log("✅ Seed completato");
+  console.log("");
+  console.log(`✓ Created ${createdTotal} auth users, password: ${SEED_PASSWORD}`);
   console.log("");
   console.log("Test accounts (email → role):");
   console.log(`  ${admin.email} → ADMIN`);
