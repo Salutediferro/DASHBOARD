@@ -146,13 +146,14 @@ export async function POST(req: Request, { params }: Ctx) {
     },
   });
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: report.id,
     patientId: report.patientId,
     action: "PERMISSION_GRANT",
     extra: { granteeId: grantee.id, expiresAt },
+    request: req,
   });
 
   return NextResponse.json(

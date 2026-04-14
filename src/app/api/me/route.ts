@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import type { Sex, UserRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, MEDICAL_REPORTS_BUCKET } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
+import { logAudit } from "@/lib/audit";
+
+/** Days between soft-delete (DELETE /api/me) and scheduled hard delete. */
+const HARD_DELETE_DELAY_DAYS = 30;
 
 const USER_SELECT = {
   id: true,
@@ -121,5 +126,110 @@ export async function PATCH(req: Request) {
     select: USER_SELECT,
   });
 
+  await logAudit({
+    actorId: user.id,
+    action: "PROFILE_UPDATE",
+    entityType: "User",
+    entityId: user.id,
+    metadata: { fields: Object.keys(updates) },
+    request: req,
+  });
+
   return NextResponse.json(serializeUser(updated));
+}
+
+/**
+ * DELETE /api/me
+ *
+ * GDPR Art. 17 — right to erasure. Performs a soft delete on the User
+ * row (sets deletedAt), revokes every outgoing ReportPermission (so
+ * any professional immediately loses access), archives every active
+ * CareRelationship in which the caller is the patient, and removes
+ * the caller's files from the private medical-reports bucket. The
+ * Prisma row is kept for `HARD_DELETE_DELAY_DAYS` so the audit trail
+ * and any legal retention requirement stay satisfied; a cleanup job
+ * (future cron) performs the hard delete after that deadline.
+ */
+export async function DELETE(req: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true, email: true, deletedAt: true },
+  });
+  if (!me) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (me.deletedAt) {
+    return NextResponse.json({ alreadyDeleted: true });
+  }
+
+  const now = new Date();
+  const hardDeleteAt = new Date(
+    now.getTime() + HARD_DELETE_DELAY_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  // Collect the file paths to purge from the private bucket BEFORE
+  // cascading / modifying rows, so we don't lose the references.
+  const ownedReports = await prisma.medicalReport.findMany({
+    where: { patientId: me.id },
+    select: { fileUrl: true },
+  });
+  const storagePaths = ownedReports.map((r) => r.fileUrl).filter(Boolean);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: me.id },
+      data: { deletedAt: now },
+    }),
+    // Revoke outstanding permissions on the patient's own reports, so
+    // any DOCTOR/COACH loses read access right now. Rows are retained
+    // for the audit trail.
+    prisma.reportPermission.updateMany({
+      where: {
+        report: { patientId: me.id },
+        revokedAt: null,
+      },
+      data: { revokedAt: now },
+    }),
+    // Archive CareRelationships where the caller is the patient.
+    prisma.careRelationship.updateMany({
+      where: { patientId: me.id, status: "ACTIVE" },
+      data: { status: "ARCHIVED", endDate: now },
+    }),
+  ]);
+
+  // Fire-and-forget bucket cleanup — the admin client deletes the
+  // ciphertext; the DB row is kept until the hard delete cron runs.
+  if (storagePaths.length > 0) {
+    try {
+      const admin = createAdminClient();
+      await admin.storage
+        .from(MEDICAL_REPORTS_BUCKET)
+        .remove(storagePaths);
+    } catch (err) {
+      console.warn("[me-delete] bucket purge failed", err);
+    }
+  }
+
+  await logAudit({
+    actorId: me.id,
+    action: "USER_SOFT_DELETE",
+    entityType: "User",
+    entityId: me.id,
+    metadata: {
+      hardDeleteAt: hardDeleteAt.toISOString(),
+      revokedPermissionsOnOwnReports: true,
+      archivedCareRelationships: true,
+      purgedStoragePaths: storagePaths.length,
+    },
+    request: req,
+  });
+
+  return NextResponse.json({
+    softDeleted: true,
+    hardDeleteAt: hardDeleteAt.toISOString(),
+  });
 }

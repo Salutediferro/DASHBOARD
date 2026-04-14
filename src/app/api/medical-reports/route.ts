@@ -11,6 +11,7 @@ import {
   auditMedicalReportAccess,
   resolveCaller,
 } from "@/lib/medical-records/access";
+import { rateLimit, requestKey } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const ALLOWED_MIME = new Set([
@@ -106,13 +107,14 @@ export async function GET(req: Request) {
     },
   });
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: "LIST",
     patientId: (where.patientId as string) ?? "*",
     action: "LIST",
     extra: { count: rows.length },
+    request: req,
   });
 
   // Strip internal storage path from the response; callers use GET /[id]
@@ -149,6 +151,23 @@ export async function GET(req: Request) {
  *   - COACH / ADMIN: not allowed to upload.
  */
 export async function POST(req: Request) {
+  // Rate limit: 20 uploads per IP per 10 minutes — generous enough for
+  // legitimate bulk uploads, tight enough to block abuse.
+  const rl = rateLimit({
+    key: requestKey(req, "medical-report-upload"),
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Troppi upload, riprova più tardi" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.resetIn / 1000)) },
+      },
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -272,13 +291,14 @@ export async function POST(req: Request) {
       return created;
     });
 
-    auditMedicalReportAccess({
+    await auditMedicalReportAccess({
       actorId: me.id,
       actorRole: me.role,
       reportId: row.id,
       patientId: targetPatientId,
       action: "UPLOAD",
       extra: { fileName: row.fileName, fileSize: row.fileSize },
+      request: req,
     });
 
     return NextResponse.json(

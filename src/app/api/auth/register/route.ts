@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators/auth";
+import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST /api/auth/register
@@ -19,6 +21,23 @@ import { registerSchema } from "@/lib/validators/auth";
  * the source of truth.
  */
 export async function POST(req: Request) {
+  // Rate limit: 5 registrations per IP per 10 minutes. Protects against
+  // basic enumeration / flood.
+  const rl = rateLimit({
+    key: requestKey(req, "auth-register"),
+    limit: 5,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Troppi tentativi, riprova più tardi" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.resetIn / 1000)) },
+      },
+    );
+  }
+
   const json = await req.json().catch(() => null);
   const parsed = registerSchema.safeParse(json);
   if (!parsed.success) {
@@ -100,6 +119,15 @@ export async function POST(req: Request) {
         organizationId: org.id,
       },
       select: { id: true, email: true, role: true, fullName: true },
+    });
+    await logAudit({
+      actorId: dbUser.id,
+      action:
+        targetRole === "PATIENT" ? "USER_REGISTER" : "ADMIN_USER_PROVISION",
+      entityType: "User",
+      entityId: dbUser.id,
+      metadata: { role: targetRole, email },
+      request: req,
     });
     return NextResponse.json(dbUser, { status: 201 });
   } catch (e) {

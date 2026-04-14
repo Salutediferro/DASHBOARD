@@ -69,13 +69,25 @@ export async function checkReportReadAccess(
   return { ok: true, report, role: "PROFESSIONAL_WITH_PERMISSION" };
 }
 
+import { logAudit, type AuditAction } from "@/lib/audit";
+
+const ACTION_MAP: Record<string, AuditAction> = {
+  LIST: "MEDICAL_REPORT_VIEW",
+  VIEW: "MEDICAL_REPORT_VIEW",
+  DOWNLOAD: "MEDICAL_REPORT_VIEW",
+  UPLOAD: "MEDICAL_REPORT_UPLOAD",
+  DELETE: "MEDICAL_REPORT_DELETE",
+  UPDATE: "MEDICAL_REPORT_UPDATE",
+  PERMISSION_GRANT: "REPORT_PERMISSION_GRANT",
+  PERMISSION_REVOKE: "REPORT_PERMISSION_REVOKE",
+};
+
 /**
- * GDPR Art. 9 audit log — we don't have a persisted AuditLog model yet
- * (flagged as module debt); for now we emit structured console entries
- * so they land in the Vercel logs / local dev stream. The shape is
- * stable so moving to a DB-backed log later is a drop-in replacement.
+ * Shim around the generic AuditLog helper. Every medical-report access
+ * is recorded, as required by GDPR Art. 9 / Art. 30. Non-blocking: the
+ * underlying logAudit swallows DB errors.
  */
-export function auditMedicalReportAccess(params: {
+export async function auditMedicalReportAccess(params: {
   actorId: string;
   actorRole: string;
   reportId: string;
@@ -90,14 +102,21 @@ export function auditMedicalReportAccess(params: {
     | "PERMISSION_GRANT"
     | "PERMISSION_REVOKE";
   extra?: Record<string, unknown>;
+  request?: Request;
 }) {
-  console.log(
-    JSON.stringify({
-      type: "medical-report-audit",
-      timestamp: new Date().toISOString(),
-      ...params,
-    }),
-  );
+  await logAudit({
+    actorId: params.actorId,
+    action: ACTION_MAP[params.action] ?? "MEDICAL_REPORT_VIEW",
+    entityType: "MedicalReport",
+    entityId: params.reportId === "LIST" ? null : params.reportId,
+    metadata: {
+      actorRole: params.actorRole,
+      patientId: params.patientId,
+      subAction: params.action,
+      ...(params.extra ?? {}),
+    },
+    request: params.request,
+  });
 }
 
 /**

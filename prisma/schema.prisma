@@ -159,6 +159,11 @@ model User {
   subscriptions   Subscription[]
   aiConversations AiConversation[]
   notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
+  // kept until a cleanup job hard-deletes it, so audit trails survive.
+  deletedAt DateTime?
 
   @@index([organizationId])
   @@index([role])
@@ -429,4 +434,31 @@ model ReportPermission {
   @@unique([reportId, granteeId])
   @@index([granteeId])
   @@index([reportId])
+}
+
+// ============================================================
+// AUDIT LOG (GDPR Art. 30 — record of processing activities)
+// ============================================================
+
+/// Tamper-evident trail of sensitive actions. The row is kept even after
+/// the actor is soft-deleted, so `actor` is nullable with `onDelete:
+/// SetNull`. Populated via `logAudit()` in src/lib/audit.ts; callers
+/// should pass the IP / user-agent extracted from the request headers.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

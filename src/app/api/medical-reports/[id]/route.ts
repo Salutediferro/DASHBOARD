@@ -21,7 +21,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * Returns the report metadata + a fresh signed URL (15 min) for the file.
  * Enforces the double-check access matrix via checkReportReadAccess.
  */
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(req: Request, { params }: Ctx) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,13 +48,14 @@ export async function GET(_req: Request, { params }: Ctx) {
     );
   }
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: access.report.id,
     patientId: access.report.patientId,
     action: "VIEW",
     extra: { viaRole: access.role },
+    request: req,
   });
 
   return NextResponse.json({
@@ -119,12 +120,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   const updated = await prisma.medicalReport.update({ where: { id }, data });
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: id,
     patientId: report.patientId,
     action: "UPDATE",
+    request: req,
   });
 
   return NextResponse.json({
@@ -143,7 +145,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
  * Hard delete: removes the DB row AND the storage object. Patient owner
  * or uploader may delete. ReportPermission rows cascade.
  */
-export async function DELETE(_req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, { params }: Ctx) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -178,12 +180,13 @@ export async function DELETE(_req: Request, { params }: Ctx) {
 
   await prisma.medicalReport.delete({ where: { id } });
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: id,
     patientId: report.patientId,
     action: "DELETE",
+    request: req,
   });
 
   return NextResponse.json({ deleted: true });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 const AVATARS_BUCKET = "avatars";
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
@@ -86,6 +87,15 @@ export async function POST(req: Request) {
     where: { id: user.id },
     data: { avatarUrl: publicUrl.publicUrl },
     select: { avatarUrl: true },
+  });
+
+  await logAudit({
+    actorId: user.id,
+    action: "AVATAR_UPDATE",
+    entityType: "User",
+    entityId: user.id,
+    metadata: { size: file.size, mimeType: file.type },
+    request: req,
   });
 
   return NextResponse.json({ avatarUrl: updated.avatarUrl });

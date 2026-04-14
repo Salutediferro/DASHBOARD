@@ -526,6 +526,37 @@ async function main() {
   }
   console.log(`  ✓ AvailabilitySlots: ${professionals.length * 10}`);
 
+  // ── 10. Welcome notifications ──────────────────────────────────────────
+  // Give every seeded account one notification so the notifications panel
+  // is not empty on first login. Appointment flows populate their own
+  // notifications at runtime.
+  const welcomeTargets = [admin, ...doctors, ...coaches, ...patients];
+  await prisma.notification.deleteMany({
+    where: { userId: { in: welcomeTargets.map((u) => u.id) } },
+  });
+  for (const u of welcomeTargets) {
+    await prisma.notification.create({
+      data: {
+        userId: u.id,
+        type: "SYSTEM",
+        title: "Benvenuto su Salute di Ferro",
+        body:
+          u.role === "PATIENT"
+            ? "Il tuo account è attivo. Aggiorna il profilo e inserisci le tue prime misurazioni."
+            : "Il tuo account è attivo. Configura la tua disponibilità e rivedi la lista dei tuoi assistiti.",
+        actionUrl:
+          u.role === "ADMIN"
+            ? "/dashboard/admin"
+            : u.role === "DOCTOR"
+              ? "/dashboard/doctor"
+              : u.role === "COACH"
+                ? "/dashboard/coach"
+                : "/dashboard/patient",
+      },
+    });
+  }
+  console.log(`  ✓ Notifications: ${welcomeTargets.length}`);
+
   console.log("✅ Seed completato");
   console.log("");
   console.log(`✓ Created ${createdTotal} auth users, password: ${SEED_PASSWORD}`);

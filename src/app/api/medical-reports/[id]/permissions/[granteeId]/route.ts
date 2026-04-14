@@ -15,7 +15,7 @@ type Ctx = { params: Promise<{ id: string; granteeId: string }> };
  * grantee themselves (giving up their own access) may revoke. The row is
  * kept with revokedAt set, so the audit trail is preserved.
  */
-export async function DELETE(_req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, { params }: Ctx) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -60,13 +60,14 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     data: { revokedAt: new Date() },
   });
 
-  auditMedicalReportAccess({
+  await auditMedicalReportAccess({
     actorId: me.id,
     actorRole: me.role,
     reportId: report.id,
     patientId: report.patientId,
     action: "PERMISSION_REVOKE",
     extra: { granteeId },
+    request: req,
   });
 
   return NextResponse.json({ revoked: true });
