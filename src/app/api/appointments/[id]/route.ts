@@ -15,7 +15,7 @@ async function canAccess(
 ): Promise<boolean> {
   const a = await getAppointment(appointmentId);
   if (!a) return false;
-  return a.clientId === userId || a.coachId === userId;
+  return a.patientId === userId || a.professionalId === userId;
 }
 
 export async function GET(_req: Request, { params }: Ctx) {
@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const { id } = await params;
   const a = await getAppointment(id);
   if (!a) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (a.clientId !== user.id && a.coachId !== user.id) {
+  if (a.patientId !== user.id && a.professionalId !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return NextResponse.json(a);

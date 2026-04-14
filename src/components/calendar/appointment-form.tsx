@@ -51,8 +51,8 @@ export function AppointmentForm({
 }: Props) {
   const qc = useQueryClient();
 
-  const [clientId, setClientId] = React.useState("");
-  const [clientName, setClientName] = React.useState("");
+  const [patientId, setClientId] = React.useState("");
+  const [patientName, setClientName] = React.useState("");
   const [start, setStart] = React.useState("");
   const [duration, setDuration] = React.useState(60);
   const [type, setType] = React.useState<AppointmentType>("IN_PERSON");
@@ -60,8 +60,8 @@ export function AppointmentForm({
 
   React.useEffect(() => {
     if (existing) {
-      setClientId(existing.clientId);
-      setClientName(existing.clientName);
+      setClientId(existing.patientId);
+      setClientName(existing.patientName);
       setStart(toLocalInput(new Date(existing.startTime)));
       const d = Math.round(
         (new Date(existing.endTime).getTime() -
@@ -98,8 +98,9 @@ export function AppointmentForm({
       const startDate = new Date(start);
       const endDate = new Date(startDate.getTime() + duration * 60000);
       const payload = {
-        clientId,
-        clientName,
+        patientId,
+        patientName,
+        professionalRole: "COACH" as const,
         startTime: startDate.toISOString(),
         endTime: endDate.toISOString(),
         type,
@@ -153,7 +154,7 @@ export function AppointmentForm({
           <div className="flex flex-col gap-1.5">
             <Label>Cliente</Label>
             <Select
-              value={clientId}
+              value={patientId}
               onValueChange={(v) => {
                 setClientId(v ?? "");
                 const c = clientsData?.items.find((x) => x.id === v);
@@ -209,7 +210,9 @@ export function AppointmentForm({
               <SelectContent>
                 <SelectItem value="IN_PERSON">In persona</SelectItem>
                 <SelectItem value="VIDEO_CALL">Video call</SelectItem>
-                <SelectItem value="CHECK_IN">Check-in</SelectItem>
+                <SelectItem value="VISIT">Visita</SelectItem>
+                <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
+                <SelectItem value="COACHING_SESSION">Sessione coaching</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -237,7 +240,7 @@ export function AppointmentForm({
             type="button"
             onClick={() => saveMutation.mutate()}
             disabled={
-              saveMutation.isPending || !clientId || !start
+              saveMutation.isPending || !patientId || !start
             }
             className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
           >

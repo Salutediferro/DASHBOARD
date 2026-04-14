@@ -30,15 +30,19 @@ import type {
 type View = "month" | "week" | "day";
 
 const TYPE_COLOR: Record<AppointmentType, string> = {
-  CHECK_IN: "bg-green-500/20 text-green-400 border-green-500/40",
   IN_PERSON: "bg-blue-500/20 text-blue-400 border-blue-500/40",
   VIDEO_CALL: "bg-purple-500/20 text-purple-400 border-purple-500/40",
+  VISIT: "bg-green-500/20 text-green-400 border-green-500/40",
+  FOLLOW_UP: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+  COACHING_SESSION: "bg-pink-500/20 text-pink-400 border-pink-500/40",
 };
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
-  CHECK_IN: "Check-in",
   IN_PERSON: "In persona",
   VIDEO_CALL: "Video call",
+  VISIT: "Visita",
+  FOLLOW_UP: "Follow-up",
+  COACHING_SESSION: "Sessione coaching",
 };
 
 function formatTime(d: Date) {
@@ -278,12 +282,12 @@ function MonthView({
                         "border-l-2 truncate rounded-sm px-1 py-0.5 text-left text-[10px]",
                         TYPE_COLOR[a.type],
                       )}
-                      title={`${a.clientName} — ${TYPE_LABEL[a.type]}`}
+                      title={`${a.patientName} — ${TYPE_LABEL[a.type]}`}
                     >
                       <span className="font-mono">
                         {formatTime(new Date(a.startTime))}
                       </span>{" "}
-                      {a.clientName.split(" ")[0]}
+                      {a.patientName.split(" ")[0]}
                     </button>
                   ))}
                   {dayApts.length > 3 && (
@@ -388,7 +392,7 @@ function WeekView({
                       <div className="font-semibold">
                         {formatTime(startD)}
                       </div>
-                      <div className="truncate">{a.clientName}</div>
+                      <div className="truncate">{a.patientName}</div>
                     </button>
                   );
                 })}
@@ -463,7 +467,7 @@ function DayView({
                   )}
                   style={{ top, height: h }}
                 >
-                  <p className="text-sm font-semibold">{a.clientName}</p>
+                  <p className="text-sm font-semibold">{a.patientName}</p>
                   <p className="text-[10px] opacity-80">
                     {formatTime(startD)} — {formatTime(endD)} · {TYPE_LABEL[a.type]}
                   </p>

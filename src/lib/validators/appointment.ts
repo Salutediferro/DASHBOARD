@@ -1,11 +1,25 @@
 import { z } from "zod";
 
+export const APPOINTMENT_TYPES = [
+  "IN_PERSON",
+  "VIDEO_CALL",
+  "VISIT",
+  "FOLLOW_UP",
+  "COACHING_SESSION",
+] as const;
+
+export const PROFESSIONAL_ROLES = ["DOCTOR", "COACH"] as const;
+
+export const appointmentTypeEnum = z.enum(APPOINTMENT_TYPES);
+export const professionalRoleEnum = z.enum(PROFESSIONAL_ROLES);
+
 export const createAppointmentSchema = z.object({
-  clientId: z.string().min(1),
-  clientName: z.string().min(1),
+  patientId: z.string().min(1),
+  patientName: z.string().min(1),
+  professionalRole: professionalRoleEnum,
   startTime: z.string(),
   endTime: z.string(),
-  type: z.enum(["IN_PERSON", "VIDEO_CALL", "CHECK_IN"]),
+  type: appointmentTypeEnum,
   notes: z.string().nullable(),
   meetingUrl: z.string().nullable(),
 });
@@ -17,9 +31,10 @@ export const updateAppointmentSchema = createAppointmentSchema.partial().extend(
 });
 
 export const bookSchema = z.object({
-  coachId: z.string(),
+  professionalId: z.string(),
+  professionalRole: professionalRoleEnum,
   startTime: z.string(),
-  type: z.enum(["IN_PERSON", "VIDEO_CALL", "CHECK_IN"]),
+  type: appointmentTypeEnum,
   durationMin: z.number().int().min(15).max(180),
   notes: z.string().nullable().optional(),
 });

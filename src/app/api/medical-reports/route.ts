@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { MedicalReportCategory } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, MEDICAL_REPORTS_BUCKET } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
@@ -16,17 +17,16 @@ const SIGNED_URL_TTL = 60 * 10; // 10 min
 
 type ReportRow = {
   id: string;
-  clientId: string;
+  patientId: string;
   uploadedById: string;
   fileUrl: string;
   fileName: string;
   mimeType: string;
   fileSize: number | null;
-  category: "BLOOD_TEST" | "IMAGING" | "VISIT" | "PRESCRIPTION" | "OTHER";
+  category: MedicalReportCategory;
   title: string;
   notes: string | null;
   issuedAt: Date | null;
-  visibleToCoach: boolean;
   uploadedAt: Date;
 };
 
@@ -39,7 +39,7 @@ async function signReports(rows: ReportRow[]) {
         .createSignedUrl(r.fileUrl, SIGNED_URL_TTL);
       return {
         id: r.id,
-        clientId: r.clientId,
+        patientId: r.patientId,
         fileName: r.fileName,
         mimeType: r.mimeType,
         fileSize: r.fileSize,
@@ -47,7 +47,6 @@ async function signReports(rows: ReportRow[]) {
         title: r.title,
         notes: r.notes,
         issuedAt: r.issuedAt ? r.issuedAt.toISOString().slice(0, 10) : null,
-        visibleToCoach: r.visibleToCoach,
         uploadedAt: r.uploadedAt.toISOString(),
         signedUrl: data?.signedUrl ?? null,
       };
@@ -70,30 +69,33 @@ export async function GET(req: Request) {
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const clientIdParam = searchParams.get("clientId");
+  const patientIdParam = searchParams.get("patientId");
 
   let rows: ReportRow[] = [];
   if (me.role === "PATIENT") {
+    // Patient sees their own reports.
     rows = (await prisma.medicalReport.findMany({
-      where: { clientId: user.id },
+      where: { patientId: user.id },
       orderBy: { uploadedAt: "desc" },
     })) as ReportRow[];
-  } else if (me.role === "COACH") {
-    if (!clientIdParam) {
-      return NextResponse.json({ error: "clientId required" }, { status: 400 });
+  } else if (me.role === "DOCTOR" || me.role === "COACH") {
+    // Professional sees only reports where a non-revoked permission grants them access.
+    if (!patientIdParam) {
+      return NextResponse.json({ error: "patientId required" }, { status: 400 });
     }
-    const rel = await prisma.coachClient.findUnique({
-      where: { coachId_clientId: { coachId: user.id, clientId: clientIdParam } },
-      select: { id: true },
-    });
-    if (!rel) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     rows = (await prisma.medicalReport.findMany({
-      where: { clientId: clientIdParam, visibleToCoach: true },
+      where: {
+        patientId: patientIdParam,
+        permissions: {
+          some: { granteeId: user.id, revokedAt: null },
+        },
+      },
       orderBy: { uploadedAt: "desc" },
     })) as ReportRow[];
   } else {
+    // Admin: unrestricted.
     rows = (await prisma.medicalReport.findMany({
-      where: clientIdParam ? { clientId: clientIdParam } : {},
+      where: patientIdParam ? { patientId: patientIdParam } : {},
       orderBy: { uploadedAt: "desc" },
     })) as ReportRow[];
   }
@@ -128,7 +130,6 @@ export async function POST(req: Request) {
     category: form.get("category") ?? "OTHER",
     notes: form.get("notes") ?? null,
     issuedAt: form.get("issuedAt") ?? null,
-    visibleToCoach: form.get("visibleToCoach") === "true",
   };
   const parsed = createMedicalReportSchema.safeParse(metaRaw);
   if (!parsed.success) {
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
 
   const row = await prisma.medicalReport.create({
     data: {
-      clientId: user.id,
+      patientId: user.id,
       uploadedById: user.id,
       fileUrl: storagePath,
       fileName: file.name,
@@ -165,7 +166,6 @@ export async function POST(req: Request) {
       category: parsed.data.category,
       notes: parsed.data.notes ?? null,
       issuedAt: parsed.data.issuedAt ? new Date(parsed.data.issuedAt) : null,
-      visibleToCoach: parsed.data.visibleToCoach ?? false,
     },
   });
 

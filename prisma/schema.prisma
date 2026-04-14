@@ -20,6 +20,11 @@ enum UserRole {
   PATIENT
 }
 
+enum ProfessionalRole {
+  DOCTOR
+  COACH
+}
+
 enum Sex {
   MALE
   FEMALE
@@ -29,8 +34,12 @@ enum Sex {
 enum MedicalReportCategory {
   BLOOD_TEST
   IMAGING
-  VISIT
+  CARDIOLOGY
+  ENDOCRINOLOGY
+  GENERAL_VISIT
   PRESCRIPTION
+  VACCINATION
+  SURGERY
   OTHER
 }
 
@@ -41,7 +50,7 @@ enum SubscriptionStatus {
   TRIALING
 }
 
-enum CoachClientStatus {
+enum CareRelationshipStatus {
   ACTIVE
   PAUSED
   ARCHIVED
@@ -50,7 +59,9 @@ enum CoachClientStatus {
 enum AppointmentType {
   IN_PERSON
   VIDEO_CALL
-  CHECK_IN
+  VISIT
+  FOLLOW_UP
+  COACHING_SESSION
 }
 
 enum AppointmentStatus {
@@ -61,9 +72,9 @@ enum AppointmentStatus {
 }
 
 enum AiContext {
-  WORKOUT
-  NUTRITION
   GENERAL
+  HEALTH_DATA
+  REPORT_EXPLANATION
 }
 
 enum NotificationType {
@@ -72,13 +83,6 @@ enum NotificationType {
   PAYMENT
   SYSTEM
   AI
-}
-
-enum CheckInFrequency {
-  NONE
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
 }
 
 // ============================================================
@@ -117,39 +121,40 @@ model User {
   heightCm            Float?
   avatarUrl           String?
   phone               String?
+  taxCode             String?             @unique
+  emergencyContact    String?
   role                UserRole            @default(PATIENT)
   organizationId      String              @db.Uuid
   stripeCustomerId    String?             @unique
   subscriptionStatus  SubscriptionStatus?
   onboardingCompleted Boolean             @default(false)
 
-  // Health & goals profile (free-text, PII — visible to coach/medic)
-  primaryGoal         String?
-  fitnessLevel        String?
-  weeklyActivityHours Float?
-  medicalConditions   String?
-  allergies           String?
-  medications         String?
-  injuries            String?
+  // Clinical profile (free-text, PII — visible to authorized professionals)
+  medicalConditions String?
+  allergies         String?
+  medications       String?
+  injuries          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Coach ↔ Client
-  coachRelations  CoachClient[] @relation("CoachRelations")
-  clientRelations CoachClient[] @relation("ClientRelations")
+  // Professional ↔ Patient
+  professionalRelations CareRelationship[] @relation("ProfessionalRelations")
+  patientRelations      CareRelationship[] @relation("PatientRelations")
 
-  // Data owned by client
-  biometricLogs        BiometricLog[]
-  checkInsAsClient     CheckIn[]      @relation("ClientCheckIns")
-  checkInsAsCoach      CheckIn[]      @relation("CoachCheckIns")
-  appointmentsAsCoach  Appointment[]  @relation("CoachAppointments")
-  appointmentsAsClient Appointment[]  @relation("ClientAppointments")
+  // Clinical data owned by patient
+  biometricLogs              BiometricLog[]
+  checkInsAsPatient          CheckIn[]          @relation("PatientCheckIns")
+  checkInsAsProfessional     CheckIn[]          @relation("ProfessionalCheckIns")
+  appointmentsAsProfessional Appointment[]      @relation("ProfessionalAppointments")
+  appointmentsAsPatient      Appointment[]      @relation("PatientAppointments")
+  availabilitySlots          AvailabilitySlot[]
 
-  medicalReportsAsClient   MedicalReport[] @relation("ClientMedicalReports")
-  medicalReportsAsUploader MedicalReport[] @relation("UploaderMedicalReports")
+  medicalReportsAsPatient  MedicalReport[]    @relation("PatientMedicalReports")
+  medicalReportsAsUploader MedicalReport[]    @relation("UploaderMedicalReports")
+  reportPermissions        ReportPermission[] @relation("GranteePermissions")
 
   subscriptions   Subscription[]
   aiConversations AiConversation[]
@@ -161,31 +166,27 @@ model User {
 }
 
 // ============================================================
-// COACH ↔ CLIENT (pivot)
+// CARE RELATIONSHIP (professional ↔ patient pivot)
 // ============================================================
 
-model CoachClient {
-  id        String            @id @default(uuid()) @db.Uuid
-  coachId   String            @db.Uuid
-  clientId  String            @db.Uuid
-  status    CoachClientStatus @default(ACTIVE)
-  startDate DateTime          @default(now())
-  endDate   DateTime?
-  notes     String?
+model CareRelationship {
+  id               String                 @id @default(uuid()) @db.Uuid
+  professionalId   String                 @db.Uuid
+  patientId        String                 @db.Uuid
+  professionalRole ProfessionalRole
+  status           CareRelationshipStatus @default(ACTIVE)
+  startDate        DateTime               @default(now())
+  endDate          DateTime?
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
-  checkInFrequency        CheckInFrequency @default(NONE)
-  nextCheckInAt           DateTime?
-  lastCheckInAt           DateTime?
-  checkInReminderStage    Int              @default(0)
-  lastLowAdherenceAlertAt DateTime?
-  lastInactivityNudgeAt   DateTime?
+  professional User @relation("ProfessionalRelations", fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientRelations", fields: [patientId], references: [id], onDelete: Cascade)
 
-  coach  User @relation("CoachRelations", fields: [coachId], references: [id], onDelete: Cascade)
-  client User @relation("ClientRelations", fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([coachId, clientId])
-  @@index([coachId])
-  @@index([clientId])
+  @@unique([professionalId, patientId, professionalRole])
+  @@index([professionalId])
+  @@index([patientId])
   @@index([status])
 }
 
@@ -194,12 +195,13 @@ model CoachClient {
 // ============================================================
 
 model BiometricLog {
-  id       String   @id @default(uuid()) @db.Uuid
-  clientId String   @db.Uuid
-  date     DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @db.Uuid
+  date      DateTime @default(now())
 
   // Body composition
   weight            Float? // kg
+  bmi               Float? // server-computed from weight + User.heightCm
   bodyFatPercentage Float? // %
   muscleMassKg      Float?
   bodyWaterPct      Float? // %
@@ -243,33 +245,34 @@ model BiometricLog {
   energyLevel Int? // 1-10
   notes       String?
 
-  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@index([clientId])
+  @@index([patientId])
   @@index([date])
-  @@index([clientId, date])
+  @@index([patientId, date])
 }
 
 model CheckIn {
-  id            String   @id @default(uuid()) @db.Uuid
-  clientId      String   @db.Uuid
-  coachId       String   @db.Uuid
-  date          DateTime @default(now())
-  weight        Float?
-  measurements  Json? // { waist, chest, arms, ... }
-  frontPhotoUrl String?
-  sidePhotoUrl  String?
-  backPhotoUrl  String?
-  notes         String?
-  coachFeedback String?
-  aiAnalysis    String?
-  createdAt     DateTime @default(now())
+  id                    String           @id @default(uuid()) @db.Uuid
+  patientId             String           @db.Uuid
+  professionalId        String           @db.Uuid
+  professionalRole      ProfessionalRole
+  date                  DateTime         @default(now())
+  weight                Float?
+  measurements          Json? // { waist, chest, arms, ... }
+  frontPhotoUrl         String?
+  sidePhotoUrl          String?
+  backPhotoUrl          String?
+  notes                 String?
+  professionalFeedback  String?
+  aiAnalysis            String?
+  createdAt             DateTime         @default(now())
 
-  client User @relation("ClientCheckIns", fields: [clientId], references: [id], onDelete: Cascade)
-  coach  User @relation("CoachCheckIns", fields: [coachId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientCheckIns", fields: [patientId], references: [id], onDelete: Cascade)
+  professional User @relation("ProfessionalCheckIns", fields: [professionalId], references: [id], onDelete: Cascade)
 
-  @@index([clientId])
-  @@index([coachId])
+  @@index([patientId])
+  @@index([professionalId])
   @@index([date])
 }
 
@@ -278,24 +281,51 @@ model CheckIn {
 // ============================================================
 
 model Appointment {
-  id         String            @id @default(uuid()) @db.Uuid
-  coachId    String            @db.Uuid
-  clientId   String            @db.Uuid
-  startTime  DateTime
-  endTime    DateTime
-  type       AppointmentType   @default(VIDEO_CALL)
-  status     AppointmentStatus @default(SCHEDULED)
-  notes      String?
-  meetingUrl String?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id               String            @id @default(uuid()) @db.Uuid
+  professionalId   String            @db.Uuid
+  patientId        String            @db.Uuid
+  professionalRole ProfessionalRole
+  startTime        DateTime
+  endTime          DateTime
+  type             AppointmentType   @default(VIDEO_CALL)
+  status           AppointmentStatus @default(SCHEDULED)
+  notes            String?
+  meetingUrl       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  coach  User @relation("CoachAppointments", fields: [coachId], references: [id], onDelete: Cascade)
-  client User @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  professional User @relation("ProfessionalAppointments", fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@index([coachId])
-  @@index([clientId])
+  @@index([professionalId])
+  @@index([patientId])
   @@index([startTime])
+}
+
+// ============================================================
+// AVAILABILITY SLOTS (professional schedule)
+// ============================================================
+
+/// Either dayOfWeek (recurring) or date (one-off), never both.
+/// XOR invariant enforced at the validator/service layer.
+model AvailabilitySlot {
+  id             String    @id @default(uuid()) @db.Uuid
+  professionalId String    @db.Uuid
+  /// Recurring slot: weekday 0 (Sunday) - 6 (Saturday). Mutually exclusive with `date`.
+  dayOfWeek      Int?
+  /// One-off slot: specific calendar date. Mutually exclusive with `dayOfWeek`.
+  date           DateTime? @db.Date
+  startTime      DateTime  @db.Time
+  endTime        DateTime  @db.Time
+  isRecurring    Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional User @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([professionalId, dayOfWeek])
+  @@index([professionalId, date])
 }
 
 // ============================================================
@@ -359,28 +389,44 @@ model Notification {
 }
 
 // ============================================================
-// MEDICAL REPORTS (sensitive docs: visible to authorized medico)
+// MEDICAL REPORTS (GDPR Art. 9 — granular per-user permissions)
 // ============================================================
 
 model MedicalReport {
-  id             String                @id @default(uuid()) @db.Uuid
-  clientId       String                @db.Uuid
-  uploadedById   String                @db.Uuid
-  fileUrl        String
-  fileName       String
-  mimeType       String
-  fileSize       Int?
-  category       MedicalReportCategory @default(OTHER)
-  title          String
-  notes          String?
-  issuedAt       DateTime?             @db.Date
-  visibleToCoach Boolean               @default(false)
-  uploadedAt     DateTime              @default(now())
+  id           String                @id @default(uuid()) @db.Uuid
+  patientId    String                @db.Uuid
+  uploadedById String                @db.Uuid
+  fileUrl      String
+  fileName     String
+  mimeType     String
+  fileSize     Int?
+  category     MedicalReportCategory @default(OTHER)
+  title        String
+  notes        String?
+  issuedAt     DateTime?             @db.Date
+  uploadedAt   DateTime              @default(now())
 
-  client     User @relation("ClientMedicalReports", fields: [clientId], references: [id], onDelete: Cascade)
-  uploadedBy User @relation("UploaderMedicalReports", fields: [uploadedById], references: [id], onDelete: Restrict)
+  patient     User               @relation("PatientMedicalReports", fields: [patientId], references: [id], onDelete: Cascade)
+  uploadedBy  User               @relation("UploaderMedicalReports", fields: [uploadedById], references: [id], onDelete: Restrict)
+  permissions ReportPermission[]
 
-  @@index([clientId])
-  @@index([clientId, uploadedAt])
+  @@index([patientId])
+  @@index([patientId, uploadedAt])
   @@index([category])
+}
+
+model ReportPermission {
+  id        String    @id @default(uuid()) @db.Uuid
+  reportId  String    @db.Uuid
+  granteeId String    @db.Uuid
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+
+  report  MedicalReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  grantee User          @relation("GranteePermissions", fields: [granteeId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, granteeId])
+  @@index([granteeId])
+  @@index([reportId])
 }

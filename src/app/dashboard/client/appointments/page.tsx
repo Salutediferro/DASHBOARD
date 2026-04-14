@@ -28,7 +28,9 @@ import type { Appointment, AppointmentType } from "@/lib/appointments";
 const TYPE_LABEL: Record<AppointmentType, string> = {
   IN_PERSON: "In persona",
   VIDEO_CALL: "Video call",
-  CHECK_IN: "Check-in",
+  VISIT: "Visita",
+  FOLLOW_UP: "Follow-up",
+  COACHING_SESSION: "Sessione coaching",
 };
 
 function formatTime(iso: string) {
@@ -75,7 +77,8 @@ export default function ClientAppointmentsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          coachId: "coach-1",
+          professionalId: "coach-1",
+          professionalRole: "COACH",
           startTime: selectedSlot,
           type,
           durationMin: duration,
@@ -206,7 +209,9 @@ export default function ClientAppointmentsPage() {
                   <SelectContent>
                     <SelectItem value="IN_PERSON">In persona</SelectItem>
                     <SelectItem value="VIDEO_CALL">Video call</SelectItem>
-                    <SelectItem value="CHECK_IN">Check-in</SelectItem>
+                    <SelectItem value="VISIT">Visita</SelectItem>
+                    <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
+                    <SelectItem value="COACHING_SESSION">Sessione coaching</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

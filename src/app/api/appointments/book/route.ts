@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   createAppointment,
-  resolveCoachForClient,
+  resolveProfessionalForPatient,
 } from "@/lib/appointments";
 import { bookSchema } from "@/lib/validators/appointment";
 
@@ -18,12 +18,15 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const { startTime, type, durationMin, notes } = parsed.data;
+  const { startTime, type, durationMin, notes, professionalRole } = parsed.data;
 
-  const coachId = await resolveCoachForClient(user.id);
-  if (!coachId) {
+  const professionalId = await resolveProfessionalForPatient(
+    user.id,
+    professionalRole,
+  );
+  if (!professionalId) {
     return NextResponse.json(
-      { error: "Nessun coach assegnato" },
+      { error: `Nessun ${professionalRole.toLowerCase()} assegnato` },
       { status: 400 },
     );
   }
@@ -32,8 +35,9 @@ export async function POST(req: Request) {
   const end = new Date(start.getTime() + durationMin * 60000);
 
   const apt = await createAppointment({
-    coachId,
-    clientId: user.id,
+    professionalId,
+    patientId: user.id,
+    professionalRole,
     startTime: start.toISOString(),
     endTime: end.toISOString(),
     type,

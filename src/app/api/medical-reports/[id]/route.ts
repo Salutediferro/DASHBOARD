@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 async function loadOwned(id: string, userId: string) {
   const row = await prisma.medicalReport.findUnique({ where: { id } });
-  if (!row || row.clientId !== userId) return null;
+  if (!row || row.patientId !== userId) return null;
   return row;
 }
 
@@ -35,8 +35,6 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
   if (parsed.data.issuedAt !== undefined)
     data.issuedAt = parsed.data.issuedAt ? new Date(parsed.data.issuedAt) : null;
-  if (parsed.data.visibleToCoach !== undefined)
-    data.visibleToCoach = parsed.data.visibleToCoach;
 
   const updated = await prisma.medicalReport.update({ where: { id }, data });
   return NextResponse.json({
@@ -45,7 +43,6 @@ export async function PATCH(req: Request, { params }: Ctx) {
     category: updated.category,
     notes: updated.notes,
     issuedAt: updated.issuedAt ? updated.issuedAt.toISOString().slice(0, 10) : null,
-    visibleToCoach: updated.visibleToCoach,
   });
 }
 

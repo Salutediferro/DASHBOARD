@@ -1,17 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import type {
+  AppointmentStatus,
+  AppointmentType,
+  ProfessionalRole,
+} from "@prisma/client";
 
-export type AppointmentType = "IN_PERSON" | "VIDEO_CALL" | "CHECK_IN";
-export type AppointmentStatus =
-  | "SCHEDULED"
-  | "COMPLETED"
-  | "CANCELED"
-  | "NO_SHOW";
+export type { AppointmentStatus, AppointmentType, ProfessionalRole };
 
 export type Appointment = {
   id: string;
-  coachId: string;
-  clientId: string;
-  clientName: string;
+  professionalId: string;
+  patientId: string;
+  professionalRole: ProfessionalRole;
+  patientName: string;
   startTime: string;
   endTime: string;
   type: AppointmentType;
@@ -42,25 +43,41 @@ const DEFAULT_AVAILABILITY: Availability = {
 
 let AVAILABILITY: Availability = { ...DEFAULT_AVAILABILITY };
 
+const APPOINTMENT_SELECT = {
+  id: true,
+  professionalId: true,
+  patientId: true,
+  professionalRole: true,
+  startTime: true,
+  endTime: true,
+  type: true,
+  status: true,
+  notes: true,
+  meetingUrl: true,
+  patient: { select: { fullName: true } },
+} as const;
+
 type DbAppointment = {
   id: string;
-  coachId: string;
-  clientId: string;
+  professionalId: string;
+  patientId: string;
+  professionalRole: ProfessionalRole;
   startTime: Date;
   endTime: Date;
   type: AppointmentType;
   status: AppointmentStatus;
   notes: string | null;
   meetingUrl: string | null;
-  client: { fullName: string } | null;
+  patient: { fullName: string } | null;
 };
 
 function serialize(a: DbAppointment): Appointment {
   return {
     id: a.id,
-    coachId: a.coachId,
-    clientId: a.clientId,
-    clientName: a.client?.fullName ?? "Cliente",
+    professionalId: a.professionalId,
+    patientId: a.patientId,
+    professionalRole: a.professionalRole,
+    patientName: a.patient?.fullName ?? "Paziente",
     startTime: a.startTime.toISOString(),
     endTime: a.endTime.toISOString(),
     type: a.type,
@@ -70,29 +87,16 @@ function serialize(a: DbAppointment): Appointment {
   };
 }
 
-const APPOINTMENT_SELECT = {
-  id: true,
-  coachId: true,
-  clientId: true,
-  startTime: true,
-  endTime: true,
-  type: true,
-  status: true,
-  notes: true,
-  meetingUrl: true,
-  client: { select: { fullName: true } },
-} as const;
-
 export async function listAppointments(filters?: {
   start?: string;
   end?: string;
-  clientId?: string;
-  coachId?: string;
+  patientId?: string;
+  professionalId?: string;
 }): Promise<Appointment[]> {
-  const { start, end, clientId, coachId } = filters ?? {};
+  const { start, end, patientId, professionalId } = filters ?? {};
   const where: Record<string, unknown> = {};
-  if (clientId) where.clientId = clientId;
-  if (coachId) where.coachId = coachId;
+  if (patientId) where.patientId = patientId;
+  if (professionalId) where.professionalId = professionalId;
   if (start || end) {
     const st: Record<string, Date> = {};
     if (start) st.gte = new Date(start);
@@ -116,8 +120,9 @@ export async function getAppointment(id: string): Promise<Appointment | null> {
 }
 
 export async function createAppointment(input: {
-  coachId: string;
-  clientId: string;
+  professionalId: string;
+  patientId: string;
+  professionalRole: ProfessionalRole;
   startTime: string;
   endTime: string;
   type: AppointmentType;
@@ -127,8 +132,9 @@ export async function createAppointment(input: {
 }): Promise<Appointment> {
   const row = (await prisma.appointment.create({
     data: {
-      coachId: input.coachId,
-      clientId: input.clientId,
+      professionalId: input.professionalId,
+      patientId: input.patientId,
+      professionalRole: input.professionalRole,
       startTime: new Date(input.startTime),
       endTime: new Date(input.endTime),
       type: input.type,
@@ -191,7 +197,7 @@ export function setAvailability(next: Availability): Availability {
 
 export async function getAvailableSlots(
   dateStr: string,
-  coachId?: string,
+  professionalId?: string,
 ): Promise<string[]> {
   const date = new Date(dateStr);
   const dow = date.getDay();
@@ -208,7 +214,7 @@ export async function getAvailableSlots(
 
   const existing = (await prisma.appointment.findMany({
     where: {
-      ...(coachId ? { coachId } : {}),
+      ...(professionalId ? { professionalId } : {}),
       startTime: { gte: dayStart, lt: dayEnd },
       status: { in: ["SCHEDULED", "COMPLETED"] },
     },
@@ -235,11 +241,18 @@ export async function getAvailableSlots(
   return slots;
 }
 
-export async function resolveCoachForClient(clientId: string): Promise<string | null> {
-  const rel = await prisma.coachClient.findFirst({
-    where: { clientId, status: "ACTIVE" },
-    select: { coachId: true },
+/**
+ * Resolve a default professional for a given patient.
+ * Returns the first ACTIVE CareRelationship matching the requested role.
+ */
+export async function resolveProfessionalForPatient(
+  patientId: string,
+  role: ProfessionalRole,
+): Promise<string | null> {
+  const rel = await prisma.careRelationship.findFirst({
+    where: { patientId, professionalRole: role, status: "ACTIVE" },
+    select: { professionalId: true },
     orderBy: { startDate: "desc" },
   });
-  return rel?.coachId ?? null;
+  return rel?.professionalId ?? null;
 }

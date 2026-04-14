@@ -3,8 +3,12 @@ import { z } from "zod";
 export const MEDICAL_REPORT_CATEGORIES = [
   "BLOOD_TEST",
   "IMAGING",
-  "VISIT",
+  "CARDIOLOGY",
+  "ENDOCRINOLOGY",
+  "GENERAL_VISIT",
   "PRESCRIPTION",
+  "VACCINATION",
+  "SURGERY",
   "OTHER",
 ] as const;
 
@@ -19,7 +23,6 @@ export const createMedicalReportSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD")
     .nullable()
     .optional(),
-  visibleToCoach: z.boolean().optional(),
 });
 
 export const updateMedicalReportSchema = z.object({
@@ -31,7 +34,6 @@ export const updateMedicalReportSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD")
     .nullable()
     .optional(),
-  visibleToCoach: z.boolean().optional(),
 });
 
 export type MedicalReportCategory = z.infer<typeof medicalReportCategoryEnum>;
