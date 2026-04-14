@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
   fullName: z.string().min(2),
-  role: z.enum(["COACH", "CLIENT"]),
+  role: z.enum(["DOCTOR", "COACH", "PATIENT"]),
 });
 
 export async function POST(req: Request) {

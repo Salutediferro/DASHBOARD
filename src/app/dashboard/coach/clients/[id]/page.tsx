@@ -34,8 +34,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import type { ClientDetail, ClientStatus } from "@/lib/mock-clients";
-import { ProgressionSuggestions } from "@/components/coach/progression-suggestions";
-import { OneRmChart } from "@/components/coach/one-rm-chart";
 
 function initials(name: string) {
   return name
@@ -226,7 +224,9 @@ export default function ClientProfilePage() {
             </TabsContent>
 
             <TabsContent value="workouts" className="mt-4 flex flex-col gap-4">
-              <ProgressionSuggestions clientId={params.id} />
+              <div className="border-border text-muted-foreground rounded-md border p-6 text-sm">
+                Dati clinico sportivi — coming soon
+              </div>
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Storico allenamenti</CardTitle>
@@ -324,7 +324,9 @@ export default function ClientProfilePage() {
             </TabsContent>
 
             <TabsContent value="progress" className="mt-4 flex flex-col gap-4">
-              <OneRmChart clientId={params.id} />
+              <div className="border-border text-muted-foreground rounded-md border p-6 text-sm">
+                Dati clinico sportivi — coming soon
+              </div>
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Peso nel tempo</CardTitle>

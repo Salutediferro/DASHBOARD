@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     start,
     end,
   };
-  if (me.role === "CLIENT") {
+  if (me.role === "PATIENT") {
     filters.clientId = user.id;
   } else if (me.role === "COACH") {
     filters.coachId = user.id;
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     where: { id: user.id },
     select: { role: true },
   });
-  if (!me || me.role === "CLIENT") {
+  if (!me || me.role === "PATIENT") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

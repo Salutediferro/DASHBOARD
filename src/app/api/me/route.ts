@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { UserRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
@@ -36,7 +37,7 @@ type DbUser = {
   heightCm: number | null;
   phone: string | null;
   avatarUrl: string | null;
-  role: "ADMIN" | "COACH" | "CLIENT";
+  role: UserRole;
   onboardingCompleted: boolean;
   primaryGoal: string | null;
   fitnessLevel: string | null;

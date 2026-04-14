@@ -73,7 +73,7 @@ export async function GET(req: Request) {
   const clientIdParam = searchParams.get("clientId");
 
   let rows: ReportRow[] = [];
-  if (me.role === "CLIENT") {
+  if (me.role === "PATIENT") {
     rows = (await prisma.medicalReport.findMany({
       where: { clientId: user.id },
       orderBy: { uploadedAt: "desc" },

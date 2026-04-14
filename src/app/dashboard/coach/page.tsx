@@ -38,7 +38,6 @@ import {
   AvatarFallback,
 } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { AdherenceList } from "@/components/coach/adherence-list";
 import type { CoachDashboardData } from "@/lib/mock-data";
 
 function formatEur(cents: number) {
@@ -135,7 +134,9 @@ export default function CoachDashboardPage() {
         </p>
       </header>
 
-      <AdherenceList />
+      <div className="border-border text-muted-foreground rounded-md border p-6 text-sm">
+        Panoramica assistiti — coming soon
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
         {/* 1. OGGI — hero, full width */}

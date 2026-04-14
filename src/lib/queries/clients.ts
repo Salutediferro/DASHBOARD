@@ -73,14 +73,8 @@ export async function getClientDetail(coachId: string, clientId: string) {
     include: {
       client: {
         include: {
-          workoutLogs: { orderBy: { date: "desc" }, take: 10 },
           biometricLogs: { orderBy: { date: "desc" }, take: 30 },
           checkInsAsClient: { orderBy: { date: "desc" }, take: 10 },
-          clientNutritionPlans: {
-            where: { isActive: true },
-            include: { meals: true },
-            take: 1,
-          },
         },
       },
     },
@@ -104,7 +98,7 @@ export async function createClientForCoach(args: {
         email,
         fullName,
         phone,
-        role: "CLIENT",
+        role: "PATIENT",
         organizationId,
       },
     });
