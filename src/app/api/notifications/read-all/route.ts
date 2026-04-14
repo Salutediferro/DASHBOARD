@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireUserId } from "@/lib/auth/require-client";
+import { errorResponse, requireRole } from "@/lib/auth/require-role";
 import { markAllAsRead } from "@/lib/services/notifications";
 
-export async function POST(req: Request) {
-  const userId = await requireUserId(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const count = await markAllAsRead(userId);
-  return NextResponse.json({ success: true, count });
+export async function POST() {
+  try {
+    const me = await requireRole(["ADMIN", "DOCTOR", "COACH", "PATIENT"]);
+    const count = await markAllAsRead(me.id);
+    return NextResponse.json({ success: true, count });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }
