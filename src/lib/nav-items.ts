@@ -30,6 +30,7 @@ export const adminNav: NavItem[] = [
   { label: "Utenti", href: "/dashboard/admin/users", icon: Users, mobile: true },
   { label: "Organizzazioni", href: "/dashboard/admin/organizations", icon: Building2 },
   { label: "Audit log", href: "/dashboard/admin/audit", icon: ScrollText },
+  { label: "Profilo", href: "/dashboard/admin/profile", icon: UserRound },
 ];
 
 export const doctorNav: NavItem[] = [
@@ -38,6 +39,7 @@ export const doctorNav: NavItem[] = [
   { label: "Referti", href: "/dashboard/doctor/reports", icon: FileText, mobile: true },
   { label: "Calendario", href: "/dashboard/doctor/calendar", icon: Calendar, mobile: true },
   { label: "Disponibilità", href: "/dashboard/doctor/availability", icon: CalendarClock },
+  { label: "Profilo", href: "/dashboard/doctor/profile", icon: UserRound },
 ];
 
 export const coachNav: NavItem[] = [
@@ -46,6 +48,7 @@ export const coachNav: NavItem[] = [
   { label: "Monitoraggio", href: "/dashboard/coach/monitoring", icon: LineChart, mobile: true },
   { label: "Calendario", href: "/dashboard/coach/calendar", icon: Calendar, mobile: true },
   { label: "Disponibilità", href: "/dashboard/coach/availability", icon: CalendarClock },
+  { label: "Profilo", href: "/dashboard/coach/profile", icon: UserRound },
 ];
 
 export const patientNav: NavItem[] = [
