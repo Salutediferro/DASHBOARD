@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAppointment } from "@/lib/mock-appointments";
+import {
+  createAppointment,
+  resolveCoachForClient,
+} from "@/lib/appointments";
 import { bookSchema } from "@/lib/validators/appointment";
 
 export async function POST(req: Request) {
@@ -15,17 +18,22 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const { startTime, type, durationMin, notes, coachId } = parsed.data;
+  const { startTime, type, durationMin, notes } = parsed.data;
+
+  const coachId = await resolveCoachForClient(user.id);
+  if (!coachId) {
+    return NextResponse.json(
+      { error: "Nessun coach assegnato" },
+      { status: 400 },
+    );
+  }
+
   const start = new Date(startTime);
   const end = new Date(start.getTime() + durationMin * 60000);
 
-  const apt = createAppointment({
+  const apt = await createAppointment({
     coachId,
     clientId: user.id,
-    clientName:
-      (user.user_metadata?.fullName as string | undefined) ??
-      user.email ??
-      "Cliente",
     startTime: start.toISOString(),
     endTime: end.toISOString(),
     type,

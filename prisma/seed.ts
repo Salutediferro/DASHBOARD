@@ -11,76 +11,287 @@ import {
   Equipment,
 } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { createClient, type User as SupabaseAuthUser } from "@supabase/supabase-js";
 import { EXERCISES_SEED } from "../src/lib/data/exercises-seed";
+
+// ------------------------------------------------------------
+// Seed Prompt 2 — solo modulo Workout, idempotente.
+// - 1 Organization "SDF Beta"
+// - 1 Coach + 2 Client su Supabase Auth + Prisma User (UUID condiviso)
+// - Libreria esercizi globale (da EXERCISES_SEED)
+// - 2 template workout demo (Upper A - Forza, Lower A - Forza)
+// - 1 WorkoutAssignment attivo: Marco Rossi ← Upper A - Forza
+// ------------------------------------------------------------
+
+const SEED_PASSWORD = "SdfBeta2026!";
+
+type SeedUserSpec = {
+  email: string;
+  fullName: string;
+  role: UserRole;
+};
+
+const COACH: SeedUserSpec = {
+  email: "coach@sdf.local",
+  fullName: "Luca Coach",
+  role: UserRole.COACH,
+};
+
+const CLIENT_1: SeedUserSpec = {
+  email: "cliente1@sdf.local",
+  fullName: "Marco Rossi",
+  role: UserRole.CLIENT,
+};
+
+const CLIENT_2: SeedUserSpec = {
+  email: "cliente2@sdf.local",
+  fullName: "Giulia Bianchi",
+  role: UserRole.CLIENT,
+};
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error(
+    "Seed: mancano NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY in .env.local",
+  );
+}
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 const adapter = new PrismaPg({
   connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL!,
 });
 const prisma = new PrismaClient({ adapter });
 
+// ------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------
+
+async function findAuthUserByEmail(email: string): Promise<SupabaseAuthUser | null> {
+  // paginato: tre coach è peanuts ma il loop è corretto per il futuro
+  const perPage = 200;
+  let page = 1;
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`listUsers: ${error.message}`);
+    const hit = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (hit) return hit;
+    if (data.users.length < perPage) return null;
+    page += 1;
+  }
+}
+
+async function ensureSupabaseAuthUser(spec: SeedUserSpec): Promise<string> {
+  const existing = await findAuthUserByEmail(spec.email);
+  if (existing) {
+    // Assicura che la password sia quella di seed (riallineamento idempotente su ambiente dev).
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+      password: SEED_PASSWORD,
+      email_confirm: true,
+      user_metadata: { full_name: spec.fullName, role: spec.role },
+      app_metadata: { role: spec.role },
+    });
+    if (error) throw new Error(`updateUserById(${spec.email}): ${error.message}`);
+    return existing.id;
+  }
+
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email: spec.email,
+    password: SEED_PASSWORD,
+    email_confirm: true,
+    user_metadata: { full_name: spec.fullName, role: spec.role },
+    app_metadata: { role: spec.role },
+  });
+  if (error || !data.user) {
+    throw new Error(`createUser(${spec.email}): ${error?.message ?? "no user returned"}`);
+  }
+  return data.user.id;
+}
+
+async function upsertPrismaUser(
+  authId: string,
+  spec: SeedUserSpec,
+  organizationId: string,
+) {
+  return prisma.user.upsert({
+    where: { email: spec.email },
+    update: {
+      id: authId, // allinea se esiste già con id diverso
+      fullName: spec.fullName,
+      role: spec.role,
+      organizationId,
+      onboardingCompleted: true,
+    },
+    create: {
+      id: authId,
+      email: spec.email,
+      fullName: spec.fullName,
+      role: spec.role,
+      organizationId,
+      onboardingCompleted: true,
+    },
+  });
+}
+
+type TemplateDef = {
+  name: string;
+  description: string;
+  difficulty: Difficulty;
+  type: WorkoutType;
+  tags: string[];
+  day: {
+    dayNumber: number;
+    name: string;
+    exercises: Array<{
+      slug: string;
+      sets: number;
+      reps: string;
+      restSeconds: number;
+    }>;
+  };
+};
+
+const UPPER_A: TemplateDef = {
+  name: "Upper A - Forza",
+  description: "Seduta upper body orientata alla forza su panca, rematore e military press.",
+  difficulty: Difficulty.INTERMEDIATE,
+  type: WorkoutType.STRENGTH,
+  tags: ["upper", "forza", "demo"],
+  day: {
+    dayNumber: 1,
+    name: "Upper A",
+    exercises: [
+      { slug: "bench-press", sets: 4, reps: "5", restSeconds: 180 },
+      { slug: "barbell-row", sets: 4, reps: "6", restSeconds: 150 },
+      { slug: "military-press", sets: 3, reps: "8", restSeconds: 120 },
+      { slug: "pull-up", sets: 3, reps: "max", restSeconds: 120 },
+      { slug: "barbell-curl", sets: 3, reps: "10", restSeconds: 90 },
+    ],
+  },
+};
+
+const LOWER_A: TemplateDef = {
+  name: "Lower A - Forza",
+  description: "Seduta lower body orientata alla forza su squat e stacco rumeno.",
+  difficulty: Difficulty.INTERMEDIATE,
+  type: WorkoutType.STRENGTH,
+  tags: ["lower", "forza", "demo"],
+  day: {
+    dayNumber: 1,
+    name: "Lower A",
+    exercises: [
+      { slug: "back-squat", sets: 5, reps: "5", restSeconds: 180 },
+      { slug: "romanian-deadlift", sets: 4, reps: "8", restSeconds: 150 },
+      { slug: "leg-press", sets: 3, reps: "12", restSeconds: 120 },
+      { slug: "leg-curl", sets: 3, reps: "12", restSeconds: 90 },
+      { slug: "calf-raise-standing", sets: 4, reps: "15", restSeconds: 60 },
+    ],
+  },
+};
+
+async function upsertTemplate(
+  coachId: string,
+  organizationId: string,
+  def: TemplateDef,
+  exerciseIdBySlug: Map<string, string>,
+): Promise<string> {
+  // idempotenza: (coachId, name) è la chiave naturale scelta nel Prompt 2
+  const existing = await prisma.workoutTemplate.findFirst({
+    where: { coachId, name: def.name },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  const exercisesCreate = def.day.exercises.map((e, idx) => {
+    const exerciseId = exerciseIdBySlug.get(e.slug);
+    if (!exerciseId) {
+      throw new Error(
+        `Template "${def.name}": esercizio con slug "${e.slug}" non trovato in EXERCISES_SEED`,
+      );
+    }
+    return {
+      exerciseId,
+      orderIndex: idx + 1,
+      sets: e.sets,
+      reps: e.reps,
+      restSeconds: e.restSeconds,
+    };
+  });
+
+  const created = await prisma.workoutTemplate.create({
+    data: {
+      coachId,
+      organizationId,
+      name: def.name,
+      description: def.description,
+      difficulty: def.difficulty,
+      type: def.type,
+      tags: def.tags,
+      days: {
+        create: [
+          {
+            dayNumber: def.day.dayNumber,
+            name: def.day.name,
+            exercises: { create: exercisesCreate },
+          },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+// ------------------------------------------------------------
+// Main
+// ------------------------------------------------------------
+
 async function main() {
   // 1) Organization
   const org = await prisma.organization.upsert({
-    where: { slug: "salute-di-ferro" },
-    update: {},
+    where: { slug: "sdf-beta" },
+    update: { name: "SDF Beta" },
     create: {
-      name: "Salute di Ferro",
-      slug: "salute-di-ferro",
+      name: "SDF Beta",
+      slug: "sdf-beta",
       primaryColor: "#0A0A0A",
       secondaryColor: "#C9A96E",
     },
   });
+  console.log(`✓ Organization creata: ${org.name}`);
 
-  // 2) Users: 1 coach + 2 clients
-  const coach = await prisma.user.upsert({
-    where: { email: "coach@saluteferro.it" },
-    update: {},
-    create: {
-      email: "coach@saluteferro.it",
-      fullName: "Marco Ferri",
-      role: UserRole.COACH,
-      organizationId: org.id,
-      onboardingCompleted: true,
-    },
-  });
+  // 2) Users — Supabase Auth + Prisma User con UUID condiviso
+  const coachAuthId = await ensureSupabaseAuthUser(COACH);
+  const coach = await upsertPrismaUser(coachAuthId, COACH, org.id);
+  console.log(`✓ Coach creato: ${COACH.email} (${COACH.fullName})`);
 
-  const client1 = await prisma.user.upsert({
-    where: { email: "luca@example.com" },
-    update: {},
-    create: {
-      email: "luca@example.com",
-      fullName: "Luca Bianchi",
-      role: UserRole.CLIENT,
-      organizationId: org.id,
-      onboardingCompleted: true,
-    },
-  });
+  const client1AuthId = await ensureSupabaseAuthUser(CLIENT_1);
+  const client1 = await upsertPrismaUser(client1AuthId, CLIENT_1, org.id);
+  console.log(`✓ Client 1 creato: ${CLIENT_1.email} (${CLIENT_1.fullName})`);
 
-  const client2 = await prisma.user.upsert({
-    where: { email: "sara@example.com" },
-    update: {},
-    create: {
-      email: "sara@example.com",
-      fullName: "Sara Rossi",
-      role: UserRole.CLIENT,
-      organizationId: org.id,
-      onboardingCompleted: true,
-    },
-  });
+  const client2AuthId = await ensureSupabaseAuthUser(CLIENT_2);
+  const client2 = await upsertPrismaUser(client2AuthId, CLIENT_2, org.id);
+  console.log(`✓ Client 2 creato: ${CLIENT_2.email} (${CLIENT_2.fullName})`);
 
-  // 3) Coach-client relations
+  // 3) CoachClient relations
   for (const c of [client1, client2]) {
     await prisma.coachClient.upsert({
       where: { coachId_clientId: { coachId: coach.id, clientId: c.id } },
-      update: {},
+      update: { status: "ACTIVE" },
       create: { coachId: coach.id, clientId: c.id },
     });
   }
+  console.log(`✓ Relazioni coach→client allineate (${coach.fullName} ↔ 2 client)`);
 
-  // 4) Exercise library (globals) — 78 esercizi con contenuti completi in italiano
-  // Video placeholder stock: sostituire via UI "Carica video" nel modal dettaglio
-  const STOCK_VIDEO_URL =
-    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  // 4) Exercise library — upsert per slug
+  const exerciseIdBySlug = new Map<string, string>();
   for (const ex of EXERCISES_SEED) {
     const data = {
       name: ex.name,
@@ -94,213 +305,72 @@ async function main() {
       tips: ex.tips,
       commonMistakes: ex.commonMistakes,
       variants: ex.variants,
-      videoUrl: STOCK_VIDEO_URL,
       isGlobal: true,
     };
-    await prisma.exercise.upsert({
+    const upserted = await prisma.exercise.upsert({
       where: { slug: ex.slug },
       update: data,
       create: data,
+      select: { id: true, slug: true },
     });
+    exerciseIdBySlug.set(upserted.slug, upserted.id);
   }
-  console.log(`✅ ${EXERCISES_SEED.length} esercizi upsertati`);
+  console.log(`✓ ${exerciseIdBySlug.size} esercizi caricati`);
 
-  const backSquat = await prisma.exercise.findUnique({ where: { slug: "back-squat" } });
-  const benchPress = await prisma.exercise.findUnique({ where: { slug: "bench-press" } });
-  const barbellRow = await prisma.exercise.findUnique({ where: { slug: "barbell-row" } });
-  const ohp = await prisma.exercise.findUnique({ where: { slug: "military-press" } });
+  // 5) Template demo
+  const upperId = await upsertTemplate(coach.id, org.id, UPPER_A, exerciseIdBySlug);
+  console.log(`✓ Template '${UPPER_A.name}' pronto con ${UPPER_A.day.exercises.length} esercizi`);
+  await upsertTemplate(coach.id, org.id, LOWER_A, exerciseIdBySlug);
+  console.log(`✓ Template '${LOWER_A.name}' pronto con ${LOWER_A.day.exercises.length} esercizi`);
 
-  // 5) Workout template: Upper/Lower 2-day
-  const existingTemplate = await prisma.workoutTemplate.findFirst({
-    where: { coachId: coach.id, name: "Upper / Lower Base" },
+  // 6) WorkoutAssignment — Marco riceve Upper A, Giulia nulla
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+  await prisma.workoutAssignment.upsert({
+    where: {
+      clientId_templateId_startDate: {
+        clientId: client1.id,
+        templateId: upperId,
+        startDate,
+      },
+    },
+    update: { isActive: true, coachId: coach.id },
+    create: {
+      coachId: coach.id,
+      clientId: client1.id,
+      templateId: upperId,
+      startDate,
+      isActive: true,
+    },
   });
+  console.log(
+    `✓ Assegnazione: ${UPPER_A.name} → ${CLIENT_1.fullName} dal ${startDate.toISOString().slice(0, 10)}`,
+  );
+  console.log(`ℹ ${CLIENT_2.fullName} lasciata senza workout attivo (empty-state voluto)`);
 
-  if (!existingTemplate && backSquat && benchPress && barbellRow && ohp) {
-    await prisma.workoutTemplate.create({
-      data: {
-        coachId: coach.id,
-        organizationId: org.id,
-        name: "Upper / Lower Base",
-        description: "Scheda base 2 giorni per intermedi",
-        difficulty: Difficulty.INTERMEDIATE,
-        type: WorkoutType.HYPERTROPHY,
-        tags: ["upper-lower", "base"],
-        days: {
-          create: [
-            {
-              dayNumber: 1,
-              name: "Giorno A — Upper",
-              exercises: {
-                create: [
-                  {
-                    exerciseId: benchPress.id,
-                    orderIndex: 1,
-                    sets: 4,
-                    reps: "6-8",
-                    rpe: 8,
-                    restSeconds: 120,
-                  },
-                  {
-                    exerciseId: barbellRow.id,
-                    orderIndex: 2,
-                    sets: 4,
-                    reps: "8-10",
-                    rpe: 8,
-                    restSeconds: 90,
-                  },
-                  {
-                    exerciseId: ohp.id,
-                    orderIndex: 3,
-                    sets: 3,
-                    reps: "8-10",
-                    rpe: 7,
-                    restSeconds: 90,
-                  },
-                ],
-              },
-            },
-            {
-              dayNumber: 2,
-              name: "Giorno B — Lower",
-              exercises: {
-                create: [
-                  {
-                    exerciseId: backSquat.id,
-                    orderIndex: 1,
-                    sets: 5,
-                    reps: "5",
-                    rpe: 8,
-                    restSeconds: 180,
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-    });
-  }
+  // Riepilogo conteggi
+  const [orgCount, userCount, exerciseCount, templateCount, assignmentCount] =
+    await Promise.all([
+      prisma.organization.count(),
+      prisma.user.count(),
+      prisma.exercise.count(),
+      prisma.workoutTemplate.count(),
+      prisma.workoutAssignment.count(),
+    ]);
 
-  // 6) Base food items
-  const foods = [
-    { name: "Pollo petto", caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0, fatsPer100g: 3.6 },
-    { name: "Riso basmati", caloriesPer100g: 350, proteinPer100g: 7.5, carbsPer100g: 78, fatsPer100g: 0.9 },
-    { name: "Olio EVO", caloriesPer100g: 884, proteinPer100g: 0, carbsPer100g: 0, fatsPer100g: 100 },
-    { name: "Uova intere", caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1.1, fatsPer100g: 11 },
-  ];
-  for (const f of foods) {
-    const existing = await prisma.food.findFirst({ where: { name: f.name, isGlobal: true } });
-    if (!existing) await prisma.food.create({ data: { ...f, isGlobal: true } });
-  }
+  console.log("");
+  console.log("=== CONTEGGI DOPO SEED ===");
+  console.log(`Organization:      ${orgCount}`);
+  console.log(`User:              ${userCount}`);
+  console.log(`Exercise:          ${exerciseCount}`);
+  console.log(`WorkoutTemplate:   ${templateCount}`);
+  console.log(`WorkoutAssignment: ${assignmentCount}`);
 
-  // 7) Workout history for luca (fake progression on the 4 key lifts)
-  //    6 sessions in the last 4 weeks, Upper/Lower split.
-  const deadlift = await prisma.exercise.findUnique({ where: { slug: "deadlift" } });
-  if (backSquat && benchPress && ohp && deadlift) {
-    await prisma.workoutLog.deleteMany({ where: { clientId: client1.id } });
-
-    const DAY = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    const sessions: Array<{
-      daysAgo: number;
-      label: string;
-      sets: Array<{ exerciseId: string; reps: number; weight: number; rpe: number }>;
-    }> = [
-      {
-        daysAgo: 26,
-        label: "Upper W1",
-        sets: [
-          { exerciseId: benchPress.id, reps: 8, weight: 60, rpe: 7 },
-          { exerciseId: benchPress.id, reps: 8, weight: 60, rpe: 7.5 },
-          { exerciseId: benchPress.id, reps: 8, weight: 60, rpe: 8 },
-          { exerciseId: ohp.id, reps: 8, weight: 40, rpe: 7 },
-          { exerciseId: ohp.id, reps: 8, weight: 40, rpe: 7.5 },
-        ],
-      },
-      {
-        daysAgo: 23,
-        label: "Lower W1",
-        sets: [
-          { exerciseId: backSquat.id, reps: 8, weight: 80, rpe: 7 },
-          { exerciseId: backSquat.id, reps: 8, weight: 80, rpe: 7.5 },
-          { exerciseId: backSquat.id, reps: 8, weight: 80, rpe: 8 },
-          { exerciseId: deadlift.id, reps: 5, weight: 100, rpe: 7 },
-          { exerciseId: deadlift.id, reps: 5, weight: 100, rpe: 7.5 },
-        ],
-      },
-      {
-        daysAgo: 19,
-        label: "Upper W2",
-        sets: [
-          { exerciseId: benchPress.id, reps: 8, weight: 62.5, rpe: 7 },
-          { exerciseId: benchPress.id, reps: 8, weight: 62.5, rpe: 7.5 },
-          { exerciseId: benchPress.id, reps: 8, weight: 62.5, rpe: 8 },
-          { exerciseId: ohp.id, reps: 8, weight: 42.5, rpe: 7.5 },
-          { exerciseId: ohp.id, reps: 8, weight: 42.5, rpe: 8 },
-        ],
-      },
-      {
-        daysAgo: 16,
-        label: "Lower W2",
-        sets: [
-          { exerciseId: backSquat.id, reps: 8, weight: 85, rpe: 7.5 },
-          { exerciseId: backSquat.id, reps: 8, weight: 85, rpe: 8 },
-          { exerciseId: backSquat.id, reps: 8, weight: 85, rpe: 8 },
-          { exerciseId: deadlift.id, reps: 5, weight: 105, rpe: 7.5 },
-          { exerciseId: deadlift.id, reps: 5, weight: 105, rpe: 8 },
-        ],
-      },
-      {
-        daysAgo: 12,
-        label: "Upper W3",
-        sets: [
-          { exerciseId: benchPress.id, reps: 8, weight: 65, rpe: 7 },
-          { exerciseId: benchPress.id, reps: 8, weight: 65, rpe: 7 },
-          { exerciseId: benchPress.id, reps: 8, weight: 65, rpe: 7.5 },
-          { exerciseId: ohp.id, reps: 8, weight: 45, rpe: 8 },
-          { exerciseId: ohp.id, reps: 7, weight: 45, rpe: 9 },
-        ],
-      },
-      {
-        daysAgo: 9,
-        label: "Lower W3",
-        sets: [
-          { exerciseId: backSquat.id, reps: 8, weight: 90, rpe: 7 },
-          { exerciseId: backSquat.id, reps: 8, weight: 90, rpe: 7 },
-          { exerciseId: backSquat.id, reps: 8, weight: 90, rpe: 7.5 },
-          { exerciseId: deadlift.id, reps: 5, weight: 110, rpe: 7.5 },
-          { exerciseId: deadlift.id, reps: 5, weight: 110, rpe: 8 },
-        ],
-      },
-    ];
-
-    for (const s of sessions) {
-      const log = await prisma.workoutLog.create({
-        data: {
-          clientId: client1.id,
-          date: new Date(now - s.daysAgo * DAY),
-          duration: 60,
-          completed: true,
-          rating: 4,
-          notes: s.label,
-        },
-      });
-      await prisma.workoutSetLog.createMany({
-        data: s.sets.map((set, i) => ({
-          workoutLogId: log.id,
-          exerciseId: set.exerciseId,
-          setNumber: i + 1,
-          reps: set.reps,
-          weight: set.weight,
-          rpe: set.rpe,
-          isWarmup: false,
-        })),
-      });
-    }
-    console.log(`✅ ${sessions.length} sessioni storiche create per ${client1.email}`);
-  }
-
-  console.log("✅ Seed completato");
+  console.log("");
+  console.log("=== CREDENZIALI DI SEED ===");
+  console.log(`Coach:     ${COACH.email}    / ${SEED_PASSWORD}`);
+  console.log(`Client 1:  ${CLIENT_1.email} / ${SEED_PASSWORD}  (ha workout assegnato)`);
+  console.log(`Client 2:  ${CLIENT_2.email} / ${SEED_PASSWORD}  (senza workout)`);
 }
 
 main()

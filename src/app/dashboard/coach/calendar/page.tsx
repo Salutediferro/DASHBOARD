@@ -25,7 +25,7 @@ import { AppointmentForm } from "@/components/calendar/appointment-form";
 import type {
   Appointment,
   AppointmentType,
-} from "@/lib/mock-appointments";
+} from "@/lib/appointments";
 
 type View = "month" | "week" | "day";
 

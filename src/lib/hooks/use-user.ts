@@ -11,9 +11,23 @@ export type UserProfile = {
   id: string;
   email: string;
   fullName: string;
+  firstName: string | null;
+  lastName: string | null;
+  sex: "MALE" | "FEMALE" | "OTHER" | null;
+  birthDate: string | null; // YYYY-MM-DD
+  heightCm: number | null;
+  phone: string | null;
   avatarUrl: string | null;
   role: UserRole;
   onboardingCompleted: boolean;
+  // Goals & health (persisted)
+  primaryGoal: string | null;
+  fitnessLevel: string | null;
+  weeklyActivityHours: number | null;
+  medicalConditions: string | null;
+  allergies: string | null;
+  medications: string | null;
+  injuries: string | null;
 };
 
 export function useUser() {

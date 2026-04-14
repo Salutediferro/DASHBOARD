@@ -11,6 +11,7 @@ import {
   Settings,
   Home,
   LineChart,
+  FileText,
   User as UserIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,8 @@ export const clientNav: NavItem[] = [
   { label: "Allenamento", href: "/dashboard/client/workout", icon: Dumbbell, mobile: true },
   { label: "Nutrizione", href: "/dashboard/client/nutrition", icon: Apple, mobile: true },
   { label: "Progressi", href: "/dashboard/client/progress", icon: LineChart, mobile: true },
+  { label: "Appuntamenti", href: "/dashboard/client/appointments", icon: CalendarDays },
+  { label: "Referti", href: "/dashboard/client/medical-reports", icon: FileText },
   { label: "AI", href: "/dashboard/client/ai-assistant", icon: Sparkles },
   { label: "Profilo", href: "/dashboard/client/profile", icon: UserIcon, mobile: true },
 ];

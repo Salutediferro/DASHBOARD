@@ -25,7 +25,7 @@ import {
 import type {
   Appointment,
   AppointmentType,
-} from "@/lib/mock-appointments";
+} from "@/lib/appointments";
 import type { ClientListItem } from "@/lib/mock-clients";
 
 type Props = {
