@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Appointment, AppointmentType } from "@/lib/mock-appointments";
+import type { Appointment, AppointmentType } from "@/lib/appointments";
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
   IN_PERSON: "In persona",
