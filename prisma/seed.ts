@@ -30,9 +30,9 @@ async function main() {
   // ---- Organization --------------------------------------------------------
   const org = await prisma.organization.upsert({
     where: { slug: "salute-di-ferro" },
-    update: {},
+    update: { name: "Salute di Ferro Clinic" },
     create: {
-      name: "Salute di Ferro",
+      name: "Salute di Ferro Clinic",
       slug: "salute-di-ferro",
       primaryColor: "#c9a96e",
       secondaryColor: "#1a1a1a",
@@ -267,8 +267,40 @@ async function main() {
         meetingUrl: "https://meet.example.com/demo",
       },
     });
+
+    // Past doctor follow-up (~2 weeks ago) — COMPLETED
+    const pastDocStart = daysFromNow(-14 - i);
+    pastDocStart.setHours(10, 0, 0, 0);
+    await prisma.appointment.create({
+      data: {
+        professionalId: doc.id,
+        patientId: pt.id,
+        professionalRole: "DOCTOR",
+        startTime: pastDocStart,
+        endTime: new Date(pastDocStart.getTime() + 30 * 60000),
+        type: "FOLLOW_UP",
+        status: "COMPLETED",
+        notes: "Controllo clinico completato",
+      },
+    });
+
+    // Past coaching session (~1 week ago) — COMPLETED
+    const pastCoachStart = daysFromNow(-7 - i);
+    pastCoachStart.setHours(17, 0, 0, 0);
+    await prisma.appointment.create({
+      data: {
+        professionalId: coach.id,
+        patientId: pt.id,
+        professionalRole: "COACH",
+        startTime: pastCoachStart,
+        endTime: new Date(pastCoachStart.getTime() + 45 * 60000),
+        type: "COACHING_SESSION",
+        status: "COMPLETED",
+        meetingUrl: "https://meet.example.com/demo",
+      },
+    });
   }
-  console.log(`  ✓ Appointments: ${patients.length * 2}`);
+  console.log(`  ✓ Appointments: ${patients.length * 4} (2 future + 2 past per patient)`);
 
   // ---- AvailabilitySlots ---------------------------------------------------
   const professionals = [...doctors, ...coaches];
