@@ -11,6 +11,12 @@ export type UserProfile = {
   id: string;
   email: string;
   fullName: string;
+  firstName: string | null;
+  lastName: string | null;
+  sex: "MALE" | "FEMALE" | "OTHER" | null;
+  birthDate: string | null; // YYYY-MM-DD
+  heightCm: number | null;
+  phone: string | null;
   avatarUrl: string | null;
   role: UserRole;
   onboardingCompleted: boolean;
