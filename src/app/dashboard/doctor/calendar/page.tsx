@@ -1,7 +1,7 @@
-import { ComingSoon } from "@/components/scaffold/coming-soon";
+"use client";
+
+import { ProfessionalCalendarPage } from "@/components/calendar/professional-calendar-page";
 
 export default function DoctorCalendarPage() {
-  return (
-    <ComingSoon title="Calendario" description="Visite e follow-up programmati" />
-  );
+  return <ProfessionalCalendarPage role="DOCTOR" />;
 }
