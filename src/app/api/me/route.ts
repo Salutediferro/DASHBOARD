@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { UserRole } from "@prisma/client";
+import type { Sex, UserRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
@@ -15,11 +15,10 @@ const USER_SELECT = {
   heightCm: true,
   phone: true,
   avatarUrl: true,
+  taxCode: true,
+  emergencyContact: true,
   role: true,
   onboardingCompleted: true,
-  primaryGoal: true,
-  fitnessLevel: true,
-  weeklyActivityHours: true,
   medicalConditions: true,
   allergies: true,
   medications: true,
@@ -32,16 +31,15 @@ type DbUser = {
   fullName: string;
   firstName: string | null;
   lastName: string | null;
-  sex: "MALE" | "FEMALE" | "OTHER" | null;
+  sex: Sex | null;
   birthDate: Date | null;
   heightCm: number | null;
   phone: string | null;
   avatarUrl: string | null;
+  taxCode: string | null;
+  emergencyContact: string | null;
   role: UserRole;
   onboardingCompleted: boolean;
-  primaryGoal: string | null;
-  fitnessLevel: string | null;
-  weeklyActivityHours: number | null;
   medicalConditions: string | null;
   allergies: string | null;
   medications: string | null;
@@ -95,11 +93,9 @@ export async function PATCH(req: Request) {
   }
   if (data.heightCm !== undefined) updates.heightCm = data.heightCm;
   if (data.phone !== undefined) updates.phone = data.phone;
-
-  if (data.primaryGoal !== undefined) updates.primaryGoal = data.primaryGoal;
-  if (data.fitnessLevel !== undefined) updates.fitnessLevel = data.fitnessLevel;
-  if (data.weeklyActivityHours !== undefined)
-    updates.weeklyActivityHours = data.weeklyActivityHours;
+  if (data.taxCode !== undefined) updates.taxCode = data.taxCode;
+  if (data.emergencyContact !== undefined)
+    updates.emergencyContact = data.emergencyContact;
 
   if (data.medicalConditions !== undefined)
     updates.medicalConditions = data.medicalConditions;

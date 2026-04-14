@@ -106,9 +106,6 @@ export default function ClientProfilePage() {
         birthDate: profile.birthDate,
         heightCm: profile.heightCm,
         phone: profile.phone,
-        primaryGoal: profile.primaryGoal,
-        fitnessLevel: profile.fitnessLevel,
-        weeklyActivityHours: profile.weeklyActivityHours,
         medicalConditions: profile.medicalConditions,
         allergies: profile.allergies,
         medications: profile.medications,
@@ -334,85 +331,6 @@ export default function ClientProfilePage() {
               </p>
             </div>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Obiettivi</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Obiettivo principale</Label>
-                <Select
-                  value={form.primaryGoal ?? ""}
-                  onValueChange={(v) => set("primaryGoal", v || null)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MASS">Massa muscolare</SelectItem>
-                    <SelectItem value="CUTTING">Definizione</SelectItem>
-                    <SelectItem value="STRENGTH">Forza</SelectItem>
-                    <SelectItem value="HEALTH">Salute generale</SelectItem>
-                    <SelectItem value="SPORT">Sport specifico</SelectItem>
-                    <SelectItem value="RECOMP">Ricomposizione</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Livello esperienza</Label>
-                  <Select
-                    value={form.fitnessLevel ?? ""}
-                    onValueChange={(v) => set("fitnessLevel", v || null)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleziona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="BEGINNER">Principiante</SelectItem>
-                      <SelectItem value="INTERMEDIATE">Intermedio</SelectItem>
-                      <SelectItem value="ADVANCED">Avanzato</SelectItem>
-                      <SelectItem value="ATHLETE">Atleta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="weekly-hours">Ore attività/sett.</Label>
-                  <Input
-                    id="weekly-hours"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.5"
-                    value={form.weeklyActivityHours ?? ""}
-                    onChange={(e) =>
-                      set("weeklyActivityHours", num(e.target.value))
-                    }
-                    className="tabular-nums"
-                    placeholder="4"
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  saveSection.mutate({
-                    primaryGoal: form.primaryGoal ?? null,
-                    fitnessLevel: form.fitnessLevel ?? null,
-                    weeklyActivityHours: form.weeklyActivityHours ?? null,
-                  })
-                }
-                disabled={saveSection.isPending}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-50"
-              >
-                {saveSection.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Salva obiettivi
-              </button>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>

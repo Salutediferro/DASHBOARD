@@ -20,19 +20,10 @@ export const profilePatchSchema = z.object({
     .regex(/^[+\d\s()-]*$/, "Numero non valido")
     .nullable()
     .optional(),
+  taxCode: z.string().trim().max(20).nullable().optional(),
+  emergencyContact: nullableString(200),
 
-  // Goals
-  primaryGoal: z
-    .enum(["MASS", "CUTTING", "STRENGTH", "HEALTH", "SPORT", "RECOMP"])
-    .nullable()
-    .optional(),
-  fitnessLevel: z
-    .enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ATHLETE"])
-    .nullable()
-    .optional(),
-  weeklyActivityHours: z.number().min(0).max(100).nullable().optional(),
-
-  // Health
+  // Clinical profile
   medicalConditions: nullableString(2000),
   allergies: nullableString(2000),
   medications: nullableString(2000),

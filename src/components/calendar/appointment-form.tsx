@@ -26,7 +26,9 @@ import type {
   Appointment,
   AppointmentType,
 } from "@/lib/appointments";
-import type { ClientListItem } from "@/lib/mock-clients";
+
+type PatientOption = { id: string; fullName: string };
+type CareRelationRow = { patient: PatientOption };
 
 type Props = {
   open: boolean;
@@ -82,7 +84,7 @@ export function AppointmentForm({
   }, [existing, initialStart, open]);
 
   const { data: clientsData } = useQuery<{
-    items: ClientListItem[];
+    items: CareRelationRow[];
     total: number;
   }>({
     queryKey: ["clients-for-calendar"],
@@ -92,6 +94,8 @@ export function AppointmentForm({
     },
     enabled: open,
   });
+  const patientOptions: PatientOption[] =
+    clientsData?.items.map((r) => r.patient) ?? [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -157,7 +161,7 @@ export function AppointmentForm({
               value={patientId}
               onValueChange={(v) => {
                 setClientId(v ?? "");
-                const c = clientsData?.items.find((x) => x.id === v);
+                const c = patientOptions.find((x) => x.id === v);
                 setClientName(c?.fullName ?? "");
               }}
             >
@@ -165,7 +169,7 @@ export function AppointmentForm({
                 <SelectValue placeholder="Seleziona..." />
               </SelectTrigger>
               <SelectContent>
-                {(clientsData?.items ?? []).map((c) => (
+                {patientOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.fullName}
                   </SelectItem>
