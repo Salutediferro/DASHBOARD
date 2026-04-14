@@ -4,14 +4,11 @@ import { updateSession } from "@/lib/supabase/middleware";
 const PUBLIC_AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
 
 // Canonical dashboard home per role.
-// NOTE: patient pages still live under /dashboard/client for historical
-// reasons; /dashboard/patient is treated as a reserved alias until the
-// routes get renamed in a dedicated pass.
 const ROLE_HOME: Record<string, string> = {
   ADMIN: "/dashboard/admin",
   DOCTOR: "/dashboard/doctor",
   COACH: "/dashboard/coach",
-  PATIENT: "/dashboard/client",
+  PATIENT: "/dashboard/patient",
 };
 
 // Allowed role(s) for each protected dashboard subtree, by URL prefix.
@@ -21,8 +18,6 @@ const ROLE_RULES: Array<{ prefix: string; roles: readonly string[] }> = [
   { prefix: "/dashboard/doctor", roles: ["DOCTOR", "ADMIN"] },
   { prefix: "/dashboard/coach", roles: ["COACH", "ADMIN"] },
   { prefix: "/dashboard/patient", roles: ["PATIENT", "ADMIN"] },
-  // Legacy alias: patient UI still mounted here until routes are renamed.
-  { prefix: "/dashboard/client", roles: ["PATIENT", "ADMIN"] },
 ];
 
 type DevBypassUser = {

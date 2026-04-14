@@ -3,9 +3,7 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { coachNav } from "@/lib/nav-items";
 
-const quickActions = [
-  { label: "Nuovo Cliente", href: "/dashboard/coach/clients?new=1" },
-];
+const quickActions: { label: string; href: string }[] = [];
 
 export default function CoachLayout({
   children,

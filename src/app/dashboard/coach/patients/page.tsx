@@ -80,7 +80,7 @@ export default function CoachClientsPage() {
             {data.items.map((rel) => (
               <Link
                 key={rel.id}
-                href={`/dashboard/coach/clients/${rel.patientId}`}
+                href={`/dashboard/coach/patients/${rel.patientId}`}
                 className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/40"
               >
                 <Avatar className="h-10 w-10">

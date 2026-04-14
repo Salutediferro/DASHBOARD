@@ -8,7 +8,7 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN: "/dashboard/admin",
   DOCTOR: "/dashboard/doctor",
   COACH: "/dashboard/coach",
-  PATIENT: "/dashboard/client",
+  PATIENT: "/dashboard/patient",
 };
 
 export default async function DashboardIndex() {

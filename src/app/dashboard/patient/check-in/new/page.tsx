@@ -163,7 +163,7 @@ export default function NewCheckInPage() {
     },
     onSuccess: () => {
       toast.success("Check-in inviato");
-      router.replace("/dashboard/client");
+      router.replace("/dashboard/patient");
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -109,7 +109,7 @@ export function AuthForm({ variant }: Props) {
     }
 
     toast.success("Account creato");
-    router.replace("/dashboard/client");
+    router.replace("/dashboard/patient");
     router.refresh();
   }
 

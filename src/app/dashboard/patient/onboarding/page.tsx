@@ -75,7 +75,7 @@ export default function ClientOnboardingPage() {
     onSuccess: () => {
       toast.success("Onboarding completato");
       reset();
-      router.replace("/dashboard/client");
+      router.replace("/dashboard/patient");
     },
   });
 

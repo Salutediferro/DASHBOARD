@@ -47,7 +47,7 @@ export default function PatientProfilePage() {
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href="/dashboard/coach/clients"
+        href="/dashboard/coach/patients"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
         <ArrowLeft className="h-4 w-4" /> Tutti gli assistiti

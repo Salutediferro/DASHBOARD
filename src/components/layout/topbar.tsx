@@ -21,13 +21,16 @@ function useBreadcrumb(items: NavItem[]) {
     .sort((a, b) => b.href.length - a.href.length)
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
 
+  const seg = segments[1];
+  const roots: Record<string, { label: string; href: string }> = {
+    admin: { label: "Admin", href: "/dashboard/admin" },
+    doctor: { label: "Medico", href: "/dashboard/doctor" },
+    coach: { label: "Coach", href: "/dashboard/coach" },
+    patient: { label: "Paziente", href: "/dashboard/patient" },
+  };
+  const root = seg ? roots[seg] : undefined;
   return {
-    root:
-      segments[1] === "coach"
-        ? { label: "Coach", href: "/dashboard/coach" }
-        : segments[1] === "client"
-          ? { label: "Cliente", href: "/dashboard/client" }
-          : { label: "Dashboard", href: "/dashboard" },
+    root: root ?? { label: "Dashboard", href: "/dashboard" },
     current: match?.label ?? "Dashboard",
   };
 }
