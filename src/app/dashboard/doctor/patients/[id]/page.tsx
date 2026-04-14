@@ -6,7 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, HeartPulse, Loader2, Mail, Phone } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type PatientSummary = {
   id: string;
@@ -24,9 +29,8 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export default function PatientProfilePage() {
+export default function DoctorPatientProfilePage() {
   const params = useParams<{ id: string }>();
-
   const { data, isLoading } = useQuery<PatientSummary>({
     queryKey: ["patient", params.id],
     queryFn: async () => {
@@ -47,10 +51,10 @@ export default function PatientProfilePage() {
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href="/dashboard/coach/patients"
+        href="/dashboard/doctor/patients"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <ArrowLeft className="h-4 w-4" /> Tutti gli assistiti
+        <ArrowLeft className="h-4 w-4" /> Tutti i pazienti
       </Link>
 
       <Card>
@@ -76,7 +80,7 @@ export default function PatientProfilePage() {
             </div>
           </div>
           <Link
-            href={`/dashboard/coach/patients/${params.id}/health`}
+            href={`/dashboard/doctor/patients/${params.id}/health`}
             className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
           >
             <HeartPulse className="h-4 w-4" />
@@ -90,8 +94,8 @@ export default function PatientProfilePage() {
           <CardTitle className="text-base">Scheda paziente</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
-          In costruzione. Biometria, referti, check-in e appuntamenti verranno
-          abilitati nei prossimi moduli.
+          In costruzione. Referti, check-in e appuntamenti verranno abilitati
+          nei prossimi moduli.
         </CardContent>
       </Card>
     </div>

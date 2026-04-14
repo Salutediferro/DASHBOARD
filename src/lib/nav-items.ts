@@ -1,5 +1,4 @@
 import {
-  Activity,
   Bell,
   Building2,
   Calendar,
@@ -10,7 +9,6 @@ import {
   LayoutDashboard,
   LineChart,
   ScrollText,
-  Stethoscope,
   UserRound,
   Users,
   type LucideIcon,
@@ -58,15 +56,6 @@ export const patientNav: NavItem[] = [
   { label: "Cartella Clinica", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true },
   { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell },
-];
-
-export const patientHealthSubNav: NavItem[] = [
-  { label: "Corporei", href: "/dashboard/patient/health/corporei", icon: Activity },
-  { label: "Circonferenze", href: "/dashboard/patient/health/circonferenze", icon: Activity },
-  { label: "Cardiovascolare", href: "/dashboard/patient/health/cardiovascolare", icon: HeartPulse },
-  { label: "Metabolica", href: "/dashboard/patient/health/metabolica", icon: Stethoscope },
-  { label: "Sonno", href: "/dashboard/patient/health/sonno", icon: Activity },
-  { label: "Attività", href: "/dashboard/patient/health/attivita", icon: Activity },
 ];
 
 export function navForRole(role: UserRole): NavItem[] {
