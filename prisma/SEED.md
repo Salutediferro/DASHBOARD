@@ -80,3 +80,57 @@ npx prisma migrate reset --force
 
 `migrate reset` replays migrations and then invokes the seed, so
 re-running it from zero is a single command.
+
+## Supabase Storage buckets
+
+The app expects two buckets to exist in the linked Supabase project.
+
+### `avatars` (public)
+
+- Visibility: public
+- Allowed mime types: `image/png, image/jpeg, image/webp, image/heic`
+- Max file size: 3 MB
+- **Auto-created** on first upload by `POST /api/me/avatar`. No manual
+  setup needed.
+
+### `medical-reports` (private) — GDPR Art. 9
+
+- Visibility: **private** (objects are only accessible via signed URLs)
+- Allowed mime types: `application/pdf, image/png, image/jpeg,
+  image/webp, image/heic`
+- Max file size: 20 MB
+- Path convention: `{patientId}/{uuid}.{ext}`
+- **Manual setup required** — the API does NOT auto-create this bucket
+  (auto-create would default to public, which is unsafe for clinical
+  files). Create it once per environment via:
+
+  **Supabase Dashboard**: Storage → New bucket → name `medical-reports`,
+  toggle "Public bucket" **OFF**, set file size limit to 20 MB, allowed
+  mime types as above.
+
+  **Or via the JS admin client** in a one-off script:
+
+  ```ts
+  import { createClient } from "@supabase/supabase-js";
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  await admin.storage.createBucket("medical-reports", {
+    public: false,
+    fileSizeLimit: 20 * 1024 * 1024,
+    allowedMimeTypes: [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/heic",
+    ],
+  });
+  ```
+
+All read access goes through `GET /api/medical-reports/[id]` which
+returns a fresh 15-minute signed URL after enforcing the double access
+check (owner patient, OR ADMIN, OR DOCTOR/COACH with both an ACTIVE
+`CareRelationship` AND an unrevoked `ReportPermission` for that
+specific report).
