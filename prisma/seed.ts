@@ -36,6 +36,12 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 const SEED_PASSWORD = "Password123!";
 const TEST_EMAIL_DOMAINS = ["@salutediferro.test", "@test.local"];
 
+// Preserve real admin accounts (not test users). Any email matching one
+// of these domains is skipped by the cleanup step, even if it were to
+// sneak into TEST_EMAIL_DOMAINS accidentally. Used to defend the owner
+// gmail admin from being wiped on seed reruns.
+const PRESERVED_EMAIL_DOMAINS = ["@gmail.com"];
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 const timeOfDay = (hh: number, mm = 0) =>
   new Date(Date.UTC(1970, 0, 1, hh, mm, 0));
@@ -47,8 +53,15 @@ const daysFromNow = (n: number) => {
   return d;
 };
 
+function isPreservedEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const lower = email.toLowerCase();
+  return PRESERVED_EMAIL_DOMAINS.some((d) => lower.endsWith(d));
+}
+
 function isTestEmail(email: string | undefined | null): boolean {
   if (!email) return false;
+  if (isPreservedEmail(email)) return false;
   return TEST_EMAIL_DOMAINS.some((d) => email.endsWith(d));
 }
 
@@ -143,10 +156,20 @@ async function main() {
   // ── 2. Prisma cleanup (cascades) ────────────────────────────────────────
   // Delete every User row for the test domains; CareRelationship,
   // BiometricLog, MedicalReport, Appointment, AvailabilitySlot all cascade
-  // via onDelete: Cascade from the FK.
+  // via onDelete: Cascade from the FK. Preserved domains (@gmail.com) are
+  // explicitly excluded so the owner's real admin row survives reruns.
   const deletedUsers = await prisma.user.deleteMany({
     where: {
-      OR: TEST_EMAIL_DOMAINS.map((d) => ({ email: { endsWith: d } })),
+      AND: [
+        { OR: TEST_EMAIL_DOMAINS.map((d) => ({ email: { endsWith: d } })) },
+        {
+          NOT: {
+            OR: PRESERVED_EMAIL_DOMAINS.map((d) => ({
+              email: { endsWith: d },
+            })),
+          },
+        },
+      ],
     },
   });
   console.log(`  ✓ Deleted ${deletedUsers.count} stale Prisma users (cascade)`);

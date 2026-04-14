@@ -13,7 +13,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
 loadEnv();
 
-import { createAdminClient } from "../src/lib/supabase/admin";
+import { createAdminClient } from "../../src/lib/supabase/admin";
 
 const TARGET_DOMAIN = "@sdf.local";
 
