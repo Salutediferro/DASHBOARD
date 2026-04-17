@@ -6,6 +6,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
 import { CookieBanner } from "@/components/legal/cookie-banner";
+import { Analytics } from "@/components/legal/analytics";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
           <Toaster richColors position="top-right" />
           <PwaRegister />
           <CookieBanner />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
