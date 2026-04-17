@@ -56,6 +56,8 @@ export async function POST(req: Request) {
     birthDate,
     role: targetRole,
     inviteToken,
+    acceptTerms,
+    acceptHealthDataProcessing,
   } = parsed.data;
 
   // Authorization: only ADMIN may provision DOCTOR/COACH. PATIENT is public.
@@ -214,6 +216,16 @@ export async function POST(req: Request) {
       metadata: {
         role: targetRole,
         email,
+        // Record the explicit consents so the audit trail carries a
+        // timestamped proof of lawful basis for the Art. 9 processing.
+        ...(targetRole === "PATIENT"
+          ? {
+              acceptedTerms: acceptTerms === true,
+              acceptedHealthDataProcessing:
+                acceptHealthDataProcessing === true,
+              consentAt: new Date().toISOString(),
+            }
+          : {}),
         ...(invite
           ? {
               inviteId: invite.id,

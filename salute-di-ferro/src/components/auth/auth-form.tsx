@@ -67,6 +67,8 @@ export function AuthForm({ variant }: Props) {
       password: "",
       confirmPassword: "",
       role: "PATIENT",
+      acceptTerms: false,
+      acceptHealthDataProcessing: false,
     },
   });
 
@@ -145,6 +147,8 @@ export function AuthForm({ variant }: Props) {
         firstName: values.firstName,
         lastName: values.lastName,
         role: "PATIENT",
+        acceptTerms: values.acceptTerms,
+        acceptHealthDataProcessing: values.acceptHealthDataProcessing,
         ...(invite && inviteToken ? { inviteToken } : {}),
       }),
     });
@@ -373,6 +377,54 @@ export function AuthForm({ variant }: Props) {
               {registerForm.formState.errors.confirmPassword && (
                 <p className="text-destructive text-sm">
                   {registerForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <label className="flex items-start gap-2 text-xs leading-snug">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary"
+                  {...registerForm.register("acceptTerms")}
+                />
+                <span>
+                  Ho letto e accetto l&apos;
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    className="text-primary underline"
+                  >
+                    informativa privacy
+                  </Link>{" "}
+                  e i{" "}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    className="text-primary underline"
+                  >
+                    termini d&apos;uso
+                  </Link>
+                  .
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-xs leading-snug">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary"
+                  {...registerForm.register("acceptHealthDataProcessing")}
+                />
+                <span>
+                  Presto consenso esplicito al trattamento dei miei{" "}
+                  <strong>dati relativi alla salute</strong> (art. 9 GDPR)
+                  per le finalità di coordinamento sanitario descritte
+                  nell&apos;informativa. Posso revocarlo in qualsiasi
+                  momento.
+                </span>
+              </label>
+              {registerForm.formState.errors.acceptTerms && (
+                <p className="text-destructive text-xs">
+                  {registerForm.formState.errors.acceptTerms.message}
                 </p>
               )}
             </div>

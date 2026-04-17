@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ManageCookiesButton } from "@/components/legal/cookie-banner";
+
 export default function AuthLayout({
   children,
 }: {
@@ -14,6 +17,18 @@ export default function AuthLayout({
         </h1>
       </div>
       <div className="w-full max-w-md">{children}</div>
+      <footer className="text-muted-foreground mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
+        <Link href="/privacy" className="hover:text-foreground">
+          Privacy
+        </Link>
+        <Link href="/cookie-policy" className="hover:text-foreground">
+          Cookie
+        </Link>
+        <Link href="/terms" className="hover:text-foreground">
+          Termini
+        </Link>
+        <ManageCookiesButton />
+      </footer>
     </div>
   );
 }

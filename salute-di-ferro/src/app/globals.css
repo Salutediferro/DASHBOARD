@@ -139,3 +139,39 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Long-form legal / policy pages — minimal typography without the
+   Tailwind Typography plugin dependency. */
+.legal-prose h1 {
+  @apply font-heading text-2xl font-semibold tracking-tight mt-0 mb-4;
+}
+.legal-prose h2 {
+  @apply font-heading text-lg font-semibold tracking-tight mt-8 mb-2;
+}
+.legal-prose h3 {
+  @apply font-heading text-base font-semibold tracking-tight mt-6 mb-2;
+}
+.legal-prose p {
+  @apply my-3;
+}
+.legal-prose ul {
+  @apply my-3 list-disc space-y-1 pl-6;
+}
+.legal-prose li > p {
+  @apply my-1;
+}
+.legal-prose a {
+  @apply text-primary underline underline-offset-2 hover:opacity-80;
+}
+.legal-prose strong {
+  @apply font-semibold;
+}
+.legal-prose em {
+  @apply italic;
+}
+.legal-prose code {
+  @apply rounded bg-muted px-1 py-0.5 font-mono text-xs;
+}
+.legal-prose section {
+  @apply mt-6;
+}

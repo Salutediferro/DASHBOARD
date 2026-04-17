@@ -32,10 +32,26 @@ export const registerSchema = z
      *  email; the server then auto-creates a CareRelationship with the
      *  inviting professional. Only meaningful when role=PATIENT. */
     inviteToken: z.string().min(10).max(200).optional(),
+    /** Art. 9 GDPR requires explicit consent for processing health data.
+     *  Enforced server-side: reject the registration if false/missing on
+     *  a PATIENT signup. Not required for admin-provisioned DOCTOR/COACH
+     *  since they're not subjects of health-data processing themselves. */
+    acceptTerms: z.boolean().optional(),
+    acceptHealthDataProcessing: z.boolean().optional(),
   })
   .refine(
     (d) => !d.confirmPassword || d.password === d.confirmPassword,
     { message: "Le password non coincidono", path: ["confirmPassword"] },
+  )
+  .refine(
+    (d) =>
+      d.role !== "PATIENT" ||
+      (d.acceptTerms === true && d.acceptHealthDataProcessing === true),
+    {
+      message:
+        "Per registrarti come paziente devi accettare privacy, termini e il trattamento dei dati sanitari.",
+      path: ["acceptTerms"],
+    },
   );
 
 export type RegisterInput = z.infer<typeof registerSchema>;
