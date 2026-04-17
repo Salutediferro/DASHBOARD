@@ -23,7 +23,7 @@ import { logAudit } from "@/lib/audit";
 export async function POST(req: Request) {
   // Rate limit: 5 registrations per IP per 10 minutes. Protects against
   // basic enumeration / flood.
-  const rl = rateLimit({
+  const rl = await rateLimit({
     key: requestKey(req, "auth-register"),
     limit: 5,
     windowMs: 10 * 60 * 1000,

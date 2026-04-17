@@ -44,7 +44,7 @@ function generateInviteToken() {
  * `/register?invite=<token>` to sign up and auto-bind to the caller.
  */
 export async function POST(req: Request) {
-  const rl = rateLimit({
+  const rl = await rateLimit({
     key: requestKey(req, "invitations-create"),
     limit: 20,
     windowMs: 60 * 60 * 1000, // 20 invites / hour / IP

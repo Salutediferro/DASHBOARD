@@ -153,7 +153,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   // Rate limit: 20 uploads per IP per 10 minutes — generous enough for
   // legitimate bulk uploads, tight enough to block abuse.
-  const rl = rateLimit({
+  const rl = await rateLimit({
     key: requestKey(req, "medical-report-upload"),
     limit: 20,
     windowMs: 10 * 60 * 1000,
