@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { createInvitationSchema } from "@/lib/validators/invitation";
 import { rateLimit, requestKey } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import { sendEmail } from "@/lib/email/send";
+import { invitationEmail } from "@/lib/email/templates";
 
 /**
  * Authorize the caller as a DOCTOR or COACH. Returns the Prisma row or a
@@ -118,7 +120,43 @@ export async function POST(req: Request) {
     request: req,
   });
 
-  return NextResponse.json(invite, { status: 201 });
+  // Best-effort: if the invite has an email, deliver the invite URL
+  // directly to the patient. Failure here never fails the request —
+  // the coach can always copy the link by hand as a fallback.
+  let emailStatus: "sent" | "skipped" | "failed" = "skipped";
+  let emailError: string | undefined;
+  if (invite.email) {
+    const origin = new URL(req.url).origin;
+    const inviteUrl = `${origin}/register?invite=${invite.token}`;
+    const { html, text } = invitationEmail({
+      inviteUrl,
+      professionalName: pro.fullName,
+      professionalRole: invite.professionalRole,
+      expiresAt: invite.expiresAt,
+      firstName: invite.firstName,
+    });
+    const result = await sendEmail({
+      to: invite.email,
+      subject: `${pro.fullName} ti ha invitato su Salute di Ferro`,
+      html,
+      text,
+      tags: [{ name: "type", value: "invitation" }],
+    });
+    if (result.ok) {
+      emailStatus = "skipped" in result && result.skipped ? "skipped" : "sent";
+    } else {
+      emailStatus = "failed";
+      emailError = result.error;
+      console.error(
+        `[invitations] email send failed for invite ${invite.id}: ${result.error}`,
+      );
+    }
+  }
+
+  return NextResponse.json(
+    { ...invite, emailStatus, emailError },
+    { status: 201 },
+  );
 }
 
 /**

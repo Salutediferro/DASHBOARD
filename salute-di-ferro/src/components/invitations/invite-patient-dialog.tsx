@@ -26,6 +26,8 @@ type InviteCreated = {
   firstName: string | null;
   lastName: string | null;
   expiresAt: string;
+  emailStatus?: "sent" | "skipped" | "failed";
+  emailError?: string;
 };
 
 /**
@@ -217,7 +219,20 @@ export function InvitePatientDialog({
               </div>
               {invite.email && (
                 <p className="text-muted-foreground text-xs">
-                  Email pre-compilata: <strong>{invite.email}</strong>
+                  {invite.emailStatus === "sent" ? (
+                    <>
+                      ✓ Email inviata a <strong>{invite.email}</strong>
+                    </>
+                  ) : invite.emailStatus === "failed" ? (
+                    <>
+                      ⚠ Invio email fallito a <strong>{invite.email}</strong>.
+                      Copia il link e inviaglielo a mano.
+                    </>
+                  ) : (
+                    <>
+                      Email pre-compilata: <strong>{invite.email}</strong>
+                    </>
+                  )}
                 </p>
               )}
             </div>
