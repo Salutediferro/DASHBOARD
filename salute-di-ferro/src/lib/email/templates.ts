@@ -116,3 +116,77 @@ export function invitationEmail(params: {
 
   return { html, text };
 }
+
+// ── Appointment reminder ──────────────────────────────────────────────
+
+export function appointmentReminderEmail(params: {
+  recipientName: string;
+  recipientRole: "PATIENT" | "DOCTOR" | "COACH";
+  /** The other party's full name (patient for pros, pro for patient). */
+  counterpartName: string;
+  appointmentStart: Date;
+  appointmentType: string;
+  /** Hours until the appointment (24 or 1). */
+  hoursUntil: number;
+  meetingUrl: string | null;
+  appUrl: string;
+}): { html: string; text: string; subject: string } {
+  const when = params.appointmentStart.toLocaleString("it-IT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const headline =
+    params.hoursUntil <= 2
+      ? `Appuntamento tra un'ora`
+      : `Promemoria appuntamento`;
+
+  const subject = `${headline} — ${params.appointmentType} con ${params.counterpartName}`;
+  const ctaLabel = params.meetingUrl
+    ? "Entra nella videochiamata"
+    : "Vedi i dettagli";
+  const ctaHref = params.meetingUrl ?? `${params.appUrl}/dashboard`;
+
+  const html = layout(`
+    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${headline}</td></tr>
+    <tr><td style="color:${MUTED};padding-bottom:16px;">
+      Ciao ${escapeHtml(params.recipientName)}, ricordati del tuo appuntamento con
+      <strong style="color:${TEXT};">${escapeHtml(params.counterpartName)}</strong>.
+    </td></tr>
+    <tr><td style="padding-bottom:16px;">
+      <div style="background:${BG};border-radius:8px;padding:16px;border:1px solid #2a2a2a;">
+        <div style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Quando</div>
+        <div style="font-size:15px;font-weight:500;padding-top:4px;">${escapeHtml(when)}</div>
+        <div style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:0.05em;padding-top:12px;">Tipo</div>
+        <div style="font-size:15px;padding-top:4px;">${escapeHtml(params.appointmentType)}</div>
+      </div>
+    </td></tr>
+    <tr><td align="center" style="padding:8px 0 24px;">
+      ${button(ctaHref, ctaLabel)}
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;">
+      Se non puoi partecipare, annulla dal tuo calendario in app così l&apos;altra persona viene avvisata.
+    </td></tr>
+  `);
+
+  const text = [
+    `${headline}`,
+    "",
+    `Ciao ${params.recipientName},`,
+    `ricordati del tuo appuntamento con ${params.counterpartName}.`,
+    "",
+    `Quando: ${when}`,
+    `Tipo: ${params.appointmentType}`,
+    "",
+    params.meetingUrl
+      ? `Videochiamata: ${params.meetingUrl}`
+      : `Dettagli: ${params.appUrl}/dashboard`,
+    "",
+    "— Salute di Ferro",
+  ].join("\n");
+
+  return { html, text, subject };
+}

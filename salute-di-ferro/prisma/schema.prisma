@@ -316,6 +316,11 @@ model Appointment {
   status           AppointmentStatus @default(SCHEDULED)
   notes            String?
   meetingUrl       String?
+  /// Reminder email sent markers — set by the hourly cron to prevent
+  /// duplicates. Null means the reminder at that horizon hasn't fired
+  /// yet for this appointment.
+  reminder24SentAt DateTime?
+  reminder1SentAt  DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
