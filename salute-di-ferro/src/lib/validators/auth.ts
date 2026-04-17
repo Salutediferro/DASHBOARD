@@ -28,6 +28,10 @@ export const registerSchema = z
       .nullable()
       .optional(),
     role: z.enum(["DOCTOR", "COACH", "PATIENT"]),
+    /** Optional invite token: when present, must be PENDING for the given
+     *  email; the server then auto-creates a CareRelationship with the
+     *  inviting professional. Only meaningful when role=PATIENT. */
+    inviteToken: z.string().min(10).max(200).optional(),
   })
   .refine(
     (d) => !d.confirmPassword || d.password === d.confirmPassword,

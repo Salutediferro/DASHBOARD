@@ -1,10 +1,10 @@
-import { ComingSoon } from "@/components/scaffold/coming-soon";
+import { PatientsListSection } from "@/components/invitations/patients-list-section";
 
 export default function DoctorPatientsPage() {
   return (
-    <ComingSoon
+    <PatientsListSection
+      basePath="/dashboard/doctor/patients"
       title="I miei pazienti"
-      description="Pazienti in carico con CareRelationship attiva"
     />
   );
 }

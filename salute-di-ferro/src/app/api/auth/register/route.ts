@@ -55,6 +55,7 @@ export async function POST(req: Request) {
     sex,
     birthDate,
     role: targetRole,
+    inviteToken,
   } = parsed.data;
 
   // Authorization: only ADMIN may provision DOCTOR/COACH. PATIENT is public.
@@ -73,6 +74,47 @@ export async function POST(req: Request) {
     if (!caller || caller.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  }
+
+  // If an invite token was provided, validate it *before* creating any
+  // auth user — avoids orphan accounts from bad tokens. Only PATIENT
+  // self-signup consumes invites.
+  let invite: {
+    id: string;
+    professionalId: string;
+    professionalRole: "DOCTOR" | "COACH";
+  } | null = null;
+  if (inviteToken && targetRole === "PATIENT") {
+    const found = await prisma.invitation.findUnique({
+      where: { token: inviteToken },
+      select: {
+        id: true,
+        status: true,
+        expiresAt: true,
+        professionalId: true,
+        professionalRole: true,
+      },
+    });
+    if (!found) {
+      return NextResponse.json(
+        { error: "Invito non trovato" },
+        { status: 400 },
+      );
+    }
+    const effectivelyInvalid =
+      found.status !== "PENDING" ||
+      found.expiresAt.getTime() < Date.now();
+    if (effectivelyInvalid) {
+      return NextResponse.json(
+        { error: "Invito scaduto o già utilizzato" },
+        { status: 400 },
+      );
+    }
+    invite = {
+      id: found.id,
+      professionalId: found.professionalId,
+      professionalRole: found.professionalRole,
+    };
   }
 
   const org = await prisma.organization.findFirst({
@@ -106,27 +148,71 @@ export async function POST(req: Request) {
   const fullName = `${firstName} ${lastName}`.trim();
 
   try {
-    const dbUser = await prisma.user.create({
-      data: {
-        id: created.user.id,
-        email,
-        fullName,
-        firstName,
-        lastName,
-        sex: sex ?? null,
-        birthDate: birthDate ? new Date(birthDate) : null,
-        role: targetRole,
-        organizationId: org.id,
-      },
-      select: { id: true, email: true, role: true, fullName: true },
+    // If this is a PATIENT signup with a valid invite, create the user,
+    // the CareRelationship, and mark the invite consumed in one
+    // transaction. Otherwise just create the user.
+    const dbUser = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          id: created.user.id,
+          email,
+          fullName,
+          firstName,
+          lastName,
+          sex: sex ?? null,
+          birthDate: birthDate ? new Date(birthDate) : null,
+          role: targetRole,
+          organizationId: org.id,
+        },
+        select: { id: true, email: true, role: true, fullName: true },
+      });
+
+      if (invite) {
+        await tx.careRelationship.upsert({
+          where: {
+            professionalId_patientId_professionalRole: {
+              professionalId: invite.professionalId,
+              patientId: u.id,
+              professionalRole: invite.professionalRole,
+            },
+          },
+          create: {
+            professionalId: invite.professionalId,
+            patientId: u.id,
+            professionalRole: invite.professionalRole,
+            status: "ACTIVE",
+          },
+          update: { status: "ACTIVE" },
+        });
+        await tx.invitation.update({
+          where: { id: invite.id },
+          data: {
+            status: "ACCEPTED",
+            usedAt: new Date(),
+            usedByUserId: u.id,
+          },
+        });
+      }
+      return u;
     });
+
     await logAudit({
       actorId: dbUser.id,
       action:
         targetRole === "PATIENT" ? "USER_REGISTER" : "ADMIN_USER_PROVISION",
       entityType: "User",
       entityId: dbUser.id,
-      metadata: { role: targetRole, email },
+      metadata: {
+        role: targetRole,
+        email,
+        ...(invite
+          ? {
+              inviteId: invite.id,
+              invitingProfessionalId: invite.professionalId,
+              professionalRole: invite.professionalRole,
+            }
+          : {}),
+      },
       request: req,
     });
     return NextResponse.json(dbUser, { status: 201 });

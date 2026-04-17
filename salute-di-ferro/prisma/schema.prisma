@@ -85,6 +85,13 @@ enum NotificationType {
   AI
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -160,6 +167,10 @@ model User {
   aiConversations AiConversation[]
   notifications   Notification[]
   auditLogs       AuditLog[]
+
+  // Patient onboarding via professional invite link
+  professionalInvitations Invitation[] @relation("ProfessionalInvitations")
+  usedInvitations         Invitation[] @relation("UsedInvitations")
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -434,6 +445,39 @@ model ReportPermission {
   @@unique([reportId, granteeId])
   @@index([granteeId])
   @@index([reportId])
+}
+
+// ============================================================
+// PATIENT INVITATIONS (professional → patient onboarding link)
+// ============================================================
+
+/// A DOCTOR or COACH creates an Invitation to onboard a new patient.
+/// The patient follows the URL (/register?invite=<token>) to sign up;
+/// consuming the invite auto-creates a CareRelationship between the
+/// inviting professional and the new patient. Tokens are one-shot and
+/// expire after the `expiresAt` cutoff.
+model Invitation {
+  id               String           @id @default(uuid()) @db.Uuid
+  token            String           @unique
+  professionalId   String           @db.Uuid
+  professionalRole ProfessionalRole
+  email            String?
+  firstName        String?
+  lastName         String?
+  note             String?
+  status           InvitationStatus @default(PENDING)
+  expiresAt        DateTime
+  createdAt        DateTime         @default(now())
+  usedAt           DateTime?
+  usedByUserId     String?          @db.Uuid
+
+  professional User  @relation("ProfessionalInvitations", fields: [professionalId], references: [id], onDelete: Cascade)
+  usedBy       User? @relation("UsedInvitations", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([token])
+  @@index([professionalId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 // ============================================================
