@@ -126,6 +126,8 @@ export function AuthForm({ variant }: Props) {
       toast.error("Accesso fallito", { description: error.message });
       return;
     }
+    // Fire-and-forget LOGIN audit. Never block the redirect on it.
+    void fetch("/api/audit/login", { method: "POST" }).catch(() => undefined);
     toast.success("Bentornato!");
     router.replace(redirectTo);
     router.refresh();
@@ -210,6 +212,7 @@ export function AuthForm({ variant }: Props) {
       return;
     }
 
+    void fetch("/api/audit/login", { method: "POST" }).catch(() => undefined);
     toast.success("Account creato");
     router.replace("/dashboard/patient");
     router.refresh();

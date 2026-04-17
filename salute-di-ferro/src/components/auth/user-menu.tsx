@@ -36,6 +36,14 @@ export function UserMenu() {
     .toUpperCase();
 
   async function handleLogout() {
+    // Record the LOGOUT audit row BEFORE signOut clears the session —
+    // otherwise the server request comes in anonymous and the actor is
+    // lost. Best-effort: don't block the sign-out on an audit failure.
+    try {
+      await fetch("/api/audit/logout", { method: "POST" });
+    } catch {
+      // ignore
+    }
     await supabase.auth.signOut();
     toast.success("Disconnesso");
     router.replace("/login");
