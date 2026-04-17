@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
 import { CookieBanner } from "@/components/legal/cookie-banner";
 import { Analytics } from "@/components/legal/analytics";
+import { EnvironmentBanner } from "@/components/legal/environment-banner";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
+          <EnvironmentBanner />
           <QueryProvider>{children}</QueryProvider>
           <Toaster richColors position="top-right" />
           <PwaRegister />

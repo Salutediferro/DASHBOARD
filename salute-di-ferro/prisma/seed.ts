@@ -17,23 +17,22 @@ if (!connectionString) {
 }
 
 // ── Production guard ──────────────────────────────────────────────────────
-// The seed destroys and recreates test users (including known-default
-// passwords documented in SEED.md). Running it against production would
-// re-open the known-password attack surface on accounts that have been
-// password-rotated for safety. Refuse to run unless the caller has
-// explicitly set SEED_ALLOW_PRODUCTION=1.
+// Refuse to run against the known production Supabase project unless
+// SEED_ALLOW_PRODUCTION=1 is set. The guard matches the specific
+// project ref (zzpzptvtshyetdpvwhfc) rather than any Supabase host —
+// that way a staging Supabase project (which is also on *.supabase.com)
+// can still be seeded without the override.
 //
-// The check looks at the connection string host: production Supabase
-// pooler hosts end with `.pooler.supabase.com`. Local/dev databases
-// (including Docker/pg) will be on other hosts and pass freely.
-const isProductionHost =
-  /\.pooler\.supabase\.com(?::|$)/i.test(connectionString) ||
-  /\.supabase\.co(?::|$)/i.test(connectionString);
+// When rotating the prod ref (new project, migration) update the
+// constant below in the same commit.
+const PROD_PROJECT_REF = "zzpzptvtshyetdpvwhfc";
+const isProductionRef = connectionString.includes(`.${PROD_PROJECT_REF}`) ||
+  connectionString.includes(`postgres.${PROD_PROJECT_REF}`);
 const allowProd = process.env.SEED_ALLOW_PRODUCTION === "1";
-if (isProductionHost && !allowProd) {
+if (isProductionRef && !allowProd) {
   console.error(
-    "\n✖ Seed refused: DIRECT_URL points to a Supabase host " +
-      "(looks like production).\n" +
+    "\n✖ Seed refused: DIRECT_URL points to the production Supabase " +
+      "project.\n" +
       "  The seed recreates test accounts with the public default " +
       "password from SEED.md.\n" +
       "  If you really mean to run this on production, re-run with " +
