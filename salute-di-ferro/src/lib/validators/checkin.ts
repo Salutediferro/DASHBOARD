@@ -21,7 +21,7 @@ export const createCheckInSchema = z.object({
 });
 
 export const updateCheckInSchema = z.object({
-  coachFeedback: z.string().nullable().optional(),
+  professionalFeedback: z.string().nullable().optional(),
   aiAnalysis: z.string().nullable().optional(),
   status: z.enum(["PENDING", "REVIEWED"]).optional(),
 });

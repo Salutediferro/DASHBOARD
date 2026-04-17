@@ -92,6 +92,11 @@ enum InvitationStatus {
   REVOKED
 }
 
+enum CheckInStatus {
+  PENDING
+  REVIEWED
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -280,9 +285,12 @@ model CheckIn {
   sidePhotoUrl          String?
   backPhotoUrl          String?
   notes                 String?
+  rating                Int? // 1..5 self-assessment
   professionalFeedback  String?
   aiAnalysis            String?
+  status                CheckInStatus    @default(PENDING)
   createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
 
   patient      User @relation("PatientCheckIns", fields: [patientId], references: [id], onDelete: Cascade)
   professional User @relation("ProfessionalCheckIns", fields: [professionalId], references: [id], onDelete: Cascade)
@@ -290,6 +298,7 @@ model CheckIn {
   @@index([patientId])
   @@index([professionalId])
   @@index([date])
+  @@index([status])
 }
 
 // ============================================================
