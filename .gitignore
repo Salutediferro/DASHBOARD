@@ -19,6 +19,9 @@
 **/build/
 **/out/
 
+# DB dumps produced by `npm run db:backup`
+**/backups/
+
 # Logs
 *.log
 npm-debug.log*
