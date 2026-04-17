@@ -1,10 +1,17 @@
 # Seed — test accounts
 
+> ⚠️ **Dev / staging only.** The seed script refuses to run against a
+> Supabase pooler/host unless `SEED_ALLOW_PRODUCTION=1` is set. The
+> passwords below are known defaults — never use them on production.
+> On the production DB, test-account passwords have been rotated to
+> unknown random values; the Prisma rows remain only for reference
+> and internal demos.
+
 `npx prisma db seed` resets the test users in both Supabase Auth and the
 Prisma database. The seed is idempotent: running it twice yields the same
 result.
 
-**Common password for every test account: `Password123!`**
+**Common password for every test account (dev / staging only): `Password123!`**
 
 Every account has `email_confirm=true`, so no confirmation email step is
 required — you can log in straight from `/login`.

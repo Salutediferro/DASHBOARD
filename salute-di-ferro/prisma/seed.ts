@@ -16,6 +16,32 @@ if (!connectionString) {
   throw new Error("DATABASE_URL / DIRECT_URL is not set");
 }
 
+// ── Production guard ──────────────────────────────────────────────────────
+// The seed destroys and recreates test users (including known-default
+// passwords documented in SEED.md). Running it against production would
+// re-open the known-password attack surface on accounts that have been
+// password-rotated for safety. Refuse to run unless the caller has
+// explicitly set SEED_ALLOW_PRODUCTION=1.
+//
+// The check looks at the connection string host: production Supabase
+// pooler hosts end with `.pooler.supabase.com`. Local/dev databases
+// (including Docker/pg) will be on other hosts and pass freely.
+const isProductionHost =
+  /\.pooler\.supabase\.com(?::|$)/i.test(connectionString) ||
+  /\.supabase\.co(?::|$)/i.test(connectionString);
+const allowProd = process.env.SEED_ALLOW_PRODUCTION === "1";
+if (isProductionHost && !allowProd) {
+  console.error(
+    "\n✖ Seed refused: DIRECT_URL points to a Supabase host " +
+      "(looks like production).\n" +
+      "  The seed recreates test accounts with the public default " +
+      "password from SEED.md.\n" +
+      "  If you really mean to run this on production, re-run with " +
+      "SEED_ALLOW_PRODUCTION=1.\n",
+  );
+  process.exit(1);
+}
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
