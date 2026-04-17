@@ -1,61 +1,61 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getClientDetailMock } from "@/lib/mock-clients";
-import { updateClientSchema } from "@/lib/validators/client";
+import { prisma } from "@/lib/prisma";
 
-// TODO: remove dev bypass
-function isDevBypass(req: Request) {
-  return (
-    process.env.NODE_ENV === "development" &&
-    req.headers.get("x-dev-bypass") === "1"
-  );
-}
-
-async function requireCoach(req: Request) {
-  if (isDevBypass(req)) return { id: "dev-bypass" };
+async function requireProfessional() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const role =
-    (user.app_metadata?.role as string | undefined) ??
-    (user.user_metadata?.role as string | undefined);
-  if (role !== "COACH" && role !== "ADMIN") return null;
-  return user;
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true },
+  });
+  if (!me) return null;
+  if (me.role !== "DOCTOR" && me.role !== "COACH" && me.role !== "ADMIN") {
+    return null;
+  }
+  return me;
 }
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(req: Request, { params }: Ctx) {
-  const user = await requireCoach(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(_req: Request, { params }: Ctx) {
+  const me = await requireProfessional();
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const detail = getClientDetailMock(id);
-  if (!detail) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(detail);
-}
 
-export async function PATCH(req: Request, { params }: Ctx) {
-  const user = await requireCoach(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const json = await req.json();
-  const parsed = updateClientSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+  // Admins can read any patient; doctor/coach must have an active CareRelationship.
+  if (me.role !== "ADMIN") {
+    const rel = await prisma.careRelationship.findFirst({
+      where: { professionalId: me.id, patientId: id, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!rel) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json({ id, ...parsed.data });
-}
+  const patient = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      avatarUrl: true,
+      birthDate: true,
+      sex: true,
+    },
+  });
+  if (!patient || (patient as { id: string }).id !== id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
-export async function DELETE(req: Request, { params }: Ctx) {
-  const user = await requireCoach(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  // TODO: updateClientStatus(coachId, id, "ARCHIVED")
-  return NextResponse.json({ id, status: "ARCHIVED" });
+  return NextResponse.json({
+    ...patient,
+    birthDate: patient.birthDate
+      ? patient.birthDate.toISOString().slice(0, 10)
+      : null,
+  });
 }

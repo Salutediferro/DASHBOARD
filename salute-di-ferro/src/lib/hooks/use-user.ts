@@ -3,9 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { User as AuthUser } from "@supabase/supabase-js";
+import type { UserRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/client";
 
-export type UserRole = "ADMIN" | "COACH" | "CLIENT";
+export type { UserRole };
 
 export type UserProfile = {
   id: string;
@@ -18,12 +19,11 @@ export type UserProfile = {
   heightCm: number | null;
   phone: string | null;
   avatarUrl: string | null;
+  taxCode: string | null;
+  emergencyContact: string | null;
   role: UserRole;
   onboardingCompleted: boolean;
-  // Goals & health (persisted)
-  primaryGoal: string | null;
-  fitnessLevel: string | null;
-  weeklyActivityHours: number | null;
+  // Clinical profile (visible to authorized professionals)
   medicalConditions: string | null;
   allergies: string | null;
   medications: string | null;
@@ -67,9 +67,11 @@ export function useUser() {
   return {
     user: authUser,
     profile,
+    role: (role ?? null) as UserRole | null,
     isLoading: authLoading || profileQuery.isLoading,
-    isCoach: role === "COACH",
-    isClient: role === "CLIENT",
     isAdmin: role === "ADMIN",
+    isDoctor: role === "DOCTOR",
+    isCoach: role === "COACH",
+    isPatient: role === "PATIENT",
   };
 }

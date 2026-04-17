@@ -15,8 +15,14 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  DOCTOR
   COACH
-  CLIENT
+  PATIENT
+}
+
+enum ProfessionalRole {
+  DOCTOR
+  COACH
 }
 
 enum Sex {
@@ -28,8 +34,12 @@ enum Sex {
 enum MedicalReportCategory {
   BLOOD_TEST
   IMAGING
-  VISIT
+  CARDIOLOGY
+  ENDOCRINOLOGY
+  GENERAL_VISIT
   PRESCRIPTION
+  VACCINATION
+  SURGERY
   OTHER
 }
 
@@ -40,65 +50,18 @@ enum SubscriptionStatus {
   TRIALING
 }
 
-enum CoachClientStatus {
+enum CareRelationshipStatus {
   ACTIVE
   PAUSED
   ARCHIVED
 }
 
-enum Difficulty {
-  BEGINNER
-  INTERMEDIATE
-  ADVANCED
-  EXPERT
-}
-
-enum WorkoutType {
-  STRENGTH
-  HYPERTROPHY
-  POWERLIFTING
-  CONDITIONING
-  CUSTOM
-}
-
-enum MuscleGroup {
-  CHEST
-  BACK
-  SHOULDERS
-  BICEPS
-  TRICEPS
-  QUADS
-  HAMSTRINGS
-  GLUTES
-  CALVES
-  ABS
-  FULL_BODY
-  CARDIO
-}
-
-enum Equipment {
-  BARBELL
-  DUMBBELL
-  MACHINE
-  CABLE
-  BODYWEIGHT
-  BAND
-  KETTLEBELL
-  OTHER
-}
-
-enum FoodUnit {
-  GRAMS
-  ML
-  PIECE
-  SCOOP
-  TABLESPOON
-}
-
 enum AppointmentType {
   IN_PERSON
   VIDEO_CALL
-  CHECK_IN
+  VISIT
+  FOLLOW_UP
+  COACHING_SESSION
 }
 
 enum AppointmentStatus {
@@ -109,9 +72,9 @@ enum AppointmentStatus {
 }
 
 enum AiContext {
-  WORKOUT
-  NUTRITION
   GENERAL
+  HEALTH_DATA
+  REPORT_EXPLANATION
 }
 
 enum NotificationType {
@@ -120,33 +83,6 @@ enum NotificationType {
   PAYMENT
   SYSTEM
   AI
-}
-
-enum FoodConfidence {
-  HIGH
-  MEDIUM
-  LOW
-}
-
-enum CheckInFrequency {
-  NONE
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
-}
-
-enum ProgressionStatus {
-  PENDING
-  ACCEPTED
-  IGNORED
-}
-
-enum ProgressionAction {
-  INCREASE_WEIGHT
-  MAINTAIN
-  REDUCE_WEIGHT
-  ADD_SET
-  DELOAD
 }
 
 // ============================================================
@@ -164,11 +100,8 @@ model Organization {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users            User[]
-  workoutTemplates WorkoutTemplate[]
-  exercises        Exercise[]
-  foods            Food[]
-  subscriptions    Subscription[]
+  users         User[]
+  subscriptions Subscription[]
 
   @@index([slug])
 }
@@ -188,54 +121,49 @@ model User {
   heightCm            Float?
   avatarUrl           String?
   phone               String?
-  role                UserRole            @default(CLIENT)
+  taxCode             String?             @unique
+  emergencyContact    String?
+  role                UserRole            @default(PATIENT)
   organizationId      String              @db.Uuid
   stripeCustomerId    String?             @unique
   subscriptionStatus  SubscriptionStatus?
   onboardingCompleted Boolean             @default(false)
 
-  // Health & goals profile (free-text, PII — visible to coach/medic)
-  primaryGoal         String?
-  fitnessLevel        String?
-  weeklyActivityHours Float?
-  medicalConditions   String?
-  allergies           String?
-  medications         String?
-  injuries            String?
+  // Clinical profile (free-text, PII — visible to authorized professionals)
+  medicalConditions String?
+  allergies         String?
+  medications       String?
+  injuries          String?
 
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Coach ↔ Client
-  coachRelations  CoachClient[] @relation("CoachRelations")
-  clientRelations CoachClient[] @relation("ClientRelations")
+  // Professional ↔ Patient
+  professionalRelations CareRelationship[] @relation("ProfessionalRelations")
+  patientRelations      CareRelationship[] @relation("PatientRelations")
 
-  // Content created by coach
-  workoutTemplates WorkoutTemplate[] @relation("CoachWorkoutTemplates")
-  nutritionPlans   NutritionPlan[]   @relation("CoachNutritionPlans")
+  // Clinical data owned by patient
+  biometricLogs              BiometricLog[]
+  checkInsAsPatient          CheckIn[]          @relation("PatientCheckIns")
+  checkInsAsProfessional     CheckIn[]          @relation("ProfessionalCheckIns")
+  appointmentsAsProfessional Appointment[]      @relation("ProfessionalAppointments")
+  appointmentsAsPatient      Appointment[]      @relation("PatientAppointments")
+  availabilitySlots          AvailabilitySlot[]
 
-  // Data owned by client
-  clientNutritionPlans           NutritionPlan[]         @relation("ClientNutritionPlans")
-  nutritionLogs                  NutritionLog[]
-  workoutLogs                    WorkoutLog[]
-  workoutAssignmentsAsCoach      WorkoutAssignment[]     @relation("CoachWorkoutAssignments")
-  workoutAssignmentsAsClient     WorkoutAssignment[]     @relation("ClientWorkoutAssignments")
-  progressionSuggestionsAsClient ProgressionSuggestion[] @relation("ProgressionClient")
-  progressionSuggestionsAsCoach  ProgressionSuggestion[] @relation("ProgressionCoach")
-  biometricLogs                  BiometricLog[]
-  checkInsAsClient               CheckIn[]               @relation("ClientCheckIns")
-  checkInsAsCoach                CheckIn[]               @relation("CoachCheckIns")
-  appointmentsAsCoach            Appointment[]           @relation("CoachAppointments")
-  appointmentsAsClient           Appointment[]           @relation("ClientAppointments")
-
-  medicalReportsAsClient   MedicalReport[] @relation("ClientMedicalReports")
-  medicalReportsAsUploader MedicalReport[] @relation("UploaderMedicalReports")
+  medicalReportsAsPatient  MedicalReport[]    @relation("PatientMedicalReports")
+  medicalReportsAsUploader MedicalReport[]    @relation("UploaderMedicalReports")
+  reportPermissions        ReportPermission[] @relation("GranteePermissions")
 
   subscriptions   Subscription[]
   aiConversations AiConversation[]
   notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
+  // kept until a cleanup job hard-deletes it, so audit trails survive.
+  deletedAt DateTime?
 
   @@index([organizationId])
   @@index([role])
@@ -243,351 +171,28 @@ model User {
 }
 
 // ============================================================
-// COACH ↔ CLIENT (pivot)
+// CARE RELATIONSHIP (professional ↔ patient pivot)
 // ============================================================
 
-model CoachClient {
-  id        String            @id @default(uuid()) @db.Uuid
-  coachId   String            @db.Uuid
-  clientId  String            @db.Uuid
-  status    CoachClientStatus @default(ACTIVE)
-  startDate DateTime          @default(now())
-  endDate   DateTime?
-  notes     String?
+model CareRelationship {
+  id               String                 @id @default(uuid()) @db.Uuid
+  professionalId   String                 @db.Uuid
+  patientId        String                 @db.Uuid
+  professionalRole ProfessionalRole
+  status           CareRelationshipStatus @default(ACTIVE)
+  startDate        DateTime               @default(now())
+  endDate          DateTime?
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
-  checkInFrequency        CheckInFrequency @default(NONE)
-  nextCheckInAt           DateTime?
-  lastCheckInAt           DateTime?
-  checkInReminderStage    Int              @default(0)
-  lastLowAdherenceAlertAt DateTime?
-  lastInactivityNudgeAt   DateTime?
+  professional User @relation("ProfessionalRelations", fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientRelations", fields: [patientId], references: [id], onDelete: Cascade)
 
-  coach  User @relation("CoachRelations", fields: [coachId], references: [id], onDelete: Cascade)
-  client User @relation("ClientRelations", fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([coachId, clientId])
-  @@index([coachId])
-  @@index([clientId])
+  @@unique([professionalId, patientId, professionalRole])
+  @@index([professionalId])
+  @@index([patientId])
   @@index([status])
-}
-
-// ============================================================
-// WORKOUT TEMPLATES
-// ============================================================
-
-model WorkoutTemplate {
-  id             String      @id @default(uuid()) @db.Uuid
-  coachId        String      @db.Uuid
-  organizationId String      @db.Uuid
-  name           String
-  description    String?
-  difficulty     Difficulty  @default(INTERMEDIATE)
-  type           WorkoutType @default(HYPERTROPHY)
-  isPublic       Boolean     @default(false)
-  tags           String[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  coach        User         @relation("CoachWorkoutTemplates", fields: [coachId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  days        WorkoutDay[]
-  assignments WorkoutAssignment[]
-
-  @@index([coachId])
-  @@index([organizationId])
-  @@index([type])
-}
-
-// ============================================================
-// WORKOUT ASSIGNMENT (coach ↔ client ↔ template)
-// ============================================================
-
-model WorkoutAssignment {
-  id         String    @id @default(uuid()) @db.Uuid
-  coachId    String    @db.Uuid
-  clientId   String    @db.Uuid
-  templateId String    @db.Uuid
-  startDate  DateTime  @default(now())
-  endDate    DateTime?
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  coach    User            @relation("CoachWorkoutAssignments", fields: [coachId], references: [id], onDelete: Cascade)
-  client   User            @relation("ClientWorkoutAssignments", fields: [clientId], references: [id], onDelete: Cascade)
-  template WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@unique([clientId, templateId, startDate])
-  @@index([coachId])
-  @@index([clientId, isActive])
-  @@index([templateId])
-}
-
-model WorkoutDay {
-  id         String  @id @default(uuid()) @db.Uuid
-  templateId String  @db.Uuid
-  dayNumber  Int
-  name       String
-  notes      String?
-
-  template  WorkoutTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  exercises WorkoutExercise[]
-
-  @@unique([templateId, dayNumber])
-  @@index([templateId])
-}
-
-model WorkoutExercise {
-  id            String  @id @default(uuid()) @db.Uuid
-  dayId         String  @db.Uuid
-  exerciseId    String  @db.Uuid
-  orderIndex    Int
-  sets          Int
-  reps          String // es. "8-10" o "5"
-  rpe           Float?
-  restSeconds   Int?
-  tempo         String? // es. "3-1-2-0"
-  supersetGroup String?
-  notes         String?
-
-  day      WorkoutDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
-  exercise Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-
-  @@index([dayId])
-  @@index([exerciseId])
-}
-
-// ============================================================
-// EXERCISE LIBRARY
-// ============================================================
-
-model Exercise {
-  id               String        @id @default(uuid()) @db.Uuid
-  name             String
-  nameIt           String        @default("")
-  slug             String        @unique
-  muscleGroup      MuscleGroup
-  secondaryMuscles MuscleGroup[] @default([])
-  equipment        Equipment
-  description      String?
-  steps            String[]      @default([])
-  tips             String[]      @default([])
-  commonMistakes   String[]      @default([])
-  variants         String[]      @default([])
-  videoUrl         String?
-  thumbnailUrl     String?
-  instructions     String?
-  incrementKg      Float         @default(2.5)
-  organizationId   String?       @db.Uuid
-  isGlobal         Boolean       @default(true)
-  createdAt        DateTime      @default(now())
-
-  organization           Organization?           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  workoutExercises       WorkoutExercise[]
-  workoutSetLogs         WorkoutSetLog[]
-  progressionSuggestions ProgressionSuggestion[]
-
-  @@index([muscleGroup])
-  @@index([equipment])
-  @@index([organizationId])
-}
-
-// ============================================================
-// WORKOUT LOGS (client-side execution)
-// ============================================================
-
-model WorkoutLog {
-  id           String   @id @default(uuid()) @db.Uuid
-  clientId     String   @db.Uuid
-  workoutDayId String?  @db.Uuid
-  date         DateTime @default(now())
-  duration     Int? // minutes
-  notes        String?
-  rating       Int? // 1-5
-  completed    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-
-  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  sets WorkoutSetLog[]
-
-  @@index([clientId])
-  @@index([date])
-  @@index([clientId, date])
-}
-
-model WorkoutSetLog {
-  id           String  @id @default(uuid()) @db.Uuid
-  workoutLogId String  @db.Uuid
-  exerciseId   String  @db.Uuid
-  setNumber    Int
-  reps         Int
-  weight       Float
-  rpe          Float?
-  isWarmup     Boolean @default(false)
-  notes        String?
-
-  workoutLog WorkoutLog @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
-  exercise   Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
-
-  @@index([workoutLogId])
-  @@index([exerciseId])
-}
-
-// ============================================================
-// NUTRITION
-// ============================================================
-
-model NutritionPlan {
-  id            String    @id @default(uuid()) @db.Uuid
-  coachId       String    @db.Uuid
-  clientId      String    @db.Uuid
-  name          String
-  startDate     DateTime
-  endDate       DateTime?
-  totalCalories Int?
-  totalProtein  Float?
-  totalCarbs    Float?
-  totalFats     Float?
-  notes         String?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  coach  User @relation("CoachNutritionPlans", fields: [coachId], references: [id], onDelete: Cascade)
-  client User @relation("ClientNutritionPlans", fields: [clientId], references: [id], onDelete: Cascade)
-
-  meals NutritionMeal[]
-
-  @@index([coachId])
-  @@index([clientId])
-  @@index([clientId, isActive])
-}
-
-model NutritionMeal {
-  id             String  @id @default(uuid()) @db.Uuid
-  planId         String  @db.Uuid
-  name           String
-  orderIndex     Int
-  targetCalories Int?
-  targetProtein  Float?
-  targetCarbs    Float?
-  targetFats     Float?
-  time           String? // "07:30"
-
-  plan  NutritionPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
-  foods NutritionMealFood[]
-
-  @@index([planId])
-}
-
-model NutritionMealFood {
-  id       String   @id @default(uuid()) @db.Uuid
-  mealId   String   @db.Uuid
-  foodId   String   @db.Uuid
-  quantity Float
-  unit     FoodUnit @default(GRAMS)
-  notes    String?
-
-  meal NutritionMeal @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  food Food          @relation(fields: [foodId], references: [id], onDelete: Restrict)
-
-  @@index([mealId])
-  @@index([foodId])
-}
-
-model Food {
-  id              String   @id @default(uuid()) @db.Uuid
-  name            String
-  brand           String?
-  caloriesPer100g Float
-  proteinPer100g  Float
-  carbsPer100g    Float
-  fatsPer100g     Float
-  fiberPer100g    Float?
-  category        String?
-  allergens       String[]
-  isGlobal        Boolean  @default(true)
-  organizationId  String?  @db.Uuid
-  createdAt       DateTime @default(now())
-
-  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  mealFoods    NutritionMealFood[]
-
-  @@index([name])
-  @@index([organizationId])
-}
-
-// ============================================================
-// PROGRESSION SUGGESTIONS (RP-style automated progression)
-// ============================================================
-
-model ProgressionSuggestion {
-  id              String            @id @default(uuid()) @db.Uuid
-  clientId        String            @db.Uuid
-  coachId         String            @db.Uuid
-  exerciseId      String            @db.Uuid
-  status          ProgressionStatus @default(PENDING)
-  action          ProgressionAction
-  reason          String
-  lastWeight      Float?
-  lastReps        Int?
-  lastRpe         Float?
-  suggestedWeight Float?
-  suggestedReps   Int?
-  suggestedSets   Int?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  client   User     @relation("ProgressionClient", fields: [clientId], references: [id], onDelete: Cascade)
-  coach    User     @relation("ProgressionCoach", fields: [coachId], references: [id], onDelete: Cascade)
-  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
-  @@index([coachId])
-  @@index([status])
-  @@index([clientId, status])
-}
-
-// ============================================================
-// NUTRITION LOGS (photo-based food logging)
-// ============================================================
-
-model NutritionLog {
-  id            String   @id @default(uuid()) @db.Uuid
-  clientId      String   @db.Uuid
-  photoUrl      String
-  loggedAt      DateTime @default(now())
-  totalCalories Float    @default(0)
-  totalProtein  Float    @default(0)
-  totalCarbs    Float    @default(0)
-  totalFats     Float    @default(0)
-  notes         String?
-  createdAt     DateTime @default(now())
-
-  client User               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  foods  NutritionLogFood[]
-
-  @@index([clientId])
-  @@index([loggedAt])
-  @@index([clientId, loggedAt])
-}
-
-model NutritionLogFood {
-  id             String         @id @default(uuid()) @db.Uuid
-  logId          String         @db.Uuid
-  name           String
-  estimatedGrams Float
-  calories       Float
-  protein        Float
-  carbs          Float
-  fats           Float
-  confidence     FoodConfidence @default(MEDIUM)
-
-  log NutritionLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-
-  @@index([logId])
 }
 
 // ============================================================
@@ -595,12 +200,13 @@ model NutritionLogFood {
 // ============================================================
 
 model BiometricLog {
-  id       String   @id @default(uuid()) @db.Uuid
-  clientId String   @db.Uuid
-  date     DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @db.Uuid
+  date      DateTime @default(now())
 
   // Body composition
   weight            Float? // kg
+  bmi               Float? // server-computed from weight + User.heightCm
   bodyFatPercentage Float? // %
   muscleMassKg      Float?
   bodyWaterPct      Float? // %
@@ -644,33 +250,34 @@ model BiometricLog {
   energyLevel Int? // 1-10
   notes       String?
 
-  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@index([clientId])
+  @@index([patientId])
   @@index([date])
-  @@index([clientId, date])
+  @@index([patientId, date])
 }
 
 model CheckIn {
-  id            String   @id @default(uuid()) @db.Uuid
-  clientId      String   @db.Uuid
-  coachId       String   @db.Uuid
-  date          DateTime @default(now())
-  weight        Float?
-  measurements  Json? // { waist, chest, arms, ... }
-  frontPhotoUrl String?
-  sidePhotoUrl  String?
-  backPhotoUrl  String?
-  notes         String?
-  coachFeedback String?
-  aiAnalysis    String?
-  createdAt     DateTime @default(now())
+  id                    String           @id @default(uuid()) @db.Uuid
+  patientId             String           @db.Uuid
+  professionalId        String           @db.Uuid
+  professionalRole      ProfessionalRole
+  date                  DateTime         @default(now())
+  weight                Float?
+  measurements          Json? // { waist, chest, arms, ... }
+  frontPhotoUrl         String?
+  sidePhotoUrl          String?
+  backPhotoUrl          String?
+  notes                 String?
+  professionalFeedback  String?
+  aiAnalysis            String?
+  createdAt             DateTime         @default(now())
 
-  client User @relation("ClientCheckIns", fields: [clientId], references: [id], onDelete: Cascade)
-  coach  User @relation("CoachCheckIns", fields: [coachId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientCheckIns", fields: [patientId], references: [id], onDelete: Cascade)
+  professional User @relation("ProfessionalCheckIns", fields: [professionalId], references: [id], onDelete: Cascade)
 
-  @@index([clientId])
-  @@index([coachId])
+  @@index([patientId])
+  @@index([professionalId])
   @@index([date])
 }
 
@@ -679,24 +286,51 @@ model CheckIn {
 // ============================================================
 
 model Appointment {
-  id         String            @id @default(uuid()) @db.Uuid
-  coachId    String            @db.Uuid
-  clientId   String            @db.Uuid
-  startTime  DateTime
-  endTime    DateTime
-  type       AppointmentType   @default(VIDEO_CALL)
-  status     AppointmentStatus @default(SCHEDULED)
-  notes      String?
-  meetingUrl String?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id               String            @id @default(uuid()) @db.Uuid
+  professionalId   String            @db.Uuid
+  patientId        String            @db.Uuid
+  professionalRole ProfessionalRole
+  startTime        DateTime
+  endTime          DateTime
+  type             AppointmentType   @default(VIDEO_CALL)
+  status           AppointmentStatus @default(SCHEDULED)
+  notes            String?
+  meetingUrl       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  coach  User @relation("CoachAppointments", fields: [coachId], references: [id], onDelete: Cascade)
-  client User @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  professional User @relation("ProfessionalAppointments", fields: [professionalId], references: [id], onDelete: Cascade)
+  patient      User @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@index([coachId])
-  @@index([clientId])
+  @@index([professionalId])
+  @@index([patientId])
   @@index([startTime])
+}
+
+// ============================================================
+// AVAILABILITY SLOTS (professional schedule)
+// ============================================================
+
+/// Either dayOfWeek (recurring) or date (one-off), never both.
+/// XOR invariant enforced at the validator/service layer.
+model AvailabilitySlot {
+  id             String    @id @default(uuid()) @db.Uuid
+  professionalId String    @db.Uuid
+  /// Recurring slot: weekday 0 (Sunday) - 6 (Saturday). Mutually exclusive with `date`.
+  dayOfWeek      Int?
+  /// One-off slot: specific calendar date. Mutually exclusive with `dayOfWeek`.
+  date           DateTime? @db.Date
+  startTime      DateTime  @db.Time
+  endTime        DateTime  @db.Time
+  isRecurring    Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  professional User @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([professionalId, dayOfWeek])
+  @@index([professionalId, date])
 }
 
 // ============================================================
@@ -760,28 +394,71 @@ model Notification {
 }
 
 // ============================================================
-// MEDICAL REPORTS (sensitive docs: visible to authorized medico)
+// MEDICAL REPORTS (GDPR Art. 9 — granular per-user permissions)
 // ============================================================
 
 model MedicalReport {
-  id             String                @id @default(uuid()) @db.Uuid
-  clientId       String                @db.Uuid
-  uploadedById   String                @db.Uuid
-  fileUrl        String
-  fileName       String
-  mimeType       String
-  fileSize       Int?
-  category       MedicalReportCategory @default(OTHER)
-  title          String
-  notes          String?
-  issuedAt       DateTime?             @db.Date
-  visibleToCoach Boolean               @default(false)
-  uploadedAt     DateTime              @default(now())
+  id           String                @id @default(uuid()) @db.Uuid
+  patientId    String                @db.Uuid
+  uploadedById String                @db.Uuid
+  fileUrl      String
+  fileName     String
+  mimeType     String
+  fileSize     Int?
+  category     MedicalReportCategory @default(OTHER)
+  title        String
+  notes        String?
+  issuedAt     DateTime?             @db.Date
+  uploadedAt   DateTime              @default(now())
 
-  client     User @relation("ClientMedicalReports", fields: [clientId], references: [id], onDelete: Cascade)
-  uploadedBy User @relation("UploaderMedicalReports", fields: [uploadedById], references: [id], onDelete: Restrict)
+  patient     User               @relation("PatientMedicalReports", fields: [patientId], references: [id], onDelete: Cascade)
+  uploadedBy  User               @relation("UploaderMedicalReports", fields: [uploadedById], references: [id], onDelete: Restrict)
+  permissions ReportPermission[]
 
-  @@index([clientId])
-  @@index([clientId, uploadedAt])
+  @@index([patientId])
+  @@index([patientId, uploadedAt])
   @@index([category])
+}
+
+model ReportPermission {
+  id        String    @id @default(uuid()) @db.Uuid
+  reportId  String    @db.Uuid
+  granteeId String    @db.Uuid
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+
+  report  MedicalReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  grantee User          @relation("GranteePermissions", fields: [granteeId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, granteeId])
+  @@index([granteeId])
+  @@index([reportId])
+}
+
+// ============================================================
+// AUDIT LOG (GDPR Art. 30 — record of processing activities)
+// ============================================================
+
+/// Tamper-evident trail of sensitive actions. The row is kept even after
+/// the actor is soft-deleted, so `actor` is nullable with `onDelete:
+/// SetNull`. Populated via `logAudit()` in src/lib/audit.ts; callers
+/// should pass the IP / user-agent extracted from the request headers.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

@@ -1,20 +1,19 @@
 import {
-  LayoutDashboard,
-  Users,
-  Dumbbell,
-  Apple,
-  ClipboardCheck,
-  CalendarDays,
-  BookOpen,
-  LifeBuoy,
-  Sparkles,
-  Settings,
-  Home,
-  LineChart,
+  Bell,
+  Building2,
+  Calendar,
+  CalendarClock,
+  ClipboardList,
   FileText,
-  User as UserIcon,
+  HeartPulse,
+  LayoutDashboard,
+  LineChart,
+  ScrollText,
+  UserRound,
+  Users,
   type LucideIcon,
 } from "lucide-react";
+import type { UserRole } from "@prisma/client";
 
 export type NavItem = {
   label: string;
@@ -24,26 +23,50 @@ export type NavItem = {
   mobile?: boolean;
 };
 
-export const coachNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/coach", icon: LayoutDashboard, mobile: true },
-  { label: "Clienti", href: "/dashboard/coach/clients", icon: Users, mobile: true },
-  { label: "Allenamenti", href: "/dashboard/coach/workouts", icon: Dumbbell, mobile: true },
-  { label: "Nutrizione", href: "/dashboard/coach/nutrition", icon: Apple, mobile: true },
-  { label: "Check-in", href: "/dashboard/coach/check-ins", icon: ClipboardCheck },
-  { label: "Calendario", href: "/dashboard/coach/calendar", icon: CalendarDays, mobile: true },
-  { label: "Libreria Esercizi", href: "/dashboard/coach/exercises", icon: BookOpen },
-  { label: "Supporto", href: "/dashboard/coach/support", icon: LifeBuoy },
-  { label: "AI Assistant", href: "/dashboard/coach/ai", icon: Sparkles },
-  { label: "Impostazioni", href: "/dashboard/coach/settings", icon: Settings },
+export const adminNav: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard, mobile: true },
+  { label: "Utenti", href: "/dashboard/admin/users", icon: Users, mobile: true },
+  { label: "Organizzazioni", href: "/dashboard/admin/organizations", icon: Building2 },
+  { label: "Audit log", href: "/dashboard/admin/audit", icon: ScrollText },
+  { label: "Profilo", href: "/dashboard/admin/profile", icon: UserRound },
 ];
 
-export const clientNav: NavItem[] = [
-  { label: "Home", href: "/dashboard/client", icon: Home, mobile: true },
-  { label: "Allenamento", href: "/dashboard/client/workout", icon: Dumbbell, mobile: true },
-  { label: "Nutrizione", href: "/dashboard/client/nutrition", icon: Apple, mobile: true },
-  { label: "Progressi", href: "/dashboard/client/progress", icon: LineChart, mobile: true },
-  { label: "Appuntamenti", href: "/dashboard/client/appointments", icon: CalendarDays },
-  { label: "Referti", href: "/dashboard/client/medical-reports", icon: FileText },
-  { label: "AI", href: "/dashboard/client/ai-assistant", icon: Sparkles },
-  { label: "Profilo", href: "/dashboard/client/profile", icon: UserIcon, mobile: true },
+export const doctorNav: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard/doctor", icon: LayoutDashboard, mobile: true },
+  { label: "I miei pazienti", href: "/dashboard/doctor/patients", icon: Users, mobile: true },
+  { label: "Referti", href: "/dashboard/doctor/reports", icon: FileText, mobile: true },
+  { label: "Calendario", href: "/dashboard/doctor/calendar", icon: Calendar, mobile: true },
+  { label: "Disponibilità", href: "/dashboard/doctor/availability", icon: CalendarClock },
+  { label: "Profilo", href: "/dashboard/doctor/profile", icon: UserRound },
 ];
+
+export const coachNav: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard/coach", icon: LayoutDashboard, mobile: true },
+  { label: "I miei assistiti", href: "/dashboard/coach/patients", icon: Users, mobile: true },
+  { label: "Monitoraggio", href: "/dashboard/coach/monitoring", icon: LineChart, mobile: true },
+  { label: "Calendario", href: "/dashboard/coach/calendar", icon: Calendar, mobile: true },
+  { label: "Disponibilità", href: "/dashboard/coach/availability", icon: CalendarClock },
+  { label: "Profilo", href: "/dashboard/coach/profile", icon: UserRound },
+];
+
+export const patientNav: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true },
+  { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound },
+  { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true },
+  { label: "Cartella Clinica", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true },
+  { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true },
+  { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell },
+];
+
+export function navForRole(role: UserRole): NavItem[] {
+  switch (role) {
+    case "ADMIN":
+      return adminNav;
+    case "DOCTOR":
+      return doctorNav;
+    case "COACH":
+      return coachNav;
+    case "PATIENT":
+      return patientNav;
+  }
+}

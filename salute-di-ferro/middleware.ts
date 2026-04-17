@@ -3,29 +3,71 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 const PUBLIC_AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
 
+// Canonical dashboard home per role.
+const ROLE_HOME: Record<string, string> = {
+  ADMIN: "/dashboard/admin",
+  DOCTOR: "/dashboard/doctor",
+  COACH: "/dashboard/coach",
+  PATIENT: "/dashboard/patient",
+};
+
+// Allowed role(s) for each protected dashboard subtree, by URL prefix.
+// Longer prefixes must come first so they win the match.
+const ROLE_RULES: Array<{ prefix: string; roles: readonly string[] }> = [
+  { prefix: "/dashboard/admin", roles: ["ADMIN"] },
+  { prefix: "/dashboard/doctor", roles: ["DOCTOR", "ADMIN"] },
+  { prefix: "/dashboard/coach", roles: ["COACH", "ADMIN"] },
+  { prefix: "/dashboard/patient", roles: ["PATIENT", "ADMIN"] },
+];
+
+type DevBypassUser = {
+  app_metadata: { role: string };
+  user_metadata: Record<string, unknown>;
+};
+
 export async function middleware(request: NextRequest) {
   const { user: authUser, response } = await updateSession(request);
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
-  // TODO: remove dev bypass — pretend we're logged in as CLIENT in dev
-  const devBypass =
+  // ── Dev bypass ────────────────────────────────────────────────────────
+  // Enabled only when NODE_ENV=development and NEXT_PUBLIC_DEV_BYPASS=1.
+  // The impersonated role can be picked via ?role=doctor|coach|patient|admin
+  // (defaults to PATIENT). Query param is read once per request; set it
+  // anywhere inside /dashboard/* and it will propagate via the returned
+  // user object for the rest of the middleware chain.
+  const devBypassEnabled =
     process.env.NODE_ENV === "development" &&
     process.env.NEXT_PUBLIC_DEV_BYPASS === "1";
-  const user = devBypass
-    ? ({ app_metadata: { role: "CLIENT" }, user_metadata: {} } as unknown as typeof authUser)
-    : authUser;
+
+  let user: typeof authUser | DevBypassUser | null = authUser;
+  if (devBypassEnabled) {
+    const qRole = searchParams.get("role")?.toUpperCase();
+    const role =
+      qRole && ["ADMIN", "DOCTOR", "COACH", "PATIENT"].includes(qRole)
+        ? qRole
+        : "PATIENT";
+    user = {
+      app_metadata: { role },
+      user_metadata: {},
+    };
+  }
 
   const isAuthRoute = PUBLIC_AUTH_ROUTES.some((r) => pathname.startsWith(r));
   const isDashboard = pathname.startsWith("/dashboard");
 
-  // Already authenticated → keep them out of auth pages.
+  // Authenticated users cannot sit on auth pages — bounce them to their home.
   if (user && isAuthRoute) {
+    const role =
+      (user.app_metadata?.role as string | undefined) ??
+      (user.user_metadata?.role as string | undefined);
+    const home = (role && ROLE_HOME[role]) ?? "/dashboard";
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = home;
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
-  // Protect dashboard.
+  // Unauthenticated → any /dashboard route bounces to /login with redirectTo.
   if (!user && isDashboard) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -34,24 +76,24 @@ export async function middleware(request: NextRequest) {
   }
 
   // Role-based routing inside /dashboard.
-  if (user && isDashboard && !devBypass) {
+  if (user && isDashboard) {
     const role =
       (user.app_metadata?.role as string | undefined) ??
       (user.user_metadata?.role as string | undefined);
 
-    const wantsCoach = pathname.startsWith("/dashboard/coach");
-    const wantsClient = pathname.startsWith("/dashboard/client");
-    const wantsAdmin = pathname.startsWith("/dashboard/admin");
-
-    const allowed =
-      (wantsCoach && (role === "COACH" || role === "ADMIN")) ||
-      (wantsClient && role === "CLIENT") ||
-      (wantsAdmin && role === "ADMIN") ||
-      (!wantsCoach && !wantsClient && !wantsAdmin);
-
-    if (!allowed) {
+    // /dashboard itself is a router — send each role to its home.
+    if (pathname === "/dashboard" || pathname === "/dashboard/") {
+      const home = (role && ROLE_HOME[role]) ?? "/login";
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = home;
+      return NextResponse.redirect(url);
+    }
+
+    const rule = ROLE_RULES.find((r) => pathname.startsWith(r.prefix));
+    if (rule && (!role || !rule.roles.includes(role))) {
+      const home = (role && ROLE_HOME[role]) ?? "/login";
+      const url = request.nextUrl.clone();
+      url.pathname = home;
       return NextResponse.redirect(url);
     }
   }

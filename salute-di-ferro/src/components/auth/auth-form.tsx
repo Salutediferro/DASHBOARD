@@ -19,13 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import {
   loginSchema,
@@ -53,11 +46,12 @@ export function AuthForm({ variant }: Props) {
   const registerForm = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
       confirmPassword: "",
-      role: "CLIENT",
+      role: "PATIENT",
     },
   });
 
@@ -76,41 +70,47 @@ export function AuthForm({ variant }: Props) {
 
   async function onRegister(values: RegisterInput) {
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        data: { fullName: values.fullName, role: values.role },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+
+    // Public signup always creates a PATIENT. Server enforces this — we
+    // force the role client-side too so the user doesn't see a role selector.
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        role: "PATIENT",
+      }),
     });
 
-    if (error) {
+    if (!res.ok) {
       setLoading(false);
-      toast.error("Registrazione fallita", { description: error.message });
+      const body = await res.json().catch(() => ({}));
+      toast.error("Registrazione fallita", {
+        description:
+          typeof body.error === "string" ? body.error : "Riprova più tardi",
+      });
       return;
     }
 
-    if (data.session) {
-      // Sync DB profile (email confirmation disabled).
-      await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: values.fullName,
-          role: values.role,
-        }),
+    // Auth user created server-side — now sign in to establish the session.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+    setLoading(false);
+    if (signInError) {
+      toast.error("Login post-registrazione fallito", {
+        description: signInError.message,
       });
-      setLoading(false);
-      toast.success("Account creato");
-      const target =
-        values.role === "COACH" ? "/dashboard/coach" : "/dashboard/client";
-      router.replace(target);
-      router.refresh();
-    } else {
-      setLoading(false);
-      toast.success("Controlla la tua email per confermare l'account");
+      return;
     }
+
+    toast.success("Account creato");
+    router.replace("/dashboard/patient");
+    router.refresh();
   }
 
   return (
@@ -174,14 +174,31 @@ export function AuthForm({ variant }: Props) {
             onSubmit={registerForm.handleSubmit(onRegister)}
             id="register-form"
           >
-            <div className="grid gap-2">
-              <Label htmlFor="fullName">Nome completo</Label>
-              <Input id="fullName" {...registerForm.register("fullName")} />
-              {registerForm.formState.errors.fullName && (
-                <p className="text-destructive text-sm">
-                  {registerForm.formState.errors.fullName.message}
-                </p>
-              )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">Nome</Label>
+                <Input
+                  id="firstName"
+                  {...registerForm.register("firstName")}
+                />
+                {registerForm.formState.errors.firstName && (
+                  <p className="text-destructive text-sm">
+                    {registerForm.formState.errors.firstName.message}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Cognome</Label>
+                <Input
+                  id="lastName"
+                  {...registerForm.register("lastName")}
+                />
+                {registerForm.formState.errors.lastName && (
+                  <p className="text-destructive text-sm">
+                    {registerForm.formState.errors.lastName.message}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
@@ -224,23 +241,6 @@ export function AuthForm({ variant }: Props) {
                   {registerForm.formState.errors.confirmPassword.message}
                 </p>
               )}
-            </div>
-            <div className="grid gap-2">
-              <Label>Ruolo</Label>
-              <Select
-                defaultValue="CLIENT"
-                onValueChange={(v) =>
-                  registerForm.setValue("role", v as "COACH" | "CLIENT")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CLIENT">Cliente</SelectItem>
-                  <SelectItem value="COACH">Coach</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </form>
         )}

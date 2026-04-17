@@ -7,18 +7,32 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Body of POST /api/auth/register.
+ *
+ * Anyone may register as PATIENT.
+ * Only an authenticated ADMIN may create DOCTOR or COACH users.
+ * ADMIN creation is not exposed here (seed or manual promotion).
+ */
 export const registerSchema = z
   .object({
-    fullName: z.string().min(2, "Inserisci il tuo nome"),
     email: z.string().email("Email non valida"),
     password: z.string().min(8, "Minimo 8 caratteri"),
-    confirmPassword: z.string(),
-    role: z.enum(["COACH", "CLIENT"]),
+    confirmPassword: z.string().optional(),
+    firstName: z.string().trim().min(1, "Nome obbligatorio").max(80),
+    lastName: z.string().trim().min(1, "Cognome obbligatorio").max(80),
+    sex: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
+    birthDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD")
+      .nullable()
+      .optional(),
+    role: z.enum(["DOCTOR", "COACH", "PATIENT"]),
   })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Le password non coincidono",
-    path: ["confirmPassword"],
-  });
+  .refine(
+    (d) => !d.confirmPassword || d.password === d.confirmPassword,
+    { message: "Le password non coincidono", path: ["confirmPassword"] },
+  );
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 

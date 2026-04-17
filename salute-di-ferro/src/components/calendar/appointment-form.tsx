@@ -1,9 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import type {
+  AppointmentType,
+  ProfessionalRole,
+} from "@prisma/client";
 
 import {
   Dialog,
@@ -12,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,228 +27,327 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type {
-  Appointment,
-  AppointmentType,
-} from "@/lib/appointments";
-import type { ClientListItem } from "@/lib/mock-clients";
+import {
+  APPOINTMENT_TYPES,
+  APPOINTMENT_TYPE_LABELS,
+  PROFESSIONAL_ROLES,
+} from "@/lib/validators/appointment";
+import { SlotPicker } from "./slot-picker";
+import { useCreateAppointment } from "@/lib/hooks/use-appointments";
+import type { FreeSlot } from "@/lib/hooks/use-availability";
+
+type Professional = {
+  relationshipId: string;
+  professionalRole: ProfessionalRole;
+  professional: { id: string; fullName: string; email: string; role: string };
+};
+
+type PatientListItem = {
+  patientId: string;
+  patient: { id: string; fullName: string };
+};
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  initialStart: Date | null;
-  existing: Appointment | null;
+  mode: "PATIENT" | "PROFESSIONAL";
+  /** When mode=PROFESSIONAL: the current professional's role (DOCTOR|COACH). */
+  professionalRole?: ProfessionalRole;
 };
 
-const DURATIONS = [30, 45, 60, 90];
-
-function toLocalInput(d: Date) {
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
+/**
+ * Appointment creation form, used by both the patient booking flow and
+ * the professional manual creation flow. Submits to POST /api/appointments.
+ *
+ * PATIENT mode: pick (role, professional) → pick slot → type + notes
+ * PROFESSIONAL mode: pick patient → date/time → type + notes
+ */
 export function AppointmentForm({
   open,
   onOpenChange,
-  initialStart,
-  existing,
+  mode,
+  professionalRole,
 }: Props) {
-  const qc = useQueryClient();
+  const create = useCreateAppointment();
 
-  const [clientId, setClientId] = React.useState("");
-  const [clientName, setClientName] = React.useState("");
-  const [start, setStart] = React.useState("");
-  const [duration, setDuration] = React.useState(60);
-  const [type, setType] = React.useState<AppointmentType>("IN_PERSON");
+  // shared
+  const [type, setType] = React.useState<AppointmentType>(
+    mode === "PATIENT" ? "VIDEO_CALL" : "VISIT",
+  );
   const [notes, setNotes] = React.useState("");
+  const [meetingUrl, setMeetingUrl] = React.useState("");
+
+  // patient mode
+  const [pickedRole, setPickedRole] =
+    React.useState<ProfessionalRole>("DOCTOR");
+  const [pickedProfessionalId, setPickedProfessionalId] =
+    React.useState<string>("");
+  const [slot, setSlot] = React.useState<FreeSlot | null>(null);
+
+  // professional mode
+  const [pickedPatientId, setPickedPatientId] = React.useState<string>("");
+  const [startLocal, setStartLocal] = React.useState<string>("");
+  const [durationMin, setDurationMin] = React.useState<number>(30);
 
   React.useEffect(() => {
-    if (existing) {
-      setClientId(existing.clientId);
-      setClientName(existing.clientName);
-      setStart(toLocalInput(new Date(existing.startTime)));
-      const d = Math.round(
-        (new Date(existing.endTime).getTime() -
-          new Date(existing.startTime).getTime()) /
-          60000,
-      );
-      setDuration(d);
-      setType(existing.type);
-      setNotes(existing.notes ?? "");
-    } else if (initialStart) {
-      setStart(toLocalInput(initialStart));
-      setClientId("");
-      setClientName("");
-      setType("IN_PERSON");
-      setDuration(60);
+    if (!open) {
       setNotes("");
+      setMeetingUrl("");
+      setSlot(null);
+      setPickedProfessionalId("");
+      setPickedPatientId("");
+      setStartLocal("");
     }
-  }, [existing, initialStart, open]);
+  }, [open]);
 
-  const { data: clientsData } = useQuery<{
-    items: ClientListItem[];
-    total: number;
-  }>({
-    queryKey: ["clients-for-calendar"],
+  // Patient mode: their active professionals.
+  const { data: professionals = [] } = useQuery<Professional[]>({
+    queryKey: ["me", "professionals"],
+    enabled: open && mode === "PATIENT",
     queryFn: async () => {
-      const res = await fetch("/api/clients?status=ACTIVE&perPage=100");
+      const res = await fetch("/api/me/professionals", { cache: "no-store" });
+      if (!res.ok) throw new Error("Errore");
       return res.json();
     },
-    enabled: open,
   });
+
+  const filteredProfessionals = professionals.filter(
+    (p) => p.professionalRole === pickedRole,
+  );
+
+  // Professional mode: the caller's active patients.
+  const { data: myPatients } = useQuery<{
+    items: PatientListItem[];
+    total: number;
+  }>({
+    queryKey: ["my-patients"],
+    enabled: open && mode === "PROFESSIONAL",
+    queryFn: async () => {
+      const res = await fetch("/api/clients?status=ACTIVE&perPage=100");
+      if (!res.ok) throw new Error("Errore");
+      return res.json();
+    },
+  });
+  const patientItems = myPatients?.items ?? [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const startDate = new Date(start);
-      const endDate = new Date(startDate.getTime() + duration * 60000);
-      const payload = {
-        clientId,
-        clientName,
+      if (mode === "PATIENT") {
+        if (!pickedProfessionalId || !slot) {
+          throw new Error("Seleziona professionista e slot");
+        }
+        return create.mutateAsync({
+          professionalId: pickedProfessionalId,
+          professionalRole: pickedRole,
+          startTime: slot.start,
+          endTime: slot.end,
+          type,
+          notes: notes || null,
+          meetingUrl: meetingUrl || null,
+        });
+      }
+      if (!pickedPatientId || !startLocal) {
+        throw new Error("Seleziona paziente e orario");
+      }
+      const startDate = new Date(startLocal);
+      return create.mutateAsync({
+        patientId: pickedPatientId,
         startTime: startDate.toISOString(),
-        endTime: endDate.toISOString(),
+        durationMin,
         type,
         notes: notes || null,
-        meetingUrl:
-          type === "VIDEO_CALL" ? "https://meet.example.com/demo" : null,
-      };
-      const url = existing
-        ? `/api/appointments/${existing.id}`
-        : "/api/appointments";
-      const res = await fetch(url, {
-        method: existing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        meetingUrl: meetingUrl || null,
       });
-      if (!res.ok) throw new Error("Errore salvataggio");
-      return res.json();
     },
     onSuccess: () => {
-      toast.success(existing ? "Appuntamento aggiornato" : "Appuntamento creato");
-      qc.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Appuntamento creato");
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (!existing) return;
-      const res = await fetch(`/api/appointments/${existing.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error();
-    },
-    onSuccess: () => {
-      toast.success("Appuntamento eliminato");
-      qc.invalidateQueries({ queryKey: ["appointments"] });
-      onOpenChange(false);
-    },
-  });
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {existing ? "Modifica appuntamento" : "Nuovo appuntamento"}
-          </DialogTitle>
+          <DialogTitle>Nuovo appuntamento</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label>Cliente</Label>
+
+        <div className="flex flex-col gap-4">
+          {mode === "PATIENT" && (
+            <>
+              <div className="grid gap-2">
+                <Label>Con chi</Label>
+                <Select
+                  value={pickedRole}
+                  onValueChange={(v) => {
+                    setPickedRole(v as ProfessionalRole);
+                    setPickedProfessionalId("");
+                    setSlot(null);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROFESSIONAL_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r === "DOCTOR" ? "Medico" : "Coach"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Professionista</Label>
+                <Select
+                  value={pickedProfessionalId}
+                  onValueChange={(v) => {
+                    setPickedProfessionalId(v ?? "");
+                    setSlot(null);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredProfessionals.length === 0 && (
+                      <SelectItem value="__none" disabled>
+                        Nessuno disponibile
+                      </SelectItem>
+                    )}
+                    {filteredProfessionals.map((p) => (
+                      <SelectItem
+                        key={p.professional.id}
+                        value={p.professional.id}
+                      >
+                        {p.professional.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <SlotPicker
+                professionalId={pickedProfessionalId || null}
+                value={slot}
+                onChange={setSlot}
+              />
+            </>
+          )}
+
+          {mode === "PROFESSIONAL" && (
+            <>
+              <div className="grid gap-2">
+                <Label>Paziente</Label>
+                <Select
+                  value={pickedPatientId}
+                  onValueChange={(v) => setPickedPatientId(v ?? "")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {patientItems.length === 0 && (
+                      <SelectItem value="__none" disabled>
+                        Nessun paziente attivo
+                      </SelectItem>
+                    )}
+                    {patientItems.map((rel) => (
+                      <SelectItem key={rel.patientId} value={rel.patientId}>
+                        {rel.patient.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="start">Data e ora</Label>
+                  <Input
+                    id="start"
+                    type="datetime-local"
+                    value={startLocal}
+                    onChange={(e) => setStartLocal(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="dur">Durata (min)</Label>
+                  <Select
+                    value={String(durationMin)}
+                    onValueChange={(v) => setDurationMin(Number(v))}
+                  >
+                    <SelectTrigger id="dur">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[15, 30, 45, 60, 90, 120].map((m) => (
+                        <SelectItem key={m} value={String(m)}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="grid gap-2">
+            <Label>Tipo</Label>
             <Select
-              value={clientId}
-              onValueChange={(v) => {
-                setClientId(v ?? "");
-                const c = clientsData?.items.find((x) => x.id === v);
-                setClientName(c?.fullName ?? "");
-              }}
+              value={type}
+              onValueChange={(v) => setType(v as AppointmentType)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Seleziona..." />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(clientsData?.items ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.fullName}
+                {APPOINTMENT_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {APPOINTMENT_TYPE_LABELS[t]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>Data e ora</Label>
+
+          {type === "VIDEO_CALL" && (
+            <div className="grid gap-2">
+              <Label htmlFor="meet">Link meeting (opzionale)</Label>
               <Input
-                type="datetime-local"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                id="meet"
+                value={meetingUrl}
+                onChange={(e) => setMeetingUrl(e.target.value)}
+                placeholder="https://meet.example.com/xyz"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Durata</Label>
-              <Select
-                value={String(duration)}
-                onValueChange={(v) => setDuration(Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURATIONS.map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      {d} min
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Tipo</Label>
-            <Select value={type} onValueChange={(v) => setType(v as AppointmentType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="IN_PERSON">In persona</SelectItem>
-                <SelectItem value="VIDEO_CALL">Video call</SelectItem>
-                <SelectItem value="CHECK_IN">Check-in</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Note</Label>
+          )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="notes">Note</Label>
             <Textarea
+              id="notes"
+              rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
             />
           </div>
         </div>
-        <DialogFooter className="flex justify-between">
-          {existing && (
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              className="text-destructive hover:bg-destructive/10 mr-auto flex h-11 items-center gap-1 rounded-md px-3 text-sm"
-            >
-              <Trash2 className="h-4 w-4" />
-              Elimina
-            </button>
-          )}
-          <button
+
+        <DialogFooter>
+          <Button
             type="button"
             onClick={() => saveMutation.mutate()}
-            disabled={
-              saveMutation.isPending || !clientId || !start
-            }
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
+            disabled={saveMutation.isPending}
           >
-            {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {existing ? "Salva" : "Crea"}
-          </button>
+            {saveMutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {mode === "PATIENT" ? "Prenota" : "Crea"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

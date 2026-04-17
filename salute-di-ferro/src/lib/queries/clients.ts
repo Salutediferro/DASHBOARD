@@ -1,35 +1,42 @@
-// Real Prisma queries for the client module.
+// Real Prisma queries for the patient module.
 // Currently the API routes use mock-clients.ts; switch to these when the
-// Supabase <-> Prisma User link is in place for all coaches.
+// Supabase <-> Prisma User link is in place for all professionals.
 
 import { prisma } from "@/lib/prisma";
-import type { CoachClientStatus, Prisma } from "@prisma/client";
+import type {
+  CareRelationshipStatus,
+  Prisma,
+  ProfessionalRole,
+} from "@prisma/client";
 
-export type ListClientsArgs = {
-  coachId: string;
+export type ListPatientsArgs = {
+  professionalId: string;
+  professionalRole?: ProfessionalRole;
   q?: string;
-  status?: CoachClientStatus | "ALL";
+  status?: CareRelationshipStatus | "ALL";
   page?: number;
   perPage?: number;
   sortBy?: "fullName" | "createdAt";
   sortDir?: "asc" | "desc";
 };
 
-export async function listClientsForCoach({
-  coachId,
+export async function listPatientsForProfessional({
+  professionalId,
+  professionalRole,
   q,
   status = "ALL",
   page = 1,
   perPage = 20,
   sortBy = "fullName",
   sortDir = "asc",
-}: ListClientsArgs) {
-  const where: Prisma.CoachClientWhereInput = {
-    coachId,
+}: ListPatientsArgs) {
+  const where: Prisma.CareRelationshipWhereInput = {
+    professionalId,
+    ...(professionalRole ? { professionalRole } : {}),
     ...(status !== "ALL" ? { status } : {}),
     ...(q
       ? {
-          client: {
+          patient: {
             OR: [
               { fullName: { contains: q, mode: "insensitive" } },
               { email: { contains: q, mode: "insensitive" } },
@@ -40,10 +47,10 @@ export async function listClientsForCoach({
   };
 
   const [relations, total] = await Promise.all([
-    prisma.coachClient.findMany({
+    prisma.careRelationship.findMany({
       where,
       include: {
-        client: {
+        patient: {
           select: {
             id: true,
             fullName: true,
@@ -56,31 +63,28 @@ export async function listClientsForCoach({
       },
       orderBy:
         sortBy === "fullName"
-          ? { client: { fullName: sortDir } }
+          ? { patient: { fullName: sortDir } }
           : { startDate: sortDir },
       skip: (page - 1) * perPage,
       take: perPage,
     }),
-    prisma.coachClient.count({ where }),
+    prisma.careRelationship.count({ where }),
   ]);
 
   return { items: relations, total };
 }
 
-export async function getClientDetail(coachId: string, clientId: string) {
-  const relation = await prisma.coachClient.findFirst({
-    where: { coachId, clientId },
+export async function getPatientDetail(
+  professionalId: string,
+  patientId: string,
+) {
+  const relation = await prisma.careRelationship.findFirst({
+    where: { professionalId, patientId },
     include: {
-      client: {
+      patient: {
         include: {
-          workoutLogs: { orderBy: { date: "desc" }, take: 10 },
           biometricLogs: { orderBy: { date: "desc" }, take: 30 },
-          checkInsAsClient: { orderBy: { date: "desc" }, take: 10 },
-          clientNutritionPlans: {
-            where: { isActive: true },
-            include: { meals: true },
-            take: 1,
-          },
+          checkInsAsPatient: { orderBy: { date: "desc" }, take: 10 },
         },
       },
     },
@@ -88,15 +92,24 @@ export async function getClientDetail(coachId: string, clientId: string) {
   return relation;
 }
 
-export async function createClientForCoach(args: {
-  coachId: string;
+export async function createPatientForProfessional(args: {
+  professionalId: string;
+  professionalRole: ProfessionalRole;
   organizationId: string;
   fullName: string;
   email: string;
   phone?: string;
   notes?: string;
 }) {
-  const { coachId, organizationId, fullName, email, phone, notes } = args;
+  const {
+    professionalId,
+    professionalRole,
+    organizationId,
+    fullName,
+    email,
+    phone,
+    notes,
+  } = args;
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -104,24 +117,29 @@ export async function createClientForCoach(args: {
         email,
         fullName,
         phone,
-        role: "CLIENT",
+        role: "PATIENT",
         organizationId,
       },
     });
-    await tx.coachClient.create({
-      data: { coachId, clientId: user.id, notes },
+    await tx.careRelationship.create({
+      data: {
+        professionalId,
+        professionalRole,
+        patientId: user.id,
+        notes,
+      },
     });
     return user;
   });
 }
 
-export async function updateClientStatus(
-  coachId: string,
-  clientId: string,
-  status: CoachClientStatus,
+export async function updateCareRelationshipStatus(
+  professionalId: string,
+  patientId: string,
+  status: CareRelationshipStatus,
 ) {
-  return prisma.coachClient.updateMany({
-    where: { coachId, clientId },
+  return prisma.careRelationship.updateMany({
+    where: { professionalId, patientId },
     data: { status, ...(status === "ARCHIVED" ? { endDate: new Date() } : {}) },
   });
 }

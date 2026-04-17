@@ -15,11 +15,6 @@ export type NotificationRow = {
   createdAt: string;
 };
 
-// TODO: remove dev bypass
-function devHeaders(): HeadersInit {
-  return process.env.NODE_ENV === "development" ? { "x-dev-bypass": "1" } : {};
-}
-
 export function useNotifications() {
   const qc = useQueryClient();
 
@@ -29,7 +24,7 @@ export function useNotifications() {
       notifications: NotificationRow[];
       unreadCount: number;
     }> => {
-      const res = await fetch("/api/notifications", { headers: devHeaders() });
+      const res = await fetch("/api/notifications");
       if (!res.ok) return { notifications: [], unreadCount: 0 };
       return res.json();
     },
@@ -68,10 +63,7 @@ export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/notifications/${id}`, {
-        method: "PATCH",
-        headers: devHeaders(),
-      });
+      const res = await fetch(`/api/notifications/${id}`, { method: "PATCH" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -83,10 +75,7 @@ export function useMarkAllNotificationsRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/notifications/read-all", {
-        method: "POST",
-        headers: devHeaders(),
-      });
+      const res = await fetch("/api/notifications/read-all", { method: "POST" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },

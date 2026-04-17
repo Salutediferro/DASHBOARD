@@ -40,7 +40,9 @@ export function Sidebar({ items }: Props) {
           const active =
             pathname === item.href ||
             (item.href !== "/dashboard/coach" &&
-              item.href !== "/dashboard/client" &&
+              item.href !== "/dashboard/doctor" &&
+              item.href !== "/dashboard/patient" &&
+              item.href !== "/dashboard/admin" &&
               pathname.startsWith(item.href));
           return (
             <Link
