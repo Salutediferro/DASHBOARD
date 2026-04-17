@@ -118,17 +118,78 @@ export function AuthForm({ variant }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLogin, inviteToken]);
 
+  // MFA step state. When the user has an enrolled TOTP factor, password
+  // sign-in lands in `aal1` and we need a second-factor challenge to
+  // upgrade to `aal2` before letting them into the dashboard.
+  const [mfaStep, setMfaStep] = React.useState<null | {
+    factorId: string;
+    challengeId: string;
+  }>(null);
+  const [mfaCode, setMfaCode] = React.useState("");
+
   async function onLogin(values: LoginInput) {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword(values);
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error("Accesso fallito", { description: error.message });
       return;
     }
-    // Fire-and-forget LOGIN audit. Never block the redirect on it.
+
+    // Detect whether we need to step up to aal2 (user has MFA enrolled).
+    const { data: aalData } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (
+      aalData &&
+      aalData.currentLevel === "aal1" &&
+      aalData.nextLevel === "aal2"
+    ) {
+      // Pick the first verified TOTP factor on the user. If none are
+      // verified we just proceed with aal1 — login still works, the
+      // /dashboard/settings/security page prompts them to finish setup.
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const totp = factorsData?.totp?.find((f) => f.status === "verified");
+      if (totp) {
+        const { data: chal, error: chalErr } =
+          await supabase.auth.mfa.challenge({ factorId: totp.id });
+        if (chalErr || !chal) {
+          setLoading(false);
+          toast.error("Impossibile avviare la verifica 2FA", {
+            description: chalErr?.message,
+          });
+          return;
+        }
+        setMfaStep({ factorId: totp.id, challengeId: chal.id });
+        setLoading(false);
+        return;
+      }
+    }
+
+    setLoading(false);
     void fetch("/api/audit/login", { method: "POST" }).catch(() => undefined);
     toast.success("Bentornato!");
+    router.replace(redirectTo);
+    router.refresh();
+  }
+
+  async function onMfaVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mfaStep) return;
+    setLoading(true);
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaStep.factorId,
+      challengeId: mfaStep.challengeId,
+      code: mfaCode.trim(),
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Codice non valido", { description: error.message });
+      return;
+    }
+    void fetch("/api/audit/login", { method: "POST" }).catch(() => undefined);
+    toast.success("Accesso completato");
+    setMfaStep(null);
+    setMfaCode("");
     router.replace(redirectTo);
     router.refresh();
   }
@@ -230,7 +291,49 @@ export function AuthForm({ variant }: Props) {
       </CardHeader>
 
       <CardContent>
-        {!isLogin && inviteToken && (
+        {mfaStep && (
+          <form onSubmit={onMfaVerify} className="flex flex-col gap-4">
+            <div className="bg-primary/5 border-primary/30 rounded-md border p-3 text-sm">
+              Inserisci il codice a 6 cifre dall&apos;app di autenticazione
+              (es. Google Authenticator, Authy).
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="mfaCode">Codice 2FA</Label>
+              <Input
+                id="mfaCode"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={mfaCode}
+                onChange={(e) =>
+                  setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                className="h-12 text-center text-2xl tracking-[0.3em] tabular-nums"
+                autoFocus
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={loading || mfaCode.length !== 6}
+              className="w-full"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Verifica
+            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                setMfaStep(null);
+                setMfaCode("");
+              }}
+              className="text-muted-foreground hover:text-primary text-center text-xs"
+            >
+              Annulla
+            </button>
+          </form>
+        )}
+        {!mfaStep && !isLogin && inviteToken && (
           <div className="mb-4">
             {inviteChecking ? (
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -266,7 +369,8 @@ export function AuthForm({ variant }: Props) {
             ) : null}
           </div>
         )}
-        {isLogin ? (
+        {!mfaStep &&
+          (isLogin ? (
           <form
             className="flex flex-col gap-4"
             onSubmit={loginForm.handleSubmit(onLogin)}
@@ -432,20 +536,22 @@ export function AuthForm({ variant }: Props) {
               )}
             </div>
           </form>
-        )}
+          ))}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-3">
-        <Button
-          type="submit"
-          form={isLogin ? "login-form" : "register-form"}
-          disabled={loading}
-          className="w-full"
-          size="lg"
-        >
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isLogin ? "Accedi" : "Crea account"}
-        </Button>
+        {!mfaStep && (
+          <Button
+            type="submit"
+            form={isLogin ? "login-form" : "register-form"}
+            disabled={loading}
+            className="w-full"
+            size="lg"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLogin ? "Accedi" : "Crea account"}
+          </Button>
+        )}
         <p className="text-muted-foreground text-center text-sm">
           {isLogin ? (
             <>
