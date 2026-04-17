@@ -159,7 +159,41 @@ export function AuthForm({ variant }: Props) {
       return;
     }
 
-    // Auth user created server-side — now sign in to establish the session.
+    const body = (await res.json().catch(() => ({}))) as {
+      requiresEmailConfirmation?: boolean;
+    };
+
+    // PATIENT signup → the auth user was created without email_confirm,
+    // so signInWithPassword would fail with "Email not confirmed". Ask
+    // Supabase to send the confirmation email and redirect to the
+    // "check your inbox" screen. The user finishes the flow by clicking
+    // the link in the email, which routes through /auth/callback and
+    // establishes the session.
+    if (body.requiresEmailConfirmation) {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: "signup",
+        email: values.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      setLoading(false);
+      if (resendErr) {
+        // Non-fatal: the user can resend from the check-email screen.
+        toast.error("Account creato ma invio email fallito", {
+          description: resendErr.message,
+        });
+      } else {
+        toast.success("Ti abbiamo inviato una email di conferma");
+      }
+      router.replace(
+        `/register/check-email?email=${encodeURIComponent(values.email)}`,
+      );
+      return;
+    }
+
+    // Legacy path (non-PATIENT, e.g. admin-provisioned) — proceed with
+    // password sign-in.
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: values.email,
       password: values.password,

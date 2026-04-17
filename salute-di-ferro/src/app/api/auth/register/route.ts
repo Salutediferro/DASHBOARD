@@ -130,11 +130,20 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  // Email-verification policy:
+  //   - PATIENT public signup → email_confirm: false. The auth-form then
+  //     triggers `supabase.auth.resend({ type: 'signup' })` to send the
+  //     confirmation email; the user cannot log in until they click it.
+  //   - ADMIN-provisioning DOCTOR/COACH → email_confirm: true. The admin
+  //     communicates the temp password out-of-band and the pro logs in
+  //     directly. (A proper invite-email flow for pros is a follow-up.)
+  const requireEmailConfirmation = targetRole === "PATIENT";
+
   // Create the Supabase auth user with role in app_metadata.
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
+    email_confirm: !requireEmailConfirmation,
     app_metadata: { role: targetRole satisfies UserRole },
     user_metadata: { firstName, lastName },
   });
@@ -215,7 +224,10 @@ export async function POST(req: Request) {
       },
       request: req,
     });
-    return NextResponse.json(dbUser, { status: 201 });
+    return NextResponse.json(
+      { ...dbUser, requiresEmailConfirmation: requireEmailConfirmation },
+      { status: 201 },
+    );
   } catch (e) {
     // Roll back the auth user if the Prisma insert fails so we don't leave
     // an orphaned auth record.
