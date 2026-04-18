@@ -289,10 +289,11 @@ export function AuthForm({ variant }: Props) {
     }
 
     // Legacy path (non-PATIENT, e.g. admin-provisioned) — proceed with
-    // password sign-in.
+    // password sign-in. The register form always collects a password
+    // so `values.password` is present here by construction.
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: values.email,
-      password: values.password,
+      password: values.password ?? "",
     });
     setLoading(false);
     if (signInError) {

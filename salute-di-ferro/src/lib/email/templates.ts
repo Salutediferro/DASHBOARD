@@ -117,6 +117,66 @@ export function invitationEmail(params: {
   return { html, text };
 }
 
+// ── Welcome professional (admin-provisioned onboarding) ──────────────
+
+export function welcomeProfessionalEmail(params: {
+  /** Action link from supabase.auth.admin.generateLink (type: recovery).
+   *  Clicking it establishes a session and redirects to set-password. */
+  setupUrl: string;
+  firstName: string;
+  role: "DOCTOR" | "COACH";
+}): { html: string; text: string; subject: string } {
+  const roleLabel = params.role === "DOCTOR" ? "medico" : "coach";
+  const firstName = escapeHtml(params.firstName);
+  const subject = `Benvenuto in Salute di Ferro — imposta la tua password`;
+
+  const html = layout(`
+    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">Ciao ${firstName},</td></tr>
+    <tr><td style="color:${MUTED};padding-bottom:20px;">
+      Il tuo account <strong style="color:${TEXT};">${roleLabel}</strong> su
+      <strong style="color:${TEXT};">Salute di Ferro</strong> è stato creato.
+      Per attivarlo devi impostare una password personale — scegli qualcosa
+      di robusto e che solo tu conosci.
+    </td></tr>
+    <tr><td align="center" style="padding:8px 0 24px;">
+      ${button(params.setupUrl, "Imposta la password e accedi")}
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
+      Per motivi di sicurezza il link scade entro 24 ore. Se scade, scrivici
+      a info@salutediferro.com e te ne invieremo uno nuovo.
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
+      <strong style="color:${TEXT};">Due consigli importanti</strong>:<br/>
+      1. Attiva l'autenticazione a due fattori (2FA) dal tuo profilo appena
+      sei dentro — obbligatoria per chi gestisce dati clinici.<br/>
+      2. Se hai ricevuto questa email senza averla richiesta, ignorala e
+      segnalaci il problema.
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;word-break:break-all;">
+      Se il bottone non funziona, copia e incolla questo link nel browser:<br/>
+      <span style="color:${TEXT};">${escapeHtml(params.setupUrl)}</span>
+    </td></tr>
+  `);
+
+  const text = [
+    `Ciao ${params.firstName},`,
+    "",
+    `Il tuo account ${roleLabel} su Salute di Ferro è stato creato.`,
+    "Per attivarlo imposta una password personale al link qui sotto:",
+    params.setupUrl,
+    "",
+    "Il link scade entro 24 ore.",
+    "",
+    "Consigli:",
+    "- Attiva il 2FA dal profilo appena dentro.",
+    "- Se non ti aspettavi questa email, ignorala.",
+    "",
+    "— Salute di Ferro",
+  ].join("\n");
+
+  return { html, text, subject };
+}
+
 // ── Appointment reminder ──────────────────────────────────────────────
 
 export function appointmentReminderEmail(params: {

@@ -17,7 +17,11 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const registerSchema = z
   .object({
     email: z.string().email("Email non valida"),
-    password: z.string().min(8, "Minimo 8 caratteri"),
+    /** PATIENT self-signup requires a password (used immediately to
+     *  sign in). Admin-provisioned DOCTOR / COACH do NOT send one:
+     *  the server generates a throw-away password and emails the pro
+     *  a password-setup link. */
+    password: z.string().min(8, "Minimo 8 caratteri").optional(),
     confirmPassword: z.string().optional(),
     firstName: z.string().trim().min(1, "Nome obbligatorio").max(80),
     lastName: z.string().trim().min(1, "Cognome obbligatorio").max(80),
@@ -52,6 +56,10 @@ export const registerSchema = z
         "Per registrarti come paziente devi accettare privacy, termini e il trattamento dei dati sanitari.",
       path: ["acceptTerms"],
     },
+  )
+  .refine(
+    (d) => d.role !== "PATIENT" || typeof d.password === "string",
+    { message: "Password obbligatoria", path: ["password"] },
   );
 
 export type RegisterInput = z.infer<typeof registerSchema>;

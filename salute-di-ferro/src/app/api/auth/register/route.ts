@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import type { UserRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators/auth";
 import { rateLimit, requestKey } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import { sendEmail } from "@/lib/email/send";
+import { welcomeProfessionalEmail } from "@/lib/email/templates";
 
 /**
  * POST /api/auth/register
@@ -133,18 +136,28 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // Email-verification policy:
-  //   - PATIENT public signup → email_confirm: false. The auth-form then
-  //     triggers `supabase.auth.resend({ type: 'signup' })` to send the
-  //     confirmation email; the user cannot log in until they click it.
-  //   - ADMIN-provisioning DOCTOR/COACH → email_confirm: true. The admin
-  //     communicates the temp password out-of-band and the pro logs in
-  //     directly. (A proper invite-email flow for pros is a follow-up.)
+  //   - PATIENT public signup → email_confirm: false. The auth-form
+  //     then triggers supabase.auth.resend({ type: 'signup' }) to send
+  //     the confirmation email; the user cannot log in until they
+  //     click it.
+  //   - ADMIN-provisioning DOCTOR/COACH → email_confirm: true (the admin
+  //     vouches for the address) + a random throw-away password nobody
+  //     will ever know. We then generate a "recovery" action-link via
+  //     supabase.auth.admin.generateLink and email it so the pro can
+  //     set their own password and sign in.
   const requireEmailConfirmation = targetRole === "PATIENT";
+  const isProProvisioning = targetRole !== "PATIENT";
+
+  // For pros the body doesn't carry a password — mint a high-entropy
+  // one that never leaves the server. Used only until the pro completes
+  // setup via the recovery link.
+  const effectivePassword =
+    password ?? randomBytes(48).toString("base64url");
 
   // Create the Supabase auth user with role in app_metadata.
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
-    password,
+    password: effectivePassword,
     email_confirm: !requireEmailConfirmation,
     app_metadata: { role: targetRole satisfies UserRole },
     user_metadata: { firstName, lastName },
@@ -207,6 +220,55 @@ export async function POST(req: Request) {
       return u;
     });
 
+    // For admin-provisioned pros, send a branded welcome email with a
+    // password-setup link. Best-effort: email failure doesn't roll back
+    // the account (admin can resend from the UI — future improvement).
+    let setupEmailStatus:
+      | "sent"
+      | "failed"
+      | "skipped"
+      | "link-only" = "skipped";
+    let setupLinkFallback: string | null = null;
+    if (isProProvisioning) {
+      const origin = new URL(req.url).origin;
+      const { data: linkData, error: linkErr } =
+        await admin.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: {
+            redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/set-password")}`,
+          },
+        });
+      const actionLink = linkData?.properties?.action_link;
+      if (linkErr || !actionLink) {
+        setupEmailStatus = "failed";
+      } else {
+        const tmpl = welcomeProfessionalEmail({
+          setupUrl: actionLink,
+          firstName,
+          role: targetRole as "DOCTOR" | "COACH",
+        });
+        const sent = await sendEmail({
+          to: email,
+          subject: tmpl.subject,
+          html: tmpl.html,
+          text: tmpl.text,
+          tags: [
+            { name: "type", value: "welcome-professional" },
+            { name: "role", value: targetRole },
+          ],
+        });
+        if (sent.ok) {
+          setupEmailStatus = "sent";
+        } else {
+          // The link is valid — let the admin UI copy/paste it out of
+          // band as a fallback.
+          setupEmailStatus = "link-only";
+          setupLinkFallback = actionLink;
+        }
+      }
+    }
+
     await logAudit({
       actorId: dbUser.id,
       action:
@@ -233,11 +295,23 @@ export async function POST(req: Request) {
               professionalRole: invite.professionalRole,
             }
           : {}),
+        ...(isProProvisioning ? { setupEmailStatus } : {}),
       },
       request: req,
     });
     return NextResponse.json(
-      { ...dbUser, requiresEmailConfirmation: requireEmailConfirmation },
+      {
+        ...dbUser,
+        requiresEmailConfirmation: requireEmailConfirmation,
+        ...(isProProvisioning
+          ? {
+              setupEmailStatus,
+              // Only exposed when the email couldn't be delivered so
+              // the admin can copy it manually — never shown on success.
+              setupLinkFallback,
+            }
+          : {}),
+      },
       { status: 201 },
     );
   } catch (e) {
