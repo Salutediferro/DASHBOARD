@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -70,6 +70,12 @@ export function UserMenu() {
         <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
           <UserIcon className="mr-2 h-4 w-4" />
           Profilo
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => router.push("/dashboard/settings/security")}
+        >
+          <Shield className="mr-2 h-4 w-4" />
+          Sicurezza (password · 2FA)
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">

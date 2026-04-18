@@ -3,6 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
+  KeyRound,
   Loader2,
   ShieldCheck,
   ShieldOff,
@@ -146,8 +147,80 @@ export function SecuritySettings() {
   const verified = factors?.filter((f) => f.status === "verified") ?? [];
   const hasVerified = verified.length > 0;
 
+  // Password change
+  const [newPw, setNewPw] = React.useState("");
+  const [confirmPw, setConfirmPw] = React.useState("");
+  const [pwBusy, setPwBusy] = React.useState(false);
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPw.length < 8) {
+      toast.error("La password deve avere almeno 8 caratteri");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      toast.error("Le password non coincidono");
+      return;
+    }
+    setPwBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    setPwBusy(false);
+    if (error) {
+      toast.error("Cambio password fallito", { description: error.message });
+      return;
+    }
+    toast.success("Password aggiornata");
+    setNewPw("");
+    setConfirmPw("");
+  }
+
   return (
     <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Cambia password
+          </CardTitle>
+          <CardDescription>
+            Usa una password lunga e unica. Minimo 8 caratteri.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={changePassword}>
+            <div className="grid gap-2">
+              <Label htmlFor="newPw">Nuova password</Label>
+              <Input
+                id="newPw"
+                type="password"
+                autoComplete="new-password"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                minLength={8}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirmPw">Conferma nuova password</Label>
+              <Input
+                id="confirmPw"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+                minLength={8}
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={pwBusy || newPw.length < 8 || newPw !== confirmPw}
+            >
+              {pwBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Aggiorna password
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
