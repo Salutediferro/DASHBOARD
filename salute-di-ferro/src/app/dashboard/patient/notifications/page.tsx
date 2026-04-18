@@ -16,7 +16,6 @@ import {
   ClipboardCheck,
   CreditCard,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import type { NotificationType } from "@prisma/client";
 
@@ -46,10 +45,9 @@ type ListResponse = {
   unreadCount: number;
 };
 
-const TYPE_META: Record<
-  NotificationType,
-  { label: string; icon: React.ReactNode }
-> = {
+type TypeMeta = { label: string; icon: React.ReactNode };
+
+const TYPE_META: Partial<Record<NotificationType, TypeMeta>> = {
   REMINDER: { label: "Promemoria", icon: <Calendar className="h-4 w-4" /> },
   CHECK_IN: {
     label: "Check-in",
@@ -57,7 +55,11 @@ const TYPE_META: Record<
   },
   PAYMENT: { label: "Pagamento", icon: <CreditCard className="h-4 w-4" /> },
   SYSTEM: { label: "Sistema", icon: <CircleAlert className="h-4 w-4" /> },
-  AI: { label: "AI", icon: <Sparkles className="h-4 w-4" /> },
+};
+
+const DEFAULT_META: TypeMeta = {
+  label: "Sistema",
+  icon: <CircleAlert className="h-4 w-4" />,
 };
 
 function formatWhen(iso: string) {
@@ -99,8 +101,34 @@ export default function PatientNotificationsPage() {
       if (!res.ok) throw new Error("Errore");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notifications"] });
+    // Flip the read state locally so the dot/badge disappear the instant
+    // the user clicks, without waiting for the server + refetch round-trip.
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ["notifications"] });
+      const snapshots: Array<[readonly unknown[], ListResponse | undefined]> =
+        [];
+      qc.getQueriesData<ListResponse>({ queryKey: ["notifications"] }).forEach(
+        ([key, data]) => {
+          snapshots.push([key, data]);
+          if (!data) return;
+          qc.setQueryData<ListResponse>(key, {
+            notifications: data.notifications.map((n) =>
+              n.id === id ? { ...n, isRead: true } : n,
+            ),
+            unreadCount: Math.max(0, data.unreadCount - 1),
+          });
+        },
+      );
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => {
+      // Keep the cache ultimately in sync with the server truth without
+      // forcing an immediate refetch — React Query will revalidate next
+      // time this query becomes stale.
+      qc.invalidateQueries({ queryKey: ["notifications"], refetchType: "none" });
     },
   });
 
@@ -197,7 +225,7 @@ export default function PatientNotificationsPage() {
           <CardContent className="p-0">
             <ul className="divide-border divide-y">
               {items.map((n) => {
-                const meta = TYPE_META[n.type];
+                const meta = TYPE_META[n.type] ?? DEFAULT_META;
                 const body = (
                   <>
                     <div

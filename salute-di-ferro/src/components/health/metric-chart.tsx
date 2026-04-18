@@ -1,16 +1,17 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Dynamic-import the recharts-heavy body so the card shell and its
+// loading skeleton render without pulling ~100KB of chart code upfront.
+const MetricChartBody = dynamic(() => import("./metric-chart-body"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-muted/40 h-48 w-full animate-pulse rounded-md" />
+  ),
+});
 
 type Point = { date: string; value: number | null };
 
@@ -22,11 +23,6 @@ type Props = {
   color?: string;
 };
 
-function fmt(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
-}
-
 export function MetricChart({
   title,
   unit,
@@ -34,7 +30,9 @@ export function MetricChart({
   emptyLabel = "Nessun dato disponibile",
   color = "#c9a96e",
 }: Props) {
-  const points = data.filter((p) => p.value != null);
+  const points = data.filter(
+    (p): p is { date: string; value: number } => p.value != null,
+  );
 
   return (
     <Card>
@@ -52,46 +50,12 @@ export function MetricChart({
             {emptyLabel}
           </p>
         ) : (
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={points}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={fmt}
-                  tick={{ fill: "#a1a1a1", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#a1a1a1", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={["dataMin - 1", "dataMax + 1"]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#1a1a1a",
-                    border: "1px solid #2a2a2a",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelFormatter={(v) => fmt(String(v))}
-                  formatter={(v) => [
-                    unit ? `${v} ${unit}` : String(v),
-                    title,
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={color}
-                  strokeWidth={2}
-                  dot={{ fill: color, r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <MetricChartBody
+            title={title}
+            unit={unit}
+            color={color}
+            data={points}
+          />
         )}
       </CardContent>
     </Card>

@@ -28,6 +28,7 @@ const USER_SELECT = {
   allergies: true,
   medications: true,
   injuries: true,
+  targetWeightKg: true,
   bio: true,
   specialties: true,
 } as const;
@@ -51,6 +52,7 @@ type DbUser = {
   allergies: string | null;
   medications: string | null;
   injuries: string | null;
+  targetWeightKg: number | null;
   bio: string | null;
   specialties: string | null;
 };
@@ -108,6 +110,8 @@ export async function PATCH(req: Request) {
   if (data.allergies !== undefined) updates.allergies = data.allergies;
   if (data.medications !== undefined) updates.medications = data.medications;
   if (data.injuries !== undefined) updates.injuries = data.injuries;
+  if (data.targetWeightKg !== undefined)
+    updates.targetWeightKg = data.targetWeightKg;
   if (data.bio !== undefined) updates.bio = data.bio;
   if (data.specialties !== undefined) updates.specialties = data.specialties;
 

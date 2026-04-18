@@ -21,39 +21,23 @@ import {
 import { Stepper } from "@/components/onboarding/stepper";
 import { useClientOnboarding } from "@/lib/stores/onboarding";
 
-const STEPS = ["Profilo", "Obiettivi", "Esperienza", "Attrezzatura", "Tutorial"];
-
-const GOALS = [
-  { v: "MASS", label: "Massa muscolare", emoji: "💪" },
-  { v: "CUTTING", label: "Definizione", emoji: "🔥" },
-  { v: "STRENGTH", label: "Forza", emoji: "🏋️" },
-  { v: "HEALTH", label: "Salute generale", emoji: "❤️" },
-  { v: "SPORT", label: "Sport specifico", emoji: "⚽" },
-] as const;
-
-const EQUIPMENT = [
-  { v: "GYM", label: "Palestra completa" },
-  { v: "HOME_GYM", label: "Home gym" },
-  { v: "DUMBBELLS", label: "Solo manubri" },
-  { v: "BODYWEIGHT", label: "Corpo libero" },
-  { v: "BANDS", label: "Elastici" },
-];
+const STEPS = ["Profilo", "Info cliniche", "Scopri"];
 
 const TUTORIAL_SLIDES = [
   {
-    title: "Il tuo allenamento sempre con te",
-    body: "Tracciamento set per set, timer riposo automatico, placeholder intelligenti dalle sessioni precedenti.",
-    emoji: "🏋️",
+    title: "Biometria & check-in settimanali",
+    body: "Registra peso, misure e come ti senti ogni settimana: il medico e il coach vedranno i tuoi progressi.",
+    emoji: "📈",
   },
   {
-    title: "Nutrizione su misura",
-    body: "Il tuo piano è sempre disponibile. Sostituzioni rapide se manca un alimento.",
-    emoji: "🥗",
+    title: "Referti sempre al sicuro",
+    body: "Carica analisi e visite nella cartella clinica. Solo tu decidi quali professionisti possono vederli.",
+    emoji: "📄",
   },
   {
-    title: "AI assistant dedicato",
-    body: "Dubbi su tecnica o dieta? Chiedi all'AI 24/7 con il contesto della tua scheda.",
-    emoji: "✨",
+    title: "In contatto con il tuo team",
+    body: "Prenota appuntamenti e scrivi direttamente al tuo medico o coach dalla chat.",
+    emoji: "💬",
   },
 ];
 
@@ -67,7 +51,7 @@ export default function ClientOnboardingPage() {
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "CLIENT", data }),
+        body: JSON.stringify({ role: "PATIENT", data }),
       });
       if (!res.ok) throw new Error();
       return res.json();
@@ -77,6 +61,7 @@ export default function ClientOnboardingPage() {
       reset();
       router.replace("/dashboard/patient");
     },
+    onError: () => toast.error("Errore durante il salvataggio"),
   });
 
   function next() {
@@ -87,22 +72,15 @@ export default function ClientOnboardingPage() {
     if (step > 1) setStep(step - 1);
   }
 
-  function toggleEquipment(v: string) {
-    const has = data.equipment.includes(v);
-    update({
-      equipment: has
-        ? data.equipment.filter((x) => x !== v)
-        : [...data.equipment, v],
-    });
-  }
-
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 pb-6">
       <header>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
           Benvenuto
         </h1>
-        <p className="text-muted-foreground text-sm">Parlaci di te</p>
+        <p className="text-muted-foreground text-sm">
+          Bastano pochi dati per iniziare.
+        </p>
       </header>
 
       <Stepper steps={STEPS} current={step} />
@@ -169,41 +147,41 @@ export default function ClientOnboardingPage() {
 
           {step === 2 && (
             <>
-              <div className="flex flex-col gap-2">
-                <Label>Obiettivo principale</Label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {GOALS.map((g) => (
-                    <button
-                      key={g.v}
-                      type="button"
-                      onClick={() => update({ goal: g.v })}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md border p-3 text-left transition-colors",
-                        data.goal === g.v
-                          ? "border-primary bg-primary/10"
-                          : "hover:bg-muted",
-                      )}
-                    >
-                      <span className="text-2xl">{g.emoji}</span>
-                      <span className="text-sm font-medium">{g.label}</span>
-                    </button>
-                  ))}
-                </div>
+              <p className="text-muted-foreground text-xs">
+                Queste informazioni aiutano medici e coach a offrirti un
+                percorso sicuro. Puoi aggiornarle in qualsiasi momento dal tuo
+                profilo.
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="allergies">Allergie</Label>
+                <Textarea
+                  id="allergies"
+                  rows={2}
+                  placeholder="Es. penicillina, lattosio, frutta secca..."
+                  value={data.allergies}
+                  onChange={(e) => update({ allergies: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="target">Peso target (opzionale)</Label>
-                <Input
-                  id="target"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  value={data.targetWeightKg ?? ""}
+                <Label htmlFor="conditions">Patologie note</Label>
+                <Textarea
+                  id="conditions"
+                  rows={2}
+                  placeholder="Es. ipertensione, diabete, tiroidite..."
+                  value={data.medicalConditions}
                   onChange={(e) =>
-                    update({
-                      targetWeightKg: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
+                    update({ medicalConditions: e.target.value })
+                  }
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="emergency">Contatto di emergenza</Label>
+                <Input
+                  id="emergency"
+                  placeholder="Nome e numero"
+                  value={data.emergencyContact}
+                  onChange={(e) =>
+                    update({ emergencyContact: e.target.value })
                   }
                 />
               </div>
@@ -211,85 +189,6 @@ export default function ClientOnboardingPage() {
           )}
 
           {step === 3 && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label>Livello</Label>
-                <Select
-                  value={data.experience}
-                  onValueChange={(v) =>
-                    update({
-                      experience: (v ?? "") as ClientExperience,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BEGINNER">Principiante</SelectItem>
-                    <SelectItem value="INTERMEDIATE">Intermedio</SelectItem>
-                    <SelectItem value="ADVANCED">Avanzato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="years">Anni di allenamento</Label>
-                <Input
-                  id="years"
-                  type="number"
-                  min={0}
-                  value={data.yearsTraining}
-                  onChange={(e) =>
-                    update({ yearsTraining: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="injuries">Infortuni o limitazioni</Label>
-                <Textarea
-                  id="injuries"
-                  rows={3}
-                  placeholder="Ernia, spalla, ginocchio..."
-                  value={data.injuries}
-                  onChange={(e) => update({ injuries: e.target.value })}
-                />
-              </div>
-            </>
-          )}
-
-          {step === 4 && (
-            <div className="flex flex-col gap-2">
-              <Label>Attrezzatura disponibile</Label>
-              <div className="grid grid-cols-1 gap-2">
-                {EQUIPMENT.map((e) => {
-                  const active = data.equipment.includes(e.v);
-                  return (
-                    <button
-                      key={e.v}
-                      type="button"
-                      onClick={() => toggleEquipment(e.v)}
-                      className={cn(
-                        "flex items-center justify-between rounded-md border p-3 text-left",
-                        active
-                          ? "border-primary bg-primary/10"
-                          : "hover:bg-muted",
-                      )}
-                    >
-                      <span className="text-sm font-medium">{e.label}</span>
-                      <input
-                        type="checkbox"
-                        readOnly
-                        checked={active}
-                        className="accent-primary pointer-events-none h-4 w-4"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
             <div className="flex flex-col gap-4">
               <div className="animate-in fade-in-0 slide-in-from-right-4 duration-500 flex flex-col items-center gap-3 py-6 text-center">
                 <div className="text-5xl">{TUTORIAL_SLIDES[slide]!.emoji}</div>
@@ -354,5 +253,3 @@ export default function ClientOnboardingPage() {
     </div>
   );
 }
-
-type ClientExperience = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "";

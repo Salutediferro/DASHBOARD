@@ -58,12 +58,9 @@ export type ClientOnboardingData = {
   sex: "M" | "F" | "";
   heightCm: number;
   weightKg: number;
-  goal: "MASS" | "CUTTING" | "STRENGTH" | "HEALTH" | "SPORT" | "";
-  targetWeightKg: number | null;
-  experience: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "";
-  yearsTraining: number;
-  injuries: string;
-  equipment: string[];
+  allergies: string;
+  medicalConditions: string;
+  emergencyContact: string;
 };
 
 type ClientState = {
@@ -80,12 +77,9 @@ const clientInitial: ClientOnboardingData = {
   sex: "",
   heightCm: 175,
   weightKg: 75,
-  goal: "",
-  targetWeightKg: null,
-  experience: "",
-  yearsTraining: 0,
-  injuries: "",
-  equipment: [],
+  allergies: "",
+  medicalConditions: "",
+  emergencyContact: "",
 };
 
 export const useClientOnboarding = create<ClientState>((set) => ({

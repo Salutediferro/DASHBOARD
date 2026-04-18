@@ -147,6 +147,10 @@ model User {
   medications       String?
   injuries          String?
 
+  // Weight goal in kilograms (optional — set from the patient profile
+  // and rendered as progress bar vs. latest biometric weight).
+  targetWeightKg Float?
+
   // Public professional profile (visible to linked patients).
   // Free-text; specialties is a comma-separated list rendered as tags.
   bio         String?
@@ -185,6 +189,10 @@ model User {
   // Patient onboarding via professional invite link
   professionalInvitations Invitation[] @relation("ProfessionalInvitations")
   usedInvitations         Invitation[] @relation("UsedInvitations")
+
+  // Structured patient-owned health data (new 2026-04-18)
+  medicationsList Medication[]
+  symptomLogs     SymptomLog[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -280,6 +288,48 @@ model BiometricLog {
   @@index([patientId])
   @@index([date])
   @@index([patientId, date])
+}
+
+// Structured medication / therapy entries owned by the patient. Active
+// medications are shown on the dashboard; completed ones stay in history.
+// Professionals read via CareRelationship ACTIVE check at the API layer.
+model Medication {
+  id         String    @id @default(uuid()) @db.Uuid
+  patientId  String    @db.Uuid
+  name       String
+  dose       String?
+  frequency  String?
+  notes      String?
+  startDate  DateTime? @db.Date
+  endDate    DateTime? @db.Date
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, active])
+  @@index([patientId, startDate(sort: Desc)])
+}
+
+// Daily symptom / wellbeing journal (1 row per patient per calendar day).
+// mood / energy / sleepQuality are 1-5 self-ratings; symptoms is a free
+// string array (e.g. ["mal di testa", "nausea"]).
+model SymptomLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @db.Uuid
+  date         DateTime @db.Date
+  mood         Int?     @db.SmallInt
+  energy       Int?     @db.SmallInt
+  sleepQuality Int?     @db.SmallInt
+  symptoms     String[] @default([])
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, date])
+  @@index([patientId, date(sort: Desc)])
 }
 
 model CheckIn {

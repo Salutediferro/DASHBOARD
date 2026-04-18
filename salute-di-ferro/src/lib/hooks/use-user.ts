@@ -28,6 +28,7 @@ export type UserProfile = {
   allergies: string | null;
   medications: string | null;
   injuries: string | null;
+  targetWeightKg: number | null;
   // Public professional profile (DOCTOR/COACH only — visible to linked patients)
   bio: string | null;
   specialties: string | null;

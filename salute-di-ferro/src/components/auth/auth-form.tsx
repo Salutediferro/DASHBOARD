@@ -6,7 +6,14 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, UserCheck, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Loader2,
+  UserCheck,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,8 +57,23 @@ export function AuthForm({ variant }: Props) {
   const [invite, setInvite] = React.useState<InviteInfo | null>(null);
   const [inviteError, setInviteError] = React.useState<string | null>(null);
   const [inviteChecking, setInviteChecking] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [capsLockOn, setCapsLockOn] = React.useState(false);
 
   const isLogin = variant === "login";
+
+  // The dashboard is what every successful login lands on — warm the JS
+  // chunk on password focus so the post-submit navigation feels instant.
+  const prefetchDashboard = React.useCallback(() => {
+    router.prefetch(redirectTo);
+  }, [router, redirectTo]);
+
+  function handlePasswordKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (typeof e.getModifierState === "function") {
+      setCapsLockOn(e.getModifierState("CapsLock"));
+    }
+  }
 
   const loginForm = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -129,7 +151,14 @@ export function AuthForm({ variant }: Props) {
 
   async function onLogin(values: LoginInput) {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword(values);
+    // Users on mobile frequently add a stray leading space when tapping
+    // an email — trim before hitting Supabase so we don't get a generic
+    // "invalid credentials" for what's really a typo.
+    const email = values.email.trim().toLowerCase();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: values.password,
+    });
     if (error) {
       setLoading(false);
       toast.error("Accesso fallito", { description: error.message });
@@ -381,7 +410,10 @@ export function AuthForm({ variant }: Props) {
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
                 autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 {...loginForm.register("email")}
               />
               {loginForm.formState.errors.email && (
@@ -400,12 +432,48 @@ export function AuthForm({ variant }: Props) {
                   Password dimenticata?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...loginForm.register("password")}
-              />
+              <div className="relative">
+                {(() => {
+                  const { onBlur, ...rest } = loginForm.register("password");
+                  return (
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      onFocus={prefetchDashboard}
+                      onKeyUp={handlePasswordKey}
+                      onKeyDown={handlePasswordKey}
+                      onBlur={(e) => {
+                        setCapsLockOn(false);
+                        void onBlur(e);
+                      }}
+                      className="pr-11"
+                      {...rest}
+                    />
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center"
+                  aria-label={
+                    showPassword ? "Nascondi password" : "Mostra password"
+                  }
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {capsLockOn && (
+                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  <AlertTriangle className="h-3 w-3" />
+                  BLOC MAIUSC attivo
+                </p>
+              )}
               {loginForm.formState.errors.password && (
                 <p className="text-destructive text-sm">
                   {loginForm.formState.errors.password.message}
@@ -461,12 +529,47 @@ export function AuthForm({ variant }: Props) {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                {...registerForm.register("password")}
-              />
+              <div className="relative">
+                {(() => {
+                  const { onBlur, ...rest } = registerForm.register("password");
+                  return (
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      onKeyUp={handlePasswordKey}
+                      onKeyDown={handlePasswordKey}
+                      onBlur={(e) => {
+                        setCapsLockOn(false);
+                        void onBlur(e);
+                      }}
+                      className="pr-11"
+                      {...rest}
+                    />
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center"
+                  aria-label={
+                    showPassword ? "Nascondi password" : "Mostra password"
+                  }
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {capsLockOn && (
+                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  <AlertTriangle className="h-3 w-3" />
+                  BLOC MAIUSC attivo
+                </p>
+              )}
               {registerForm.formState.errors.password && (
                 <p className="text-destructive text-sm">
                   {registerForm.formState.errors.password.message}
@@ -475,12 +578,32 @@ export function AuthForm({ variant }: Props) {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Conferma password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                {...registerForm.register("confirmPassword")}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="pr-11"
+                  {...registerForm.register("confirmPassword")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center"
+                  aria-label={
+                    showConfirmPassword
+                      ? "Nascondi password"
+                      : "Mostra password"
+                  }
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {registerForm.formState.errors.confirmPassword && (
                 <p className="text-destructive text-sm">
                   {registerForm.formState.errors.confirmPassword.message}

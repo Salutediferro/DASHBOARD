@@ -1,4 +1,5 @@
 import {
+  Activity,
   Bell,
   Building2,
   Calendar,
@@ -9,6 +10,8 @@ import {
   LayoutDashboard,
   LineChart,
   MessageSquare,
+  NotebookPen,
+  Pill,
   ScrollText,
   UserRound,
   Users,
@@ -55,12 +58,15 @@ export const coachNav: NavItem[] = [
 
 export const patientNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true },
-  { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound },
   { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true },
   { label: "Cartella Clinica", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true },
+  { label: "Terapia", href: "/dashboard/patient/medications", icon: Pill },
+  { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen },
+  { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity },
   { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell },
+  { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound },
 ];
 
 export function navForRole(role: UserRole): NavItem[] {

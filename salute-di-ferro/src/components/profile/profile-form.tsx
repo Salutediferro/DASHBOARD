@@ -91,6 +91,7 @@ export function ProfileForm({
       allergies: "",
       medications: "",
       injuries: "",
+      targetWeightKg: null,
       bio: "",
       specialties: "",
     },
@@ -112,6 +113,7 @@ export function ProfileForm({
       allergies: profile.allergies ?? "",
       medications: profile.medications ?? "",
       injuries: profile.injuries ?? "",
+      targetWeightKg: profile.targetWeightKg ?? null,
       bio: profile.bio ?? "",
       specialties: profile.specialties ?? "",
     });
@@ -477,6 +479,23 @@ export function ProfileForm({
                   placeholder="Es. Ramipril 5mg/die..."
                   {...form.register("medications")}
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="targetWeightKg">Peso obiettivo (kg)</Label>
+                <Input
+                  id="targetWeightKg"
+                  type="number"
+                  step="0.1"
+                  placeholder="Es. 72.0"
+                  {...form.register("targetWeightKg", {
+                    setValueAs: (v) =>
+                      v === "" || v == null ? null : Number(v),
+                  })}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Opzionale. Sarà mostrato come barra di progresso rispetto
+                  al peso più recente.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="injuries">Infortuni / limitazioni</Label>
