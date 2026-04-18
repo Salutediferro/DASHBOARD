@@ -3,6 +3,7 @@ import type { Prisma, ProfessionalRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { createCheckInSchema } from "@/lib/validators/checkin";
+import { createNotification } from "@/lib/services/notifications";
 
 type CheckInStatusFilter = "ALL" | "PENDING" | "REVIEWED";
 
@@ -162,6 +163,28 @@ export async function POST(req: Request) {
       status: true,
     },
   });
+
+  // Fetch the patient's display name once so the professional's inbox
+  // shows who submitted — saves a join in the notification read path.
+  const patient = await prisma.user.findUnique({
+    where: { id: me.id },
+    select: { fullName: true },
+  });
+
+  const reviewUrl =
+    professionalRole === "COACH"
+      ? "/dashboard/coach/monitoring"
+      : "/dashboard/doctor/patients";
+
+  await createNotification({
+    userId: target.professionalId,
+    type: "CHECK_IN",
+    title: "Nuovo check-in da revisionare",
+    body: `${patient?.fullName ?? "Un paziente"} ha inviato il check-in settimanale${
+      parsed.data.weightKg ? ` (${parsed.data.weightKg} kg)` : ""
+    }.`,
+    actionUrl: reviewUrl,
+  }).catch(() => undefined);
 
   return NextResponse.json(created, { status: 201 });
 }

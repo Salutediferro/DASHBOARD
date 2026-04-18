@@ -26,9 +26,11 @@ const ALLOWED_MIME = new Set([
  * GET /api/medical-reports
  *
  * - PATIENT: own reports
- * - DOCTOR/COACH: require ACTIVE CareRelationship with ?patientId AND an
- *   unrevoked ReportPermission on each report (double check). The list
- *   query already filters to reports where a valid permission exists.
+ * - DOCTOR/COACH:
+ *     - with ?patientId: require ACTIVE CareRelationship with that patient
+ *       (double-checked at report scope via the permission filter).
+ *     - without ?patientId: global inbox — all reports where the caller
+ *       holds an unrevoked ReportPermission, across every patient.
  * - ADMIN: unrestricted (optional patientId filter)
  *
  * Optional filters: ?category=, ?from=, ?to=
@@ -54,29 +56,25 @@ export async function GET(req: Request) {
   if (me.role === "PATIENT") {
     where.patientId = me.id;
   } else if (me.role === "DOCTOR" || me.role === "COACH") {
-    if (!patientIdParam) {
-      return NextResponse.json(
-        { error: "patientId required" },
-        { status: 400 },
-      );
-    }
-    const rel = await prisma.careRelationship.findFirst({
-      where: {
-        professionalId: me.id,
-        patientId: patientIdParam,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
-    if (!rel) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    where.patientId = patientIdParam;
-    where.permissions = {
-      some: {
-        granteeId: me.id,
-        revokedAt: null,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
+    const permissionFilter: Prisma.ReportPermissionWhereInput = {
+      granteeId: me.id,
+      revokedAt: null,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     };
+
+    if (patientIdParam) {
+      const rel = await prisma.careRelationship.findFirst({
+        where: {
+          professionalId: me.id,
+          patientId: patientIdParam,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+      if (!rel) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      where.patientId = patientIdParam;
+    }
+    where.permissions = { some: permissionFilter };
   } else if (me.role === "ADMIN") {
     if (patientIdParam) where.patientId = patientIdParam;
   } else {
@@ -103,6 +101,9 @@ export async function GET(req: Request) {
       uploadedBy: {
         select: { id: true, fullName: true, role: true },
       },
+      patient: {
+        select: { id: true, fullName: true, email: true },
+      },
       _count: { select: { permissions: true } },
     },
   });
@@ -122,6 +123,7 @@ export async function GET(req: Request) {
   const items = rows.map((r) => ({
     id: r.id,
     patientId: r.patientId,
+    patient: r.patient,
     uploadedById: r.uploadedById,
     uploadedBy: r.uploadedBy,
     fileName: r.fileName,

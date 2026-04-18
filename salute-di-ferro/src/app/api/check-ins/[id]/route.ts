@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { updateCheckInSchema } from "@/lib/validators/checkin";
+import { createNotification } from "@/lib/services/notifications";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -150,6 +151,21 @@ export async function PATCH(req: Request, { params }: Ctx) {
       updatedAt: true,
     },
   });
+
+  // Notify the patient once the professional marks the check-in as
+  // REVIEWED — a draft save (no status change) is intentionally silent
+  // so the patient is only paged when there's something to look at.
+  if (parsed.data.status === "REVIEWED") {
+    await createNotification({
+      userId: authz.checkIn.patientId,
+      type: "CHECK_IN",
+      title: "Il tuo check-in è stato revisionato",
+      body: parsed.data.professionalFeedback
+        ? `Hai un nuovo feedback: ${parsed.data.professionalFeedback.slice(0, 140)}`
+        : "Il tuo professionista ha revisionato il tuo ultimo check-in.",
+      actionUrl: "/dashboard/patient",
+    }).catch(() => undefined);
+  }
 
   return NextResponse.json(updated);
 }
