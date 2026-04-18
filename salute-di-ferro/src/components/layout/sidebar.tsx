@@ -64,22 +64,38 @@ export function Sidebar({ items }: Props) {
         })}
       </nav>
 
-      <div className="border-border border-t p-3">
-        <div className={cn("mb-2 flex", collapsed ? "justify-center" : "")}>
-          <UserMenu />
-        </div>
-        <button
-          type="button"
-          aria-label={collapsed ? "Espandi sidebar" : "Chiudi sidebar"}
-          onClick={() => setCollapsed((c) => !c)}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-11 w-full items-center justify-center rounded-md transition-colors"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <ChevronLeft className="h-5 w-5" />
-          )}
-        </button>
+      <div className="border-border flex flex-col gap-1 border-t p-3">
+        {collapsed ? (
+          <>
+            <div className="flex justify-center">
+              <UserMenu />
+            </div>
+            <button
+              type="button"
+              aria-label="Espandi sidebar"
+              title="Espandi"
+              onClick={() => setCollapsed(false)}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground mx-auto flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <UserMenu />
+            </div>
+            <button
+              type="button"
+              aria-label="Chiudi sidebar"
+              title="Chiudi"
+              onClick={() => setCollapsed(true)}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );
