@@ -123,31 +123,28 @@ export async function GET(req: Request) {
 
   const now = Date.now();
   const origin = new URL(req.url).origin;
-  // Hourly windows, +/- 30 min overlap to survive scheduling jitter.
-  const window = (offsetMs: number, halfWidthMs = 30 * 60_000) => ({
-    windowStart: new Date(now + offsetMs - halfWidthMs),
-    windowEnd: new Date(now + offsetMs + halfWidthMs),
-  });
 
-  const [r24, r1] = await Promise.all([
-    sendReminderBatch({
-      ...window(24 * 60 * 60_000),
-      marker: "reminder24SentAt",
-      hoursUntil: 24,
-      appUrl: origin,
-    }),
-    sendReminderBatch({
-      ...window(1 * 60 * 60_000),
-      marker: "reminder1SentAt",
-      hoursUntil: 1,
-      appUrl: origin,
-    }),
-  ]);
+  // Vercel Hobby plan only allows daily crons, so this runs once per
+  // day at 08:00 Europe/Rome. Strategy: send the 24h reminder for
+  // every appointment happening in the next 24h that hasn't been
+  // notified yet. The window is wide (0..+24h) so a daily run is
+  // enough.
+  //
+  // The 1h reminder is intentionally skipped on Hobby — it would
+  // require hourly granularity we don't have. When the project moves
+  // to the Pro plan, switch the cron back to "0 * * * *" and restore
+  // the 1h batch here.
+  const r24 = await sendReminderBatch({
+    windowStart: new Date(now),
+    windowEnd: new Date(now + 24 * 60 * 60_000),
+    marker: "reminder24SentAt",
+    hoursUntil: 24,
+    appUrl: origin,
+  });
 
   return NextResponse.json({
     ok: true,
     timestamp: new Date().toISOString(),
     remind24: { count: r24.length, failed: r24.filter((r) => !r.ok).length },
-    remind1: { count: r1.length, failed: r1.filter((r) => !r.ok).length },
   });
 }
