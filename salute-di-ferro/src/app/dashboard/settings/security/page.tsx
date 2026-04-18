@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { SecuritySettings } from "./security-settings";
 import { TwoFactorRequiredBanner } from "./two-factor-required-banner";
 
@@ -14,7 +15,11 @@ export default function SecuritySettingsPage() {
           Gestisci l&apos;autenticazione a due fattori (2FA).
         </p>
       </header>
-      <TwoFactorRequiredBanner />
+      {/* Suspense required by Next's static-prerender pass — the banner
+          reads the ?reason query string via useSearchParams(). */}
+      <Suspense fallback={null}>
+        <TwoFactorRequiredBanner />
+      </Suspense>
       <SecuritySettings />
     </div>
   );
