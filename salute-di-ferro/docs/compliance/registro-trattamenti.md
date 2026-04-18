@@ -192,7 +192,7 @@ tabella Prisma / endpoint che implementa il trattamento.
 | Art. 9? | No |
 | Destinatari | Supabase, Resend |
 | Trasferimenti extra-UE | Resend (SCC) |
-| Conservazione | Fino a scadenza (default 14 gg) o accettazione, poi marcato USED/EXPIRED |
+| Conservazione | Fino a scadenza (default 14 gg) o accettazione, poi marcato ACCEPTED/EXPIRED |
 | Misure sicurezza | Token CSPRNG 32 byte, rate limit 20/h per pro |
 | Riferimento tecnico | Tabella `Invitation`, `/api/invitations` |
 

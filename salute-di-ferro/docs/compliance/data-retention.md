@@ -87,7 +87,7 @@ sono implementati. Va creato un cron Vercel `/api/cron/retention` che:
 3. Seleziona `AuditLog` con `createdAt < now - 5y`, cancella (opzionale
    — se il titolare preferisce conservare a vita per forense è
    scelta legittima, da documentare)
-4. Seleziona `Invitation` con `status IN (EXPIRED, USED, REVOKED)` e
+4. Seleziona `Invitation` con `status IN (EXPIRED, ACCEPTED, REVOKED)` e
    `updatedAt < now - 90d`, cancella
 5. Seleziona `MedicalReport` orfani (patient hard-deleted), cancella
    file bucket + riga
