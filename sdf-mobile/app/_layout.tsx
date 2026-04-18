@@ -45,9 +45,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized || !fontsLoaded) return;
     SplashScreen.hideAsync().catch(() => {});
-    // DEV BYPASS: force tabs regardless of session until Supabase keys are configured
+    // Route gating: signed-in users go to tabs; everyone else to the
+    // auth stack. Segment check prevents redirect loops.
     const inAuthGroup = segments[0] === "(auth)";
-    if (inAuthGroup) router.replace("/(tabs)");
+    if (session && inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!session && !inAuthGroup) {
+      router.replace("/(auth)/login");
+    }
   }, [initialized, fontsLoaded, session, segments, router]);
 
   if (!fontsLoaded || !initialized) {

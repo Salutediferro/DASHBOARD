@@ -1,141 +1,203 @@
 import { useCallback, useState } from "react";
-import { ScrollView, View, Text, RefreshControl, Pressable } from "react-native";
+import {
+  ScrollView,
+  View,
+  Text,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { useHomeData } from "@/hooks/use-mock-home";
 import { colors } from "@/constants/colors";
+import { useMe, useNotifications } from "@/hooks/use-home";
 
 function greeting() {
   const h = new Date().getHours();
+  if (h < 6) return "Ciao";
   if (h < 12) return "Buongiorno";
   if (h < 18) return "Buon pomeriggio";
   return "Buonasera";
 }
 
-function Card({ children, onPress }: { children: React.ReactNode; onPress?: () => void }) {
-  const content = (
-    <View className="bg-bg-1 rounded-2xl p-5 border border-bg-2 mb-4">{children}</View>
-  );
-  if (onPress) {
-    return (
-      <Pressable
-        onPress={() => {
-          Haptics.selectionAsync();
-          onPress();
-        }}
-        className="active:opacity-80"
-      >
-        {content}
-      </Pressable>
-    );
-  }
-  return content;
+function roleLabel(role: string) {
+  return role === "DOCTOR"
+    ? "Medico"
+    : role === "COACH"
+      ? "Coach"
+      : role === "ADMIN"
+        ? "Admin"
+        : "Paziente";
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <View className="flex-1 bg-bg-1 rounded-2xl p-4 border border-bg-2">
-      <Text className="text-white/50 text-xs mb-1" style={{ fontFamily: "Inter_500Medium" }}>
-        {label}
-      </Text>
-      <Text className="text-white text-xl" style={{ fontFamily: "Inter_700Bold" }}>
-        {value}
-      </Text>
+    <View className="bg-bg-1 rounded-2xl p-5 border border-bg-2 mb-4">
+      {children}
     </View>
   );
 }
 
 export default function HomeScreen() {
-  const { data, refetch } = useHomeData();
+  const me = useMe();
+  const notif = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
-  const router = useRouter();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([me.refetch(), notif.refetch()]);
     setRefreshing(false);
-  }, [refetch]);
+  }, [me, notif]);
 
-  const kcalPct = Math.min(100, Math.round((data.nutrition.kcalConsumed / data.nutrition.kcalTarget) * 100));
-  const proteinPct = Math.min(100, Math.round((data.nutrition.proteinG / data.nutrition.proteinTargetG) * 100));
+  const displayName =
+    me.data?.firstName ?? me.data?.fullName?.split(" ")[0] ?? "";
+  const unread = notif.data?.unreadCount ?? 0;
+  const latest = (notif.data?.notifications ?? []).slice(0, 3);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-0" edges={["top"]}>
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.gold}
+          />
         }
       >
-        <Text className="text-white/50 text-sm" style={{ fontFamily: "Inter_400Regular" }}>
+        <Text
+          className="text-white/50 text-sm"
+          style={{ fontFamily: "Inter_400Regular" }}
+        >
           {greeting()},
         </Text>
-        <Text className="text-white text-3xl mb-6" style={{ fontFamily: "Inter_700Bold" }}>
-          {data.userName}
+        <Text
+          className="text-white text-3xl mb-1"
+          style={{ fontFamily: "Inter_700Bold" }}
+        >
+          {me.isLoading ? "…" : displayName || "Benvenuto"}
         </Text>
+        {me.data && (
+          <Text
+            className="text-gold text-xs mb-6"
+            style={{
+              fontFamily: "Inter_600SemiBold",
+              letterSpacing: 1,
+            }}
+          >
+            {roleLabel(me.data.role).toUpperCase()}
+          </Text>
+        )}
 
-        {data.nextWorkout && (
-          <Card onPress={() => router.push("/workout/session")}>
-            <Text className="text-gold text-xs mb-2" style={{ fontFamily: "Inter_600SemiBold", letterSpacing: 1 }}>
-              PROSSIMO ALLENAMENTO
+        {me.isLoading && (
+          <View className="items-center py-8">
+            <ActivityIndicator color={colors.gold} />
+          </View>
+        )}
+
+        {me.error && (
+          <Card>
+            <Text
+              className="text-white"
+              style={{ fontFamily: "Inter_500Medium" }}
+            >
+              Impossibile caricare il profilo. Controlla la connessione.
             </Text>
-            <Text className="text-white text-xl mb-1" style={{ fontFamily: "Inter_700Bold" }}>
-              {data.nextWorkout.name}
+          </Card>
+        )}
+
+        {me.data && (
+          <Card>
+            <Text
+              className="text-gold text-xs mb-2"
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                letterSpacing: 1,
+              }}
+            >
+              PROFILO
             </Text>
-            <Text className="text-white/60 mb-4" style={{ fontFamily: "Inter_400Regular" }}>
-              {data.nextWorkout.dayLabel}
+            <Text
+              className="text-white text-lg"
+              style={{ fontFamily: "Inter_700Bold" }}
+            >
+              {me.data.fullName}
             </Text>
-            <View className="flex-row gap-4">
-              <Text className="text-white/80" style={{ fontFamily: "Inter_500Medium" }}>
-                {data.nextWorkout.exercises} esercizi
+            <Text
+              className="text-white/60 mt-1"
+              style={{ fontFamily: "Inter_400Regular" }}
+            >
+              {me.data.email}
+            </Text>
+            {!me.data.onboardingCompleted && me.data.role === "PATIENT" && (
+              <Text
+                className="text-gold/80 mt-3 text-xs"
+                style={{ fontFamily: "Inter_500Medium" }}
+              >
+                Completa l'onboarding dalla web app per sbloccare tutte le
+                funzioni.
               </Text>
-              <Text className="text-white/80" style={{ fontFamily: "Inter_500Medium" }}>
-                ~{data.nextWorkout.durationMin} min
-              </Text>
-            </View>
+            )}
           </Card>
         )}
 
         <Card>
-          <Text className="text-gold text-xs mb-3" style={{ fontFamily: "Inter_600SemiBold", letterSpacing: 1 }}>
-            NUTRIZIONE OGGI
-          </Text>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-white" style={{ fontFamily: "Inter_500Medium" }}>
-              Calorie
+          <View className="flex-row items-center justify-between mb-3">
+            <Text
+              className="text-gold text-xs"
+              style={{
+                fontFamily: "Inter_600SemiBold",
+                letterSpacing: 1,
+              }}
+            >
+              NOTIFICHE
             </Text>
-            <Text className="text-white/80" style={{ fontFamily: "Inter_500Medium" }}>
-              {data.nutrition.kcalConsumed} / {data.nutrition.kcalTarget} kcal
+            {unread > 0 && (
+              <View className="bg-gold rounded-full px-2 py-0.5">
+                <Text
+                  className="text-bg-0 text-xs"
+                  style={{ fontFamily: "Inter_700Bold" }}
+                >
+                  {unread}
+                </Text>
+              </View>
+            )}
+          </View>
+          {notif.isLoading ? (
+            <ActivityIndicator color={colors.gold} />
+          ) : latest.length === 0 ? (
+            <Text
+              className="text-white/50 text-sm"
+              style={{ fontFamily: "Inter_400Regular" }}
+            >
+              Nessuna notifica recente.
             </Text>
-          </View>
-          <View className="h-2 bg-bg-2 rounded-full mb-4 overflow-hidden">
-            <View className="h-full bg-gold" style={{ width: `${kcalPct}%` }} />
-          </View>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-white" style={{ fontFamily: "Inter_500Medium" }}>
-              Proteine
-            </Text>
-            <Text className="text-white/80" style={{ fontFamily: "Inter_500Medium" }}>
-              {data.nutrition.proteinG} / {data.nutrition.proteinTargetG} g
-            </Text>
-          </View>
-          <View className="h-2 bg-bg-2 rounded-full overflow-hidden">
-            <View className="h-full bg-gold" style={{ width: `${proteinPct}%` }} />
-          </View>
+          ) : (
+            latest.map((n, i) => (
+              <View
+                key={n.id}
+                className={i === latest.length - 1 ? "" : "mb-3"}
+              >
+                <Text
+                  className={
+                    n.isRead ? "text-white/80 text-sm" : "text-white text-sm"
+                  }
+                  style={{
+                    fontFamily: n.isRead ? "Inter_400Regular" : "Inter_600SemiBold",
+                  }}
+                >
+                  {n.title}
+                </Text>
+                <Text
+                  className="text-white/50 text-xs mt-0.5"
+                  numberOfLines={2}
+                  style={{ fontFamily: "Inter_400Regular" }}
+                >
+                  {n.body}
+                </Text>
+              </View>
+            ))
+          )}
         </Card>
-
-        <Text className="text-white/50 text-xs mb-3 mt-2" style={{ fontFamily: "Inter_600SemiBold", letterSpacing: 1 }}>
-          METRICHE RAPIDE
-        </Text>
-        <View className="flex-row gap-3 mb-3">
-          <Metric label="Peso" value={`${data.metrics.weightKg} kg`} />
-          <Metric label="Massa grassa" value={`${data.metrics.bodyFatPct}%`} />
-        </View>
-        <View className="flex-row gap-3">
-          <Metric label="Passi" value={data.metrics.steps.toLocaleString("it-IT")} />
-          <Metric label="Sonno" value={`${data.metrics.sleepHours}h`} />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );

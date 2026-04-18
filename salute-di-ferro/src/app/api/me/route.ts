@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Sex, UserRole } from "@prisma/client";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, resolveAuthUser } from "@/lib/supabase/server";
 import { createAdminClient, MEDICAL_REPORTS_BUCKET } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
@@ -62,12 +62,9 @@ function serializeUser(u: DbUser) {
   };
 }
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+export async function GET(req: Request) {
+  // Accept either cookie session (web) or Bearer JWT (mobile).
+  const user = await resolveAuthUser(req);
   if (!user) return NextResponse.json(null, { status: 401 });
 
   const dbUser = await prisma.user.findUnique({
