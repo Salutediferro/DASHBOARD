@@ -1,7 +1,20 @@
-import { ProfileForm } from "@/components/profile/profile-form";
+"use client";
 
-export const metadata = { title: "Profilo — Salute di Ferro" };
+import { CompletenessCard } from "@/components/profile/completeness-card";
+import { ProfileForm } from "@/components/profile/profile-form";
+import { useUser } from "@/lib/hooks/use-user";
+import { computePatientCompleteness } from "@/lib/profile-completeness";
 
 export default function PatientProfilePage() {
-  return <ProfileForm showClinical />;
+  const { profile } = useUser();
+  const completeness = computePatientCompleteness(profile);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {profile && (
+        <CompletenessCard completeness={completeness} ctaLabel="Vai ai campi" />
+      )}
+      <ProfileForm showClinical />
+    </div>
+  );
 }

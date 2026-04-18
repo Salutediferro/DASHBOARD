@@ -28,6 +28,8 @@ const USER_SELECT = {
   allergies: true,
   medications: true,
   injuries: true,
+  bio: true,
+  specialties: true,
 } as const;
 
 type DbUser = {
@@ -49,6 +51,8 @@ type DbUser = {
   allergies: string | null;
   medications: string | null;
   injuries: string | null;
+  bio: string | null;
+  specialties: string | null;
 };
 
 function serializeUser(u: DbUser) {
@@ -107,6 +111,8 @@ export async function PATCH(req: Request) {
   if (data.allergies !== undefined) updates.allergies = data.allergies;
   if (data.medications !== undefined) updates.medications = data.medications;
   if (data.injuries !== undefined) updates.injuries = data.injuries;
+  if (data.bio !== undefined) updates.bio = data.bio;
+  if (data.specialties !== undefined) updates.specialties = data.specialties;
 
   // Keep fullName in sync when first/last name changes
   if (data.firstName !== undefined || data.lastName !== undefined) {

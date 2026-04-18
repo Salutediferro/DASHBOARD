@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useGreeting } from "@/lib/greeting";
 import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
 import type { MedicalReportListItem } from "@/lib/hooks/use-medical-records";
@@ -75,6 +76,7 @@ function isToday(iso: string) {
 
 export default function DoctorDashboardPage() {
   const { profile, isLoading: userLoading } = useUser();
+  const hello = useGreeting();
 
   const from = React.useMemo(() => {
     const d = new Date();
@@ -135,7 +137,7 @@ export default function DoctorDashboardPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Benvenuto, {profile?.firstName || profile?.fullName?.split(" ")[0]}
+          {hello}, {profile?.firstName || profile?.fullName?.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground text-sm">
           Ecco cosa è successo da quando eri via.

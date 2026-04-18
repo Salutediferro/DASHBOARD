@@ -147,6 +147,11 @@ model User {
   medications       String?
   injuries          String?
 
+  // Public professional profile (visible to linked patients).
+  // Free-text; specialties is a comma-separated list rendered as tags.
+  bio         String?
+  specialties String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

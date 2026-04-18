@@ -16,7 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -24,7 +24,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MetricChart } from "@/components/health/metric-chart";
+import { CompletenessCard } from "@/components/profile/completeness-card";
+import { useGreeting } from "@/lib/greeting";
 import { useUser } from "@/lib/hooks/use-user";
+import { computePatientCompleteness } from "@/lib/profile-completeness";
 
 type AppointmentRow = {
   id: string;
@@ -53,6 +57,9 @@ type ProfessionalsResponse = Array<{
     fullName: string;
     email: string;
     role: string;
+    avatarUrl: string | null;
+    bio: string | null;
+    specialties: string | null;
   };
 }>;
 
@@ -85,6 +92,7 @@ function initials(name: string) {
 
 export default function PatientDashboardPage() {
   const { profile, isLoading: userLoading } = useUser();
+  const hello = useGreeting();
 
   const from = React.useMemo(() => new Date().toISOString(), []);
   const to = React.useMemo(() => {
@@ -124,7 +132,18 @@ export default function PatientDashboardPage() {
   const nextAppt = (apptQuery.data ?? []).find(
     (a) => a.status === "SCHEDULED",
   );
-  const lastCheckIn = checkInsQuery.data?.items[0];
+  const checkIns = React.useMemo(
+    () => checkInsQuery.data?.items ?? [],
+    [checkInsQuery.data],
+  );
+  const lastCheckIn = checkIns[0];
+  // API returns check-ins in desc order; the chart wants oldest → newest.
+  const weightTrend = React.useMemo(() => {
+    return [...checkIns]
+      .reverse()
+      .slice(-12)
+      .map((c) => ({ date: c.date, value: c.weight }));
+  }, [checkIns]);
   const professionals = profsQuery.data ?? [];
   const doctor = professionals.find((p) => p.professionalRole === "DOCTOR");
   const coach = professionals.find((p) => p.professionalRole === "COACH");
@@ -149,17 +168,22 @@ export default function PatientDashboardPage() {
       )
     : null;
   const checkInOverdue = daysSinceCheckIn == null || daysSinceCheckIn >= 7;
+  const completeness = computePatientCompleteness(profile);
 
   return (
     <div className="flex flex-col gap-6 pb-6">
       <header>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Ciao{profile?.firstName ? `, ${profile.firstName}` : ""}
+          {hello}{profile?.firstName ? `, ${profile.firstName}` : ""}
         </h1>
         <p className="text-muted-foreground text-sm">
           La tua centrale salute.
         </p>
       </header>
+
+      {profile && (
+        <CompletenessCard completeness={completeness} criticalOnly />
+      )}
 
       {/* Primary CTA: weekly check-in */}
       <Card
@@ -265,14 +289,14 @@ export default function PatientDashboardPage() {
                   <ProfessionalRow
                     role="Medico"
                     icon={<Stethoscope className="h-4 w-4" />}
-                    name={doctor.professional.fullName}
+                    pro={doctor.professional}
                   />
                 )}
                 {coach && (
                   <ProfessionalRow
                     role="Coach"
                     icon={<UserRound className="h-4 w-4" />}
-                    name={coach.professional.fullName}
+                    pro={coach.professional}
                   />
                 )}
               </>
@@ -280,6 +304,15 @@ export default function PatientDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {weightTrend.filter((p) => p.value != null).length >= 2 && (
+        <MetricChart
+          title="Andamento peso"
+          unit="kg"
+          data={weightTrend}
+          emptyLabel="Servono almeno 2 check-in per vedere il trend"
+        />
+      )}
 
       {lastCheckIn?.professionalFeedback && (
         <Card>
@@ -344,24 +377,49 @@ export default function PatientDashboardPage() {
 function ProfessionalRow({
   role,
   icon,
-  name,
+  pro,
 }: {
   role: string;
   icon: React.ReactNode;
-  name: string;
+  pro: {
+    fullName: string;
+    avatarUrl: string | null;
+    bio: string | null;
+    specialties: string | null;
+  };
 }) {
+  const tags = (pro.specialties ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
-    <div className="flex items-center gap-3">
-      <Avatar className="h-9 w-9">
+    <div className="flex items-start gap-3">
+      <Avatar className="h-11 w-11">
+        {pro.avatarUrl && <AvatarImage src={pro.avatarUrl} alt={pro.fullName} />}
         <AvatarFallback className="bg-primary/20 text-primary text-xs">
-          {initials(name)}
+          {initials(pro.fullName)}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="truncate text-sm font-medium">{pro.fullName}</p>
         <p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
           {icon} {role}
         </p>
+        {pro.bio && (
+          <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+            {pro.bio}
+          </p>
+        )}
+        {tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {tags.slice(0, 4).map((t) => (
+              <Badge key={t} variant="outline" className="text-[10px]">
+                {t}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

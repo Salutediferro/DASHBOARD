@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useGreeting } from "@/lib/greeting";
 import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +85,7 @@ function isToday(iso: string) {
 
 export default function CoachDashboardPage() {
   const { profile, isLoading: userLoading } = useUser();
+  const hello = useGreeting();
 
   const from = React.useMemo(() => {
     const d = new Date();
@@ -143,7 +145,7 @@ export default function CoachDashboardPage() {
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Ciao {profile?.firstName || profile?.fullName?.split(" ")[0]}
+          {hello}, {profile?.firstName || profile?.fullName?.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground text-sm">
           Sintesi operativa dei tuoi assistiti.
