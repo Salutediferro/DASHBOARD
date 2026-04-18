@@ -354,6 +354,12 @@ function Footer() {
           >
             Termini
           </Link>
+          <Link
+            href="/subprocessors"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Sub-responsabili
+          </Link>
           <a
             href="mailto:info@salutediferro.com"
             className="text-muted-foreground hover:text-foreground"

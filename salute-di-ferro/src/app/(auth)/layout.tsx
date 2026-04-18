@@ -27,6 +27,9 @@ export default function AuthLayout({
         <Link href="/terms" className="hover:text-foreground">
           Termini
         </Link>
+        <Link href="/subprocessors" className="hover:text-foreground">
+          Sub-responsabili
+        </Link>
         <ManageCookiesButton />
       </footer>
     </div>

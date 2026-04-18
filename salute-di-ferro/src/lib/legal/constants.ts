@@ -38,26 +38,55 @@ export const DATA_PROCESSORS = [
     name: "Supabase (Supabase Inc.)",
     purpose:
       "Database PostgreSQL, autenticazione, storage file sanitari (bucket privato)",
-    location: "UE (eu-north-1 / Stockholm)",
+    categories:
+      "Dati identificativi, credenziali, dati sanitari (art. 9), referti medici",
+    location: "UE (eu-north-1 / Stoccolma)",
     dpaUrl: "https://supabase.com/legal/dpa",
   },
   {
     name: "Vercel (Vercel Inc.)",
     purpose: "Hosting dell'applicazione, CDN, function runtime",
+    categories: "Dati in transito durante l'elaborazione delle richieste HTTP",
     location: "Stati Uniti — trasferimento ex Art. 46 GDPR (SCC)",
     dpaUrl: "https://vercel.com/legal/dpa",
   },
   {
     name: "Cloudflare (Cloudflare Inc.)",
     purpose: "DNS e gestione certificati per my.salutediferro.com",
+    categories: "Nessun dato applicativo in modalità DNS-only",
     location: "Stati Uniti — trasferimento ex Art. 46 GDPR (SCC)",
     dpaUrl: "https://www.cloudflare.com/cloudflare-customer-dpa/",
   },
   {
     name: "Upstash (Upstash, Inc.)",
-    purpose: "Rate limiter distribuito (contatori HTTP, no PII)",
-    location: "UE (eu-west-1 / Dublin)",
+    purpose: "Rate limiter distribuito (contatori HTTP, protezione brute-force)",
+    categories: "IP hashati in contatori temporanei (no contenuto)",
+    location: "UE (eu-west-1 / Dublino)",
     dpaUrl: "https://upstash.com/trust/dpa.pdf",
+  },
+  {
+    name: "Resend (Resend Inc.)",
+    purpose:
+      "Invio email transazionali (reminder appuntamenti, inviti, conferme)",
+    categories: "Email e nome del destinatario, testo del messaggio",
+    location: "Stati Uniti — trasferimento ex Art. 46 GDPR (SCC)",
+    dpaUrl: "https://resend.com/legal/dpa",
+  },
+  {
+    name: "Sentry (Functional Software Inc.)",
+    purpose: "Error monitoring applicativo (backend + browser)",
+    categories:
+      "Stack trace, URL, user-agent; sendDefaultPii disattivato per evitare id utente",
+    location: "Stati Uniti — trasferimento ex Art. 46 GDPR (SCC)",
+    dpaUrl: "https://sentry.io/legal/dpa/",
+  },
+  {
+    name: "Plausible Analytics (Plausible Insights OÜ)",
+    purpose:
+      "Analytics aggregati anonimi (pagine viste, origini traffico) — attivati solo con consenso",
+    categories: "Hash IP-derived giornaliero, pagina, referrer",
+    location: "UE (Germania)",
+    dpaUrl: "https://plausible.io/dpa",
   },
 ] as const;
 
