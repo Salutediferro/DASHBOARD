@@ -1,4 +1,5 @@
 import { SecuritySettings } from "./security-settings";
+import { TwoFactorRequiredBanner } from "./two-factor-required-banner";
 
 export const metadata = { title: "Sicurezza — Salute di Ferro" };
 
@@ -13,6 +14,7 @@ export default function SecuritySettingsPage() {
           Gestisci l&apos;autenticazione a due fattori (2FA).
         </p>
       </header>
+      <TwoFactorRequiredBanner />
       <SecuritySettings />
     </div>
   );
