@@ -1,278 +1,155 @@
-"use client";
-
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { redirect } from "next/navigation";
 import {
-  Activity,
   Building2,
-  Loader2,
-  Plus,
   ScrollText,
-  Shield,
-  Stethoscope,
-  User as UserIcon,
   UserPlus,
-  UserRound,
   Users,
 } from "lucide-react";
-import type { UserRole } from "@prisma/client";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
+import { greeting } from "@/lib/greeting";
+import { getAdminActivity, getAdminKpis } from "@/lib/queries/dashboard";
+import PageHeader from "@/components/brand/page-header";
+import SectionHeader from "@/components/brand/section-header";
+import StatCard from "@/components/brand/stat-card";
+import EmptyState from "@/components/brand/empty-state";
+import RecentActivity from "@/components/dashboard/recent-activity";
+import QuickLinkCard, {
+  formatItalianDate,
+} from "@/components/dashboard/quick-link-card";
 
-type UsersResponse = {
-  total: number;
-  counts: Record<UserRole, number>;
-  items: Array<{
-    id: string;
-    fullName: string;
-    email: string;
-    role: UserRole;
-    createdAt: string;
-  }>;
-};
+export const metadata = { title: "Admin — Salute di Ferro" };
+export const dynamic = "force-dynamic";
 
-const ROLE_META: Record<
-  UserRole,
-  { label: string; icon: React.ReactNode; tone: string }
-> = {
-  ADMIN: {
-    label: "Admin",
-    icon: <Shield className="h-5 w-5" />,
-    tone: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
-  },
-  DOCTOR: {
-    label: "Medici",
-    icon: <Stethoscope className="h-5 w-5" />,
-    tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  },
-  COACH: {
-    label: "Coach",
-    icon: <UserRound className="h-5 w-5" />,
-    tone: "bg-green-500/15 text-green-700 dark:text-green-300",
-  },
-  PATIENT: {
-    label: "Pazienti",
-    icon: <UserIcon className="h-5 w-5" />,
-    tone: "bg-muted text-foreground",
-  },
-};
+export default async function AdminDashboardPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, fullName: true, firstName: true, role: true },
   });
-}
+  if (!me) redirect("/login");
+  if (me.role !== "ADMIN") redirect("/dashboard");
 
-export default function AdminDashboardPage() {
-  const { data, isLoading } = useQuery<UsersResponse>({
-    queryKey: ["admin-users-overview"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/users?perPage=10");
-      if (!res.ok) throw new Error("Errore");
-      return res.json();
-    },
-  });
+  const [kpis, activity] = await Promise.all([
+    getAdminKpis(),
+    getAdminActivity(5),
+  ]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
-
-  const counts = data?.counts;
-  const total = data?.total ?? 0;
-  const recent = data?.items ?? [];
+  const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Panoramica piattaforma
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {total} utenti totali.
-          </p>
-        </div>
-        <Link
-          href="/dashboard/admin/users/new"
-          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-        >
-          <Plus className="h-4 w-4" />
-          Nuovo utente
-        </Link>
-      </header>
+    <div className="flex flex-col gap-8 pb-6">
+      <PageHeader
+        title={`${greeting()}, ${firstName}`}
+        description={formatItalianDate()}
+        sticky={false}
+        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {(["ADMIN", "DOCTOR", "COACH", "PATIENT"] as UserRole[]).map((r) => (
-          <Link key={r} href={`/dashboard/admin/users?role=${r}`}>
-            <Card className="hover:border-primary/40 transition-colors">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-md",
-                    ROLE_META[r].tone,
-                  )}
-                >
-                  {ROLE_META[r].icon}
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wider">
-                    {ROLE_META[r].label}
-                  </p>
-                  <p className="font-heading text-2xl font-semibold tabular-nums">
-                    {counts ? counts[r] : 0}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+      <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <StatCard label="Utenti totali" value={kpis.totalUsers} />
+        <StatCard
+          label="Nuove registrazioni (7g)"
+          value={kpis.newSignups7d}
+          trend={kpis.sparklines.signups}
+        />
+        <StatCard
+          label="Appuntamenti 7g"
+          value={kpis.appointments7d}
+          trend={kpis.sparklines.appointments}
+        />
+        <StatCard
+          label="Organizzazioni attive"
+          value={kpis.activeOrganizations}
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Prossimo"
+          subtitle="Cosa richiede attenzione adesso."
+        />
+        {kpis.newSignups7d > 0 ? (
+          <Link
+            href="/dashboard/admin/users"
+            className="surface-2 focus-ring flex flex-col gap-1 rounded-xl px-5 py-4 transition-colors hover:bg-muted/30"
+          >
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+              <UserPlus className="h-3.5 w-3.5" />
+              Onboarding
+            </span>
+            <span className="text-display text-xl">
+              {kpis.newSignups7d} nuove registrazioni negli ultimi 7 giorni
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Controlla i nuovi account, assegna organizzazioni e ruoli.
+            </span>
           </Link>
-        ))}
-      </div>
+        ) : (
+          <EmptyState
+            icon={UserPlus}
+            title="Nessuna nuova registrazione"
+            description="La piattaforma è tranquilla: approfittane per ottimizzare la configurazione."
+          />
+        )}
+      </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Iscritti di recente</CardTitle>
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Attività recente"
+          subtitle="Ultime registrazioni e azioni dall'audit log."
+          action={
             <Link
-              href="/dashboard/admin/users"
-              className="text-muted-foreground hover:text-foreground text-xs"
-            >
-              Tutti →
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            {recent.length === 0 ? (
-              <p className="text-muted-foreground p-6 text-center text-sm">
-                Nessun utente ancora.
-              </p>
-            ) : (
-              <ul className="divide-border divide-y">
-                {recent.map((u) => (
-                  <li
-                    key={u.id}
-                    className="flex items-center gap-3 px-4 py-3 text-sm"
-                  >
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md",
-                        ROLE_META[u.role].tone,
-                      )}
-                    >
-                      <span className="scale-75">
-                        {ROLE_META[u.role].icon}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{u.fullName}</p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {u.email}
-                      </p>
-                    </div>
-                    <span className="text-muted-foreground text-xs">
-                      {formatDate(u.createdAt)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Strumenti admin</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <QuickAction
-              href="/dashboard/admin/users"
-              icon={<Users className="h-5 w-5" />}
-              title="Gestione utenti"
-              desc="Cerca, filtra, controlla"
-            />
-            <QuickAction
-              href="/dashboard/admin/users/new"
-              icon={<UserPlus className="h-5 w-5" />}
-              title="Crea professionista"
-              desc="Invita medico o coach"
-            />
-            <QuickAction
-              href="/dashboard/admin/organizations"
-              icon={<Building2 className="h-5 w-5" />}
-              title="Organizzazioni"
-              desc="Tenant white-label"
-            />
-            <QuickAction
               href="/dashboard/admin/audit"
-              icon={<ScrollText className="h-5 w-5" />}
-              title="Audit log"
-              desc="Tracciabilità GDPR"
-            />
-          </CardContent>
-        </Card>
-      </div>
+              className="focus-ring rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Audit completo →
+            </Link>
+          }
+        />
+        <RecentActivity
+          items={activity}
+          emptyTitle="Nessuna attività registrata"
+          emptyDescription="Quando un utente si registra o un'azione viene auditata, apparirà qui."
+        />
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Health check servizi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-xs">
-            <span className="inline-flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-green-500" />
-              Supabase · OK
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-green-500" />
-              Prisma · OK
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-green-500" />
-              Auth · OK
-            </span>
-            <span className="text-muted-foreground/60">
-              Stato dedotto dalla risposta di /api/admin/users.
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Suggeriti" subtitle="Strumenti di amministrazione." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickLinkCard
+            href="/dashboard/admin/users"
+            icon={Users}
+            title="Gestione utenti"
+            description="Cerca, filtra, modera."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/users/new"
+            icon={UserPlus}
+            title="Nuovo professionista"
+            description="Invita medico o coach."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/organizations"
+            icon={Building2}
+            title="Organizzazioni"
+            description="Tenant white-label."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/audit"
+            icon={ScrollText}
+            title="Audit log"
+            description="Tracciabilità GDPR."
+          />
+        </div>
+      </section>
     </div>
-  );
-}
-
-function QuickAction({
-  href,
-  icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="border-border hover:bg-muted/40 flex items-center gap-3 rounded-md border p-3"
-    >
-      <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-md">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-muted-foreground text-xs">{desc}</p>
-      </div>
-    </Link>
   );
 }

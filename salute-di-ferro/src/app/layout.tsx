@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Sans, Geist_Mono } from "next/font/google";
+import { Manrope, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -9,14 +9,10 @@ import { CookieBanner } from "@/components/legal/cookie-banner";
 import { Analytics } from "@/components/legal/analytics";
 import { EnvironmentBanner } from "@/components/legal/environment-banner";
 
-const inter = Inter({
-  variable: "--font-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-});
-
-const instrumentSans = Instrument_Sans({
-  variable: "--font-heading",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({
@@ -36,7 +32,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
   },
 };
 
@@ -54,7 +50,7 @@ export default function RootLayout({
     <html
       lang="it"
       suppressHydrationWarning
-      className={`${inter.variable} ${instrumentSans.variable} ${geistMono.variable} dark h-full antialiased`}
+      className={`${manrope.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground flex flex-col">
         <ThemeProvider
@@ -65,7 +61,7 @@ export default function RootLayout({
         >
           <EnvironmentBanner />
           <QueryProvider>{children}</QueryProvider>
-          <Toaster richColors position="top-right" />
+          <Toaster />
           <PwaRegister />
           <CookieBanner />
           <Analytics />

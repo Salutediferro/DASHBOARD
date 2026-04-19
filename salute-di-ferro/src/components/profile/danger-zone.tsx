@@ -6,12 +6,6 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,10 +18,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/hooks/use-user";
-
-const CONFIRM_PHRASE = "ELIMINA";
 
 export function DangerZone() {
   const router = useRouter();
@@ -55,26 +48,35 @@ export function DangerZone() {
   });
 
   const canConfirm =
-    confirm.trim().toUpperCase() === CONFIRM_PHRASE && !deleteMutation.isPending;
+    !!profile?.email &&
+    confirm.trim().toLowerCase() === profile.email.toLowerCase() &&
+    !deleteMutation.isPending;
 
   return (
-    <Card className="border-destructive/40">
-      <CardHeader>
-        <CardTitle className="text-destructive flex items-center gap-2 text-base">
-          <AlertTriangle className="h-4 w-4" />
-          Eliminazione account
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p className="text-muted-foreground text-sm">
-          Elimina il tuo account e revoca subito l&apos;accesso di medici e
-          coach ai tuoi referti. I dati vengono conservati 30 giorni per
-          motivi legali e audit, poi rimossi definitivamente.
+    <section
+      className="rounded-xl border border-destructive/30 bg-destructive/5 p-5"
+      aria-labelledby="danger-heading"
+    >
+      <header className="flex items-center gap-2">
+        <AlertTriangle
+          className="h-4 w-4 text-destructive"
+          aria-hidden
+        />
+        <h3 id="danger-heading" className="text-sm font-semibold text-destructive">
+          Danger zone
+        </h3>
+      </header>
+      <div className="mt-3 flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          Elimina il tuo account e revoca subito l&apos;accesso di medici e coach
+          ai tuoi dati. I file di riferimento vengono conservati{" "}
+          <span className="text-foreground">30 giorni</span> per obblighi legali
+          e audit, poi rimossi definitivamente.
         </p>
         {profile?.email && (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Account:{" "}
-            <span className="text-foreground font-medium">{profile.email}</span>
+            <span className="font-medium text-foreground">{profile.email}</span>
           </p>
         )}
         <Dialog
@@ -84,10 +86,8 @@ export function DangerZone() {
             if (!v) setConfirm("");
           }}
         >
-          <DialogTrigger
-            className="text-destructive hover:bg-destructive/10 border-destructive/40 inline-flex h-10 w-fit items-center gap-2 rounded-md border px-4 text-sm font-medium"
-          >
-            <Trash2 className="h-4 w-4" />
+          <DialogTrigger className="focus-ring inline-flex h-10 w-fit items-center gap-2 rounded-md border border-destructive/40 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10">
+            <Trash2 className="h-4 w-4" aria-hidden />
             Elimina il mio account
           </DialogTrigger>
           <DialogContent>
@@ -95,44 +95,63 @@ export function DangerZone() {
               <DialogTitle>Confermi di eliminare l&apos;account?</DialogTitle>
               <DialogDescription>
                 Azione irreversibile. Verrai disconnesso, i tuoi professionisti
-                perderanno l&apos;accesso ai referti e i file nel bucket saranno
-                rimossi. Conservazione 30 giorni per i soli obblighi legali.
+                perderanno subito l&apos;accesso ai referti e i file nel bucket
+                saranno rimossi. Conservazione 30 giorni per i soli obblighi
+                legali.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2 py-2">
-              <Label htmlFor="confirm">
-                Scrivi <span className="font-mono font-semibold">{CONFIRM_PHRASE}</span>{" "}
-                per confermare
+              <Label htmlFor="danger-confirm-email">
+                Per confermare, riscrivi la tua email:{" "}
+                <span className="font-mono font-semibold">
+                  {profile?.email ?? "—"}
+                </span>
               </Label>
               <Input
-                id="confirm"
+                id="danger-confirm-email"
+                type="email"
                 autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                placeholder={CONFIRM_PHRASE}
+                placeholder={profile?.email ?? "tua@email"}
+                aria-invalid={
+                  confirm.length > 0 && !canConfirm ? true : undefined
+                }
+                className="focus-ring"
               />
+              {confirm.length > 0 && !canConfirm && (
+                <p className="text-[11px] text-destructive">
+                  L&apos;email non corrisponde.
+                </p>
+              )}
             </div>
             <DialogFooter>
-              <DialogClose className="hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
-                Annulla
-              </DialogClose>
-              <button
+              <DialogClose
+                render={
+                  <Button variant="outline" type="button">
+                    Annulla
+                  </Button>
+                }
+              />
+              <Button
                 type="button"
+                variant="destructive"
                 disabled={!canConfirm}
                 onClick={() => deleteMutation.mutate()}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
               >
                 {deleteMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
                 ) : (
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
                 )}
                 Elimina definitivamente
-              </button>
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

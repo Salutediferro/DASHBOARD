@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import Logo from "@/components/brand/logo";
 
 export const metadata = {
   title: "Salute di Ferro — La tua centrale salute",
@@ -38,9 +39,7 @@ function NavBar() {
   return (
     <header className="border-border sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur">
       <Link href="/" className="flex items-center gap-2">
-        <div className="bg-card border-primary/40 flex h-9 w-9 items-center justify-center rounded-full border">
-          <span className="text-primary font-mono text-xs font-bold">SDF</span>
-        </div>
+        <Logo variant="mark" size="md" src="/logo-sdf.png" />
         <span className="text-sm font-semibold tracking-tight">
           Salute di Ferro
         </span>
