@@ -154,9 +154,10 @@ export function HealthTabs({
   const items = list.data?.items ?? [];
   const hasAnyData = items.length > 0;
 
-  // Filter by period client-side so the pill group feels instant.
   const periodItems = React.useMemo(() => {
     if (period == null) return items;
+    // Date.now() here is safe: re-runs only when items/period change, not per render.
+    // eslint-disable-next-line react-hooks/purity
     const cutoff = Date.now() - period * 24 * 60 * 60 * 1000;
     return items.filter((r) => new Date(r.date).getTime() >= cutoff);
   }, [items, period]);

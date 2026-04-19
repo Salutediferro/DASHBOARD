@@ -8,7 +8,6 @@ import {
   Pill,
   ShieldCheck,
   UserPlus,
-  type LucideIcon,
 } from "lucide-react";
 
 import EmptyState from "@/components/brand/empty-state";
@@ -60,11 +59,10 @@ export default function RecentActivity({
 }
 
 function ActivityRow({ ev }: { ev: TimelineEntry }) {
-  const Icon = iconFor(ev.kind);
   return (
     <>
       <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500/10 text-primary-500">
-        <Icon className="h-4 w-4" aria-hidden />
+        {iconFor(ev.kind)}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{ev.title}</span>
@@ -81,24 +79,25 @@ function ActivityRow({ ev }: { ev: TimelineEntry }) {
   );
 }
 
-function iconFor(kind: TimelineEntry["kind"]): LucideIcon {
+function iconFor(kind: TimelineEntry["kind"]): React.ReactElement {
+  const props = { className: "h-4 w-4", "aria-hidden": true } as const;
   switch (kind) {
     case "CHECK_IN":
-      return ClipboardList;
+      return <ClipboardList {...props} />;
     case "BIOMETRIC":
-      return HeartPulse;
+      return <HeartPulse {...props} />;
     case "APPOINTMENT":
-      return CalendarClock;
+      return <CalendarClock {...props} />;
     case "REPORT":
-      return ClipboardList;
+      return <ClipboardList {...props} />;
     case "MEDICATION":
-      return Pill;
+      return <Pill {...props} />;
     case "SYMPTOM":
-      return NotebookPen;
+      return <NotebookPen {...props} />;
     case "USER_SIGNUP":
-      return UserPlus;
+      return <UserPlus {...props} />;
     case "AUDIT":
-      return ShieldCheck;
+      return <ShieldCheck {...props} />;
   }
 }
 
