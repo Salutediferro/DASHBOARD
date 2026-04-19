@@ -28,7 +28,7 @@ export function MetricChart({
   unit,
   data,
   emptyLabel = "Nessun dato disponibile",
-  color = "#c9a96e",
+  color = "#b22222",
 }: Props) {
   const points = data.filter(
     (p): p is { date: string; value: number } => p.value != null,

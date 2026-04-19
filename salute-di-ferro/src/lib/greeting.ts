@@ -1,11 +1,9 @@
-"use client";
-
 import * as React from "react";
 
 /**
  * Returns the localized greeting matching the user's *local* wall clock
- * time. Pure helper — for use inside `useGreeting`, which takes care of
- * avoiding the SSR hydration mismatch.
+ * time. Pure helper — usable on both server and client. For client
+ * components that want SSR-safe rendering, use `useGreeting` below.
  */
 export function greeting(hour: number = new Date().getHours()): string {
   if (hour < 6) return "Ciao";
