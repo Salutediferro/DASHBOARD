@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { CheckEmailCard } from "./check-email-card";
+import { CheckEmailContent } from "./check-email-content";
 
 export const metadata = { title: "Controlla la tua email — Salute di Ferro" };
 
 export default function CheckEmailPage() {
   return (
     <Suspense>
-      <CheckEmailCard />
+      <CheckEmailContent />
     </Suspense>
   );
 }

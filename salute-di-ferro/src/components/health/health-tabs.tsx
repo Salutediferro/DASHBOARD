@@ -1,31 +1,61 @@
 "use client";
 
 import * as React from "react";
-import { Download } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import type { Sex } from "@prisma/client";
+
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { MetricCard } from "@/components/health/metric-card";
-import { MetricChart } from "@/components/health/metric-chart";
-import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import {
-  useBiometricSummary,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
   useBiometrics,
+  useDeleteBiometric,
   type BiometricLogDTO,
-  type BiometricSummaryResponse,
 } from "@/lib/hooks/use-biometrics";
 
+import PageHeader from "@/components/brand/page-header";
+import MetricRing from "@/components/brand/metric-ring";
+import SectionHeader from "@/components/brand/section-header";
+import { MetricChart } from "@/components/health/metric-chart";
+import { MetricForm, type MetricField } from "@/components/health/metric-form";
+import HealthEmptyState from "@/components/health/health-empty-state";
+
+type PatientProfile = {
+  targetWeightKg: number | null;
+  heightCm: number | null;
+  sex: Sex | null;
+};
+
 type Props = {
+  /** Patient bio (target weight / height / sex). Optional: when omitted,
+   *  rings still show current values but without a target bar. */
+  profile?: PatientProfile;
   /** Omit for patient self-view; required for professional readonly views. */
   patientId?: string;
   readOnly?: boolean;
 };
+
+const EMPTY_PROFILE: PatientProfile = {
+  targetWeightKg: null,
+  heightCm: null,
+  sex: null,
+};
+
+// ── Categories & fields ─────────────────────────────────────────────────────
 
 const CATEGORIES = [
   { key: "body", label: "Corporei" },
@@ -38,7 +68,6 @@ const CATEGORIES = [
 
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
 
-// ── per-category field config ─────────────────────────────────────────────
 const FIELDS: Record<CategoryKey, MetricField[]> = {
   body: [
     { name: "weight", label: "Peso", unit: "kg", step: "0.1", placeholder: "75.0" },
@@ -62,41 +91,16 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
     { name: "hrv", label: "HRV", unit: "ms", step: "1" },
   ],
   metabolic: [
-    {
-      name: "glucoseFasting",
-      label: "Glicemia digiuno",
-      unit: "mg/dL",
-      step: "1",
-    },
-    {
-      name: "glucosePostMeal",
-      label: "Glicemia post-pasto",
-      unit: "mg/dL",
-      step: "1",
-    },
+    { name: "glucoseFasting", label: "Glicemia digiuno", unit: "mg/dL", step: "1" },
+    { name: "glucosePostMeal", label: "Glicemia post-pasto", unit: "mg/dL", step: "1" },
     { name: "ketones", label: "Chetoni", unit: "mmol/L", step: "0.1" },
-    {
-      name: "bodyTempC",
-      label: "Temperatura corporea",
-      unit: "°C",
-      step: "0.1",
-    },
+    { name: "bodyTempC", label: "Temperatura", unit: "°C", step: "0.1" },
   ],
   sleep: [
     { name: "sleepHours", label: "Ore dormite", unit: "h", step: "0.25" },
     { name: "sleepQuality", label: "Qualità (1-10)", step: "1" },
-    {
-      name: "sleepBedtime",
-      label: "A letto",
-      type: "time",
-      placeholder: "23:30",
-    },
-    {
-      name: "sleepWakeTime",
-      label: "Sveglia",
-      type: "time",
-      placeholder: "07:00",
-    },
+    { name: "sleepBedtime", label: "A letto", type: "time", placeholder: "23:30" },
+    { name: "sleepWakeTime", label: "Sveglia", type: "time", placeholder: "07:00" },
     { name: "sleepAwakenings", label: "Risvegli", step: "1" },
   ],
   activity: [
@@ -107,310 +111,591 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
   ],
 };
 
-// Primary numeric metrics per category, used to build the KPI cards and charts.
+type PrimaryKey = keyof BiometricLogDTO;
+
 const PRIMARY: Record<
   CategoryKey,
-  Array<{ key: keyof BiometricLogDTO; label: string; unit?: string; invert?: boolean; decimals?: number }>
+  { key: PrimaryKey; label: string; unit?: string; decimals?: number }
 > = {
-  body: [
-    { key: "weight", label: "Peso", unit: "kg", invert: true, decimals: 1 },
-    { key: "bmi", label: "BMI", invert: true, decimals: 1 },
-    { key: "bodyFatPercentage", label: "% grasso", unit: "%", invert: true, decimals: 1 },
-    { key: "muscleMassKg", label: "Massa muscolare", unit: "kg", decimals: 1 },
-  ],
-  circumferences: [
-    { key: "waistCm", label: "Vita", unit: "cm", invert: true },
-    { key: "hipsCm", label: "Fianchi", unit: "cm", invert: true },
-    { key: "chestCm", label: "Petto", unit: "cm" },
-    { key: "armsCm", label: "Braccia", unit: "cm" },
-  ],
-  cardiovascular: [
-    { key: "systolicBP", label: "PA sistolica", unit: "mmHg", invert: true, decimals: 0 },
-    { key: "diastolicBP", label: "PA diastolica", unit: "mmHg", invert: true, decimals: 0 },
-    { key: "restingHR", label: "FC riposo", unit: "bpm", invert: true, decimals: 0 },
-    { key: "spo2", label: "SpO2", unit: "%" },
-  ],
-  metabolic: [
-    { key: "glucoseFasting", label: "Glicemia digiuno", unit: "mg/dL", invert: true, decimals: 0 },
-    { key: "glucosePostMeal", label: "Glicemia post-pasto", unit: "mg/dL", invert: true, decimals: 0 },
-    { key: "ketones", label: "Chetoni", unit: "mmol/L" },
-    { key: "bodyTempC", label: "Temperatura", unit: "°C" },
-  ],
-  sleep: [
-    { key: "sleepHours", label: "Ore dormite", unit: "h" },
-    { key: "sleepQuality", label: "Qualità", decimals: 0 },
-  ],
-  activity: [
-    { key: "steps", label: "Passi", decimals: 0 },
-    { key: "caloriesBurned", label: "Kcal", decimals: 0 },
-    { key: "activeMinutes", label: "Minuti attivi", unit: "min", decimals: 0 },
-    { key: "distanceKm", label: "Distanza", unit: "km" },
-  ],
+  body: { key: "weight", label: "Peso", unit: "kg", decimals: 1 },
+  circumferences: { key: "waistCm", label: "Vita", unit: "cm", decimals: 1 },
+  cardiovascular: { key: "systolicBP", label: "PA sistolica", unit: "mmHg", decimals: 0 },
+  metabolic: { key: "glucoseFasting", label: "Glicemia digiuno", unit: "mg/dL", decimals: 0 },
+  sleep: { key: "sleepHours", label: "Ore dormite", unit: "h", decimals: 1 },
+  activity: { key: "steps", label: "Passi", decimals: 0 },
 };
 
-// ── helpers ───────────────────────────────────────────────────────────────
-function latestAndPrevious(
-  items: BiometricLogDTO[],
-  key: keyof BiometricLogDTO,
-): { current: number | null; previous: number | null } {
-  // items come in DESC order from /api/biometrics
-  const vals: number[] = [];
-  for (const r of items) {
-    const v = r[key];
-    if (typeof v === "number" && Number.isFinite(v)) vals.push(v);
-    if (vals.length === 2) break;
-  }
-  return { current: vals[0] ?? null, previous: vals[1] ?? null };
-}
+// ── Periods ────────────────────────────────────────────────────────────────
 
-function seriesFor(
-  summary: BiometricSummaryResponse | undefined,
-  key: keyof BiometricSummaryResponse["series"][number],
-): Array<{ date: string; value: number | null }> {
-  if (!summary) return [];
-  return summary.series.map((p) => ({
-    date: p.date,
-    value: (p[key] as number | null) ?? null,
-  }));
-}
+const PERIODS = [
+  { key: 7, label: "7g" },
+  { key: 30, label: "30g" },
+  { key: 90, label: "90g" },
+  { key: 365, label: "1a" },
+  { key: null, label: "tutto" },
+] as const;
 
-function formatCsvValue(v: unknown): string {
-  if (v == null) return "";
-  if (v instanceof Date) return v.toISOString();
-  const s = String(v);
-  if (/[,"\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+type PeriodKey = (typeof PERIODS)[number]["key"];
 
-function downloadCsv(items: BiometricLogDTO[]) {
-  if (items.length === 0) return;
-  const headers: (keyof BiometricLogDTO)[] = [
-    "date",
-    "weight",
-    "bmi",
-    "bodyFatPercentage",
-    "muscleMassKg",
-    "bodyWaterPct",
-    "waistCm",
-    "hipsCm",
-    "chestCm",
-    "armsCm",
-    "thighCm",
-    "calvesCm",
-    "systolicBP",
-    "diastolicBP",
-    "restingHR",
-    "spo2",
-    "hrv",
-    "glucoseFasting",
-    "glucosePostMeal",
-    "ketones",
-    "bodyTempC",
-    "sleepHours",
-    "sleepQuality",
-    "sleepAwakenings",
-    "steps",
-    "caloriesBurned",
-    "activeMinutes",
-    "distanceKm",
-    "energyLevel",
-    "notes",
-  ];
-  const lines = [headers.join(",")];
-  for (const r of items) {
-    lines.push(headers.map((h) => formatCsvValue(r[h])).join(","));
-  }
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `biometrics-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// ── Component ──────────────────────────────────────────────────────────────
 
-// ── component ─────────────────────────────────────────────────────────────
-export function HealthTabs({ patientId, readOnly }: Props) {
-  const [days, setDays] = React.useState<30 | 90 | 365>(30);
-  const [from, setFrom] = React.useState("");
-  const [to, setTo] = React.useState("");
+export function HealthTabs({
+  profile = EMPTY_PROFILE,
+  patientId,
+  readOnly,
+}: Props) {
+  const [category, setCategory] = React.useState<CategoryKey>("body");
+  const [period, setPeriod] = React.useState<PeriodKey>(30);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [formCategory, setFormCategory] =
+    React.useState<CategoryKey>("body");
 
-  const listParams = React.useMemo(
-    () => ({
-      patientId,
-      from: from || undefined,
-      to: to || undefined,
-      perPage: 200,
-    }),
-    [patientId, from, to],
-  );
-  const list = useBiometrics(listParams);
-  const summary = useBiometricSummary(days, patientId);
-
+  const list = useBiometrics({ patientId, perPage: 500 });
   const items = list.data?.items ?? [];
+  const hasAnyData = items.length > 0;
+
+  // Filter by period client-side so the pill group feels instant.
+  const periodItems = React.useMemo(() => {
+    if (period == null) return items;
+    const cutoff = Date.now() - period * 24 * 60 * 60 * 1000;
+    return items.filter((r) => new Date(r.date).getTime() >= cutoff);
+  }, [items, period]);
+
+  const ringMetrics = React.useMemo(
+    () => computeRingMetrics(items, profile),
+    [items, profile],
+  );
+
+  const openDialogFor = (c: CategoryKey) => {
+    setFormCategory(c);
+    setDialogOpen(true);
+  };
 
   return (
     <div className="flex flex-col gap-6">
-      {readOnly && (
-        <div className="flex flex-wrap items-end gap-3 border-b border-border pb-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="from">Dal</Label>
-            <Input
-              id="from"
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="to">Al</Label>
-            <Input
-              id="to"
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </div>
-          <div className="ml-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => downloadCsv(items)}
-              disabled={items.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Esporta CSV
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Finestra trend:</span>
-        {[30, 90, 365].map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setDays(d as 30 | 90 | 365)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              days === d
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/70"
-            }`}
-          >
-            {d} giorni
-          </button>
-        ))}
-      </div>
-
-      <Tabs defaultValue="body">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-          {CATEGORIES.map((c) => (
-            <TabsTrigger key={c.key} value={c.key}>
-              {c.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {CATEGORIES.map((c) => (
-          <TabsContent
-            key={c.key}
-            value={c.key}
-            className="mt-4 flex flex-col gap-4"
-          >
-            {/* KPI cards */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {PRIMARY[c.key].map((m) => {
-                const { current, previous } = latestAndPrevious(
-                  items,
-                  m.key,
-                );
-                return (
-                  <MetricCard
-                    key={String(m.key)}
-                    label={m.label}
-                    value={current}
-                    previous={previous}
-                    unit={m.unit}
-                    invertTrend={m.invert}
-                    decimals={m.decimals ?? 1}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Entry form — patient only */}
-            {!readOnly && (
-              <MetricForm category={c.key} fields={FIELDS[c.key]} />
-            )}
-
-            {/* Charts for primary metrics */}
-            <div className="grid gap-3 md:grid-cols-2">
-              {PRIMARY[c.key]
-                .filter((m) =>
-                  [
-                    "weight",
-                    "bmi",
-                    "bodyFatPercentage",
-                    "muscleMassKg",
-                    "waistCm",
-                    "systolicBP",
-                    "diastolicBP",
-                    "restingHR",
-                    "spo2",
-                    "glucoseFasting",
-                    "sleepHours",
-                    "steps",
-                  ].includes(String(m.key)),
-                )
-                .map((m) => (
-                  <MetricChart
-                    key={String(m.key)}
-                    title={m.label}
-                    unit={m.unit}
-                    data={seriesFor(
-                      summary.data,
-                      m.key as keyof BiometricSummaryResponse["series"][number],
-                    )}
-                  />
-                ))}
-            </div>
-
-            {/* Historic list (last 10 rows) */}
-            {items.length > 0 && (
-              <div className="border-border rounded-lg border">
-                <div className="bg-muted/30 border-b border-border px-4 py-2 text-xs font-semibold uppercase">
-                  Ultime {Math.min(10, items.length)} misurazioni
-                </div>
-                <ul className="divide-border divide-y">
-                  {items.slice(0, 10).map((r) => (
-                    <li
-                      key={r.id}
-                      className="flex items-center justify-between px-4 py-2 text-sm"
+      <PageHeader
+        title="La mia salute"
+        description="Monitora peso, circonferenze, cuore, metabolismo, sonno e attività."
+        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
+        actions={
+          !readOnly && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger
+                className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                Aggiungi rilevazione
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md md:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Nuova rilevazione</DialogTitle>
+                  <DialogDescription>
+                    Inserisci uno o più valori. I campi vuoti vengono ignorati.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-wrap gap-1 border-b border-border/60 pb-3">
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setFormCategory(c.key)}
+                      className={cn(
+                        "focus-ring rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                        formCategory === c.key
+                          ? "bg-primary-500/15 text-primary-500"
+                          : "text-muted-foreground hover:bg-muted",
+                      )}
                     >
-                      <span className="text-muted-foreground">
-                        {new Date(r.date).toLocaleDateString("it-IT", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span className="tabular-nums">
-                        {summaryRowLabel(c.key, r)}
-                      </span>
-                    </li>
+                      {c.label}
+                    </button>
                   ))}
-                </ul>
-              </div>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto">
+                  <MetricForm
+                    key={formCategory}
+                    category={formCategory}
+                    fields={FIELDS[formCategory]}
+                    dense
+                    onSaved={() => setDialogOpen(false)}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      />
+
+      {list.isLoading ? (
+        <LoadingState />
+      ) : !hasAnyData ? (
+        <HealthEmptyState
+          action={
+            !readOnly && (
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => openDialogFor("body")}
+              >
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                Registra la prima rilevazione
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <>
+          {/* Ring row ────────────────────────────── */}
+          <section className="flex flex-col gap-3">
+            <SectionHeader
+              title="Panoramica"
+              subtitle="Le tue 4 metriche chiave rispetto al target."
+            />
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              {ringMetrics.map((m) => (
+                <MetricRingCard key={m.name} metric={m} />
+              ))}
+            </div>
+          </section>
+
+          {/* Category tabs ───────────────────────── */}
+          <section className="flex flex-col gap-3">
+            <Tabs
+              value={category}
+              onValueChange={(v) => setCategory(v as CategoryKey)}
+            >
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+                {CATEGORIES.map((c) => (
+                  <TabsTrigger key={c.key} value={c.key}>
+                    {c.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {CATEGORIES.map((c) => (
+                <TabsContent
+                  key={c.key}
+                  value={c.key}
+                  className="mt-4 flex flex-col gap-4"
+                >
+                  <CategoryPanel
+                    category={c.key}
+                    items={periodItems}
+                    allItems={items}
+                    period={period}
+                    onPeriodChange={setPeriod}
+                    onAdd={() => openDialogFor(c.key)}
+                    readOnly={readOnly}
+                  />
+                </TabsContent>
+              ))}
+            </Tabs>
+          </section>
+        </>
+      )}
     </div>
   );
 }
 
-function summaryRowLabel(category: CategoryKey, r: BiometricLogDTO): string {
+// ── Ring metrics computation ────────────────────────────────────────────────
+
+type RingMetric = {
+  name: string;
+  label: string;
+  unit: string;
+  value: number | null;
+  target: number | null;
+  progress: number; // 0..1
+};
+
+function computeRingMetrics(
+  items: BiometricLogDTO[],
+  profile: PatientProfile,
+): RingMetric[] {
+  const latest = {
+    weight: latestOf(items, "weight"),
+    bmi: latestOf(items, "bmi"),
+    waistCm: latestOf(items, "waistCm"),
+    bodyFatPercentage: latestOf(items, "bodyFatPercentage"),
+  };
+
+  const isFemale = profile.sex === "FEMALE";
+  const weightTarget = profile.targetWeightKg ?? null;
+  const bmiTarget = 22;
+  const waistTarget = isFemale ? 80 : 94; // OMS cut-off
+  const bodyFatTarget = isFemale ? 22 : 15; // ACSM general reference
+
+  return [
+    {
+      name: "weight",
+      label: "Peso",
+      unit: "kg",
+      value: latest.weight,
+      target: weightTarget,
+      progress: progressLowerBetter(latest.weight, weightTarget),
+    },
+    {
+      name: "bmi",
+      label: "BMI",
+      unit: "",
+      value: latest.bmi,
+      target: bmiTarget,
+      progress: progressLowerBetter(latest.bmi, bmiTarget),
+    },
+    {
+      name: "waist",
+      label: "Vita",
+      unit: "cm",
+      value: latest.waistCm,
+      target: waistTarget,
+      progress: progressLowerBetter(latest.waistCm, waistTarget),
+    },
+    {
+      name: "bodyFat",
+      label: "Body fat",
+      unit: "%",
+      value: latest.bodyFatPercentage,
+      target: bodyFatTarget,
+      progress: progressLowerBetter(latest.bodyFatPercentage, bodyFatTarget),
+    },
+  ];
+}
+
+function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
+  for (const r of items) {
+    const v = r[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return null;
+}
+
+function progressLowerBetter(
+  current: number | null,
+  target: number | null,
+): number {
+  if (current == null || target == null || target === 0) return 0;
+  if (current <= target) return 1;
+  return Math.max(0, Math.min(1, target / current));
+}
+
+function MetricRingCard({ metric }: { metric: RingMetric }) {
+  const pct = Math.round(metric.progress * 100);
+  const hasValue = metric.value != null;
+  const label = hasValue
+    ? `${metric.value!.toFixed(metric.unit === "%" ? 1 : metric.unit === "cm" ? 1 : 1)}${metric.unit ? ` ${metric.unit}` : ""}`
+    : "—";
+  const sublabel = metric.target != null ? `→ ${metric.target}${metric.unit ? ` ${metric.unit}` : ""}` : "no target";
+
+  return (
+    <div className="surface-1 flex flex-col items-center gap-2 rounded-xl p-4">
+      <MetricRing
+        value={metric.progress}
+        size={110}
+        strokeWidth={10}
+        label={label}
+        sublabel={sublabel}
+        ariaLabel={`${metric.label}: ${label}${metric.target != null ? `, target ${metric.target}${metric.unit}, ${pct}% avvicinamento` : ""}`}
+      />
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {metric.label}
+      </p>
+    </div>
+  );
+}
+
+// ── Category panel ─────────────────────────────────────────────────────────
+
+function CategoryPanel({
+  category,
+  items,
+  allItems,
+  period,
+  onPeriodChange,
+  onAdd,
+  readOnly,
+}: {
+  category: CategoryKey;
+  items: BiometricLogDTO[];
+  allItems: BiometricLogDTO[];
+  period: PeriodKey;
+  onPeriodChange: (p: PeriodKey) => void;
+  onAdd: () => void;
+  readOnly?: boolean;
+}) {
+  const primary = PRIMARY[category];
+  const numericValues = items
+    .map((r) => r[primary.key])
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+
+  const series = React.useMemo(
+    () =>
+      items
+        .slice()
+        .reverse()
+        .map((r) => ({
+          date: r.date,
+          value:
+            typeof r[primary.key] === "number"
+              ? (r[primary.key] as number)
+              : null,
+        })),
+    [items, primary.key],
+  );
+
+  const stats = computeStats(numericValues);
+  const firstLast = firstAndLast(items, primary.key);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PeriodPills value={period} onChange={onPeriodChange} />
+        <span className="text-xs text-muted-foreground">
+          {items.length} rilevazioni nel periodo
+        </span>
+      </div>
+
+      <MetricChart
+        title={primary.label}
+        unit={primary.unit}
+        data={series}
+        emptyLabel="Nessuna rilevazione in questo periodo."
+      />
+
+      <StatsGrid
+        stats={stats}
+        firstLast={firstLast}
+        unit={primary.unit}
+        decimals={primary.decimals ?? 1}
+      />
+
+      <RecentTable
+        category={category}
+        items={allItems.slice(0, 10)}
+        readOnly={readOnly}
+        onAdd={onAdd}
+      />
+    </div>
+  );
+}
+
+function PeriodPills({
+  value,
+  onChange,
+}: {
+  value: PeriodKey;
+  onChange: (p: PeriodKey) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Periodo"
+      className="inline-flex gap-1 rounded-full border border-border/60 bg-muted/30 p-1"
+    >
+      {PERIODS.map((p) => {
+        const active = value === p.key;
+        return (
+          <button
+            key={p.label}
+            role="radio"
+            aria-checked={active}
+            type="button"
+            onClick={() => onChange(p.key)}
+            className={cn(
+              "focus-ring rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+
+type Stats = {
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+  count: number;
+};
+
+function computeStats(values: number[]): Stats {
+  if (values.length === 0) {
+    return { min: null, max: null, avg: null, count: 0 };
+  }
+  let min = values[0];
+  let max = values[0];
+  let sum = 0;
+  for (const v of values) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v;
+  }
+  return { min, max, avg: sum / values.length, count: values.length };
+}
+
+function firstAndLast(
+  items: BiometricLogDTO[],
+  key: PrimaryKey,
+): { first: number | null; last: number | null } {
+  // items come in DESC order — first = oldest, last = newest within the slice.
+  let first: number | null = null;
+  let last: number | null = null;
+  for (const r of items) {
+    const v = r[key];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      if (last == null) last = v;
+      first = v;
+    }
+  }
+  return { first, last };
+}
+
+function StatsGrid({
+  stats,
+  firstLast,
+  unit,
+  decimals,
+}: {
+  stats: Stats;
+  firstLast: { first: number | null; last: number | null };
+  unit?: string;
+  decimals: number;
+}) {
+  const delta =
+    firstLast.first != null && firstLast.last != null
+      ? firstLast.last - firstLast.first
+      : null;
+  const items = [
+    { label: "Min", value: stats.min },
+    { label: "Max", value: stats.max },
+    { label: "Media", value: stats.avg },
+    { label: "Delta", value: delta, signed: true },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {items.map((it) => (
+        <div key={it.label} className="surface-1 rounded-xl p-3">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {it.label}
+          </div>
+          <div className="mt-1 text-lg font-semibold tabular-nums">
+            {it.value != null
+              ? `${it.signed && it.value > 0 ? "+" : ""}${it.value.toFixed(decimals)}${unit ? ` ${unit}` : ""}`
+              : "—"}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Recent table with inline delete ─────────────────────────────────────────
+
+function RecentTable({
+  category,
+  items,
+  readOnly,
+  onAdd,
+}: {
+  category: CategoryKey;
+  items: BiometricLogDTO[];
+  readOnly?: boolean;
+  onAdd: () => void;
+}) {
+  const del = useDeleteBiometric();
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
+
+  async function remove(id: string) {
+    if (!confirm("Eliminare questa rilevazione?")) return;
+    setPendingId(id);
+    try {
+      await del.mutateAsync(id);
+      toast.success("Rilevazione eliminata");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Errore");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  return (
+    <div className="surface-1 overflow-hidden rounded-xl">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide">
+          Ultime {Math.min(10, items.length)} rilevazioni
+        </h3>
+        {!readOnly && (
+          <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
+            <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
+            Aggiungi
+          </Button>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+          Nessuna rilevazione ancora.
+        </p>
+      ) : (
+        <table className="w-full text-sm" aria-label="Ultime rilevazioni">
+          <thead>
+            <tr className="border-b border-border/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <th className="px-4 py-2 text-left font-medium">Data</th>
+              <th className="px-4 py-2 text-left font-medium">Valore</th>
+              <th className="px-4 py-2 text-left font-medium">Note</th>
+              {!readOnly && <th className="px-4 py-2" />}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {items.map((r) => (
+              <tr key={r.id}>
+                <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
+                  {new Date(r.date).toLocaleDateString("it-IT", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="px-4 py-2 tabular-nums">
+                  {rowLabelFor(category, r) ?? "—"}
+                </td>
+                <td className="px-4 py-2 max-w-[240px] truncate text-muted-foreground">
+                  {r.notes ?? ""}
+                </td>
+                {!readOnly && (
+                  <td className="px-2 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => remove(r.id)}
+                      disabled={pendingId === r.id}
+                      aria-label={`Elimina rilevazione del ${new Date(r.date).toLocaleDateString("it-IT")}`}
+                      className="focus-ring inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                    >
+                      {pendingId === r.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function rowLabelFor(
+  category: CategoryKey,
+  r: BiometricLogDTO,
+): string | null {
   const parts: string[] = [];
   switch (category) {
     case "body":
@@ -428,6 +713,7 @@ function summaryRowLabel(category: CategoryKey, r: BiometricLogDTO): string {
       break;
     case "metabolic":
       if (r.glucoseFasting != null) parts.push(`${r.glucoseFasting} mg/dL`);
+      if (r.bodyTempC != null) parts.push(`${r.bodyTempC} °C`);
       break;
     case "sleep":
       if (r.sleepHours != null) parts.push(`${r.sleepHours.toFixed(1)} h`);
@@ -438,5 +724,18 @@ function summaryRowLabel(category: CategoryKey, r: BiometricLogDTO): string {
       if (r.distanceKm != null) parts.push(`${r.distanceKm.toFixed(1)} km`);
       break;
   }
-  return parts.length > 0 ? parts.join(" · ") : "—";
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+// ── Loading state ──────────────────────────────────────────────────────────
+
+function LoadingState() {
+  return (
+    <div className="flex h-[40vh] items-center justify-center">
+      <Loader2
+        className="h-6 w-6 animate-spin text-muted-foreground"
+        aria-label="Caricamento"
+      />
+    </div>
+  );
 }

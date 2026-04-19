@@ -1,23 +1,32 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { AppointmentStatus, ProfessionalRole } from "@prisma/client";
+import {
+  CalendarClock,
+  ClipboardList,
+  HeartPulse,
+  NotebookPen,
+  Pill,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import type { UserProfile } from "@/lib/hooks/use-user";
+import { greeting } from "@/lib/greeting";
 import {
-  PatientHomeClient,
-  type AppointmentRow,
-  type BiometricRow,
-  type CheckInRow,
-  type ProfessionalEntry,
-} from "./patient-home-client";
+  getPatientActivity,
+  getPatientKpis,
+} from "@/lib/queries/dashboard";
+import PageHeader from "@/components/brand/page-header";
+import SectionHeader from "@/components/brand/section-header";
+import StatCard from "@/components/brand/stat-card";
+import EmptyState from "@/components/brand/empty-state";
+import RecentActivity from "@/components/dashboard/recent-activity";
+import QuickLinkCard, {
+  formatItalianDate,
+} from "@/components/dashboard/quick-link-card";
 
 export const metadata = { title: "Dashboard — Salute di Ferro" };
+export const dynamic = "force-dynamic";
 
-// Fetched server-side and sent as typed props + React Query initialData.
-// Eliminates the 5-query waterfall that the old client component kicked
-// off on mount (appointments, check-ins, biometrics, professionals, me)
-// — first paint now arrives fully populated.
 export default async function PatientDashboardPage() {
   const supabase = await createClient();
   const {
@@ -27,169 +36,154 @@ export default async function PatientDashboardPage() {
 
   const me = await prisma.user.findUnique({
     where: { id: user.id },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      firstName: true,
-      lastName: true,
-      sex: true,
-      birthDate: true,
-      heightCm: true,
-      phone: true,
-      avatarUrl: true,
-      taxCode: true,
-      emergencyContact: true,
-      role: true,
-      onboardingCompleted: true,
-      medicalConditions: true,
-      allergies: true,
-      medications: true,
-      injuries: true,
-      targetWeightKg: true,
-      bio: true,
-      specialties: true,
-    },
+    select: { id: true, fullName: true, firstName: true, role: true },
   });
   if (!me) redirect("/login");
   if (me.role !== "PATIENT") redirect("/dashboard");
 
-  const now = new Date();
-  const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + 30);
+  const [kpis, activity] = await Promise.all([
+    getPatientKpis(me.id),
+    getPatientActivity(me.id, 5),
+  ]);
 
-  const [appointments, checkIns, biometrics, relationships] =
-    await Promise.all([
-      prisma.appointment.findMany({
-        where: {
-          patientId: me.id,
-          startTime: { gte: now, lte: windowEnd },
-        },
-        orderBy: { startTime: "asc" },
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          type: true,
-          status: true,
-          professionalId: true,
-          professional: { select: { fullName: true } },
-        },
-      }),
-      prisma.checkIn.findMany({
-        where: { patientId: me.id },
-        orderBy: { date: "desc" },
-        take: 12,
-        select: {
-          id: true,
-          date: true,
-          weight: true,
-          rating: true,
-          status: true,
-          professionalFeedback: true,
-          professionalId: true,
-        },
-      }),
-      prisma.biometricLog.findMany({
-        where: { patientId: me.id },
-        orderBy: { date: "desc" },
-        take: 60,
-        select: {
-          id: true,
-          date: true,
-          weight: true,
-          bmi: true,
-          bodyFatPercentage: true,
-          waistCm: true,
-        },
-      }),
-      prisma.careRelationship.findMany({
-        where: { patientId: me.id, status: "ACTIVE" },
-        orderBy: { startDate: "desc" },
-        include: {
-          professional: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              role: true,
-              avatarUrl: true,
-              bio: true,
-              specialties: true,
-            },
-          },
-        },
-      }),
-    ]);
-
-  const profile: UserProfile = {
-    id: me.id,
-    email: me.email,
-    fullName: me.fullName,
-    firstName: me.firstName,
-    lastName: me.lastName,
-    sex: me.sex,
-    birthDate: me.birthDate ? me.birthDate.toISOString().slice(0, 10) : null,
-    heightCm: me.heightCm,
-    phone: me.phone,
-    avatarUrl: me.avatarUrl,
-    taxCode: me.taxCode,
-    emergencyContact: me.emergencyContact,
-    role: me.role,
-    onboardingCompleted: me.onboardingCompleted,
-    medicalConditions: me.medicalConditions,
-    allergies: me.allergies,
-    medications: me.medications,
-    injuries: me.injuries,
-    targetWeightKg: me.targetWeightKg,
-    bio: me.bio,
-    specialties: me.specialties,
-  };
-
-  const initialAppointments: AppointmentRow[] = appointments.map((a) => ({
-    id: a.id,
-    startTime: a.startTime.toISOString(),
-    endTime: a.endTime.toISOString(),
-    type: a.type,
-    status: a.status as AppointmentStatus,
-    professionalId: a.professionalId,
-    professionalName: a.professional?.fullName ?? null,
-  }));
-
-  const initialCheckIns: CheckInRow[] = checkIns.map((c) => ({
-    id: c.id,
-    date: c.date.toISOString(),
-    weight: c.weight,
-    rating: c.rating,
-    status: c.status as "PENDING" | "REVIEWED",
-    professionalFeedback: c.professionalFeedback,
-    professionalId: c.professionalId,
-  }));
-
-  const initialBiometrics: BiometricRow[] = biometrics.map((b) => ({
-    id: b.id,
-    date: b.date.toISOString(),
-    weight: b.weight,
-    bmi: b.bmi,
-    bodyFatPercentage: b.bodyFatPercentage,
-    waistCm: b.waistCm,
-  }));
-
-  const initialProfessionals: ProfessionalEntry[] = relationships.map((r) => ({
-    relationshipId: r.id,
-    professionalRole: r.professionalRole as ProfessionalRole as
-      | "DOCTOR"
-      | "COACH",
-    professional: r.professional,
-  }));
+  const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <PatientHomeClient
-      profile={profile}
-      initialAppointments={initialAppointments}
-      initialCheckIns={initialCheckIns}
-      initialBiometrics={initialBiometrics}
-      initialProfessionals={initialProfessionals}
-    />
+    <div className="flex flex-col gap-8 pb-6">
+      <PageHeader
+        title={`${greeting()}, ${firstName}`}
+        description={formatItalianDate()}
+        sticky={false}
+        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
+      />
+
+      <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <StatCard
+          label="Peso corrente"
+          value={
+            kpis.currentWeightKg != null
+              ? kpis.currentWeightKg.toFixed(1)
+              : "—"
+          }
+          unit={kpis.currentWeightKg != null ? "kg" : undefined}
+          delta={
+            kpis.weightDelta14d != null && kpis.currentWeightKg
+              ? (kpis.weightDelta14d / kpis.currentWeightKg) * 100
+              : undefined
+          }
+          trend={kpis.sparklines.weight ?? undefined}
+          invertDelta
+        />
+        <StatCard
+          label="BMI"
+          value={kpis.bmi != null ? kpis.bmi.toFixed(1) : "—"}
+          trend={kpis.sparklines.bmi ?? undefined}
+          invertDelta
+        />
+        <StatCard
+          label="Check-in settimana"
+          value={kpis.checkInsThisWeek}
+          trend={kpis.sparklines.checkIns}
+        />
+        <StatCard
+          label="Prossimo appuntamento"
+          value={
+            kpis.nextAppointment
+              ? kpis.nextAppointment.daysAway === 0
+                ? "Oggi"
+                : `${kpis.nextAppointment.daysAway}g`
+              : "—"
+          }
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Prossimo"
+          subtitle="Il tuo impegno più vicino nel calendario."
+        />
+        {kpis.nextAppointment ? (
+          <Link
+            href={kpis.nextAppointment.href ?? "#"}
+            className="surface-2 focus-ring flex flex-col gap-1 rounded-xl px-5 py-4 transition-colors hover:bg-muted/30"
+          >
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Prossimo appuntamento
+            </span>
+            <span className="text-display text-xl">
+              {kpis.nextAppointment.title}
+            </span>
+            <span className="text-sm text-muted-foreground capitalize">
+              {kpis.nextAppointment.whenLabel}
+            </span>
+          </Link>
+        ) : (
+          <EmptyState
+            icon={CalendarClock}
+            title="Nessun appuntamento in programma"
+            description="Quando un professionista pubblica la sua disponibilità, lo vedrai qui."
+          />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Attività recente"
+          subtitle="Le ultime 5 voci della tua timeline."
+          action={
+            <Link
+              href="/dashboard/patient/timeline"
+              className="focus-ring rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Vedi tutto →
+            </Link>
+          }
+        />
+        <RecentActivity
+          items={activity}
+          emptyTitle="Nessuna attività recente"
+          emptyDescription="Le voci della tua timeline appariranno qui man mano che usi la piattaforma."
+          emptyAction={
+            <Link
+              href="/dashboard/patient/check-in/new"
+              className="focus-ring inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Registra un check-in
+            </Link>
+          }
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Suggeriti" subtitle="Scorciatoie utili." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickLinkCard
+            href="/dashboard/patient/health"
+            icon={HeartPulse}
+            title="Dati salute"
+            description="Traccia peso, pressione e biometrie."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/medical-records"
+            icon={ClipboardList}
+            title="Cartella clinica"
+            description="Referti e documenti condivisi."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/symptoms"
+            icon={NotebookPen}
+            title="Diario"
+            description="Umore, energia, sintomi del giorno."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/medications"
+            icon={Pill}
+            title="Terapia"
+            description="Farmaci e integratori attivi."
+          />
+        </div>
+      </section>
+    </div>
   );
 }
