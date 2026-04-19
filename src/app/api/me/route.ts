@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Sex, UserRole } from "@prisma/client";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, resolveAuthUser } from "@/lib/supabase/server";
 import { createAdminClient, MEDICAL_REPORTS_BUCKET } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { profilePatchSchema } from "@/lib/validators/profile";
@@ -28,6 +28,9 @@ const USER_SELECT = {
   allergies: true,
   medications: true,
   injuries: true,
+  targetWeightKg: true,
+  bio: true,
+  specialties: true,
 } as const;
 
 type DbUser = {
@@ -49,6 +52,9 @@ type DbUser = {
   allergies: string | null;
   medications: string | null;
   injuries: string | null;
+  targetWeightKg: number | null;
+  bio: string | null;
+  specialties: string | null;
 };
 
 function serializeUser(u: DbUser) {
@@ -58,12 +64,9 @@ function serializeUser(u: DbUser) {
   };
 }
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+export async function GET(req: Request) {
+  // Accept either cookie session (web) or Bearer JWT (mobile).
+  const user = await resolveAuthUser(req);
   if (!user) return NextResponse.json(null, { status: 401 });
 
   const dbUser = await prisma.user.findUnique({
@@ -107,6 +110,10 @@ export async function PATCH(req: Request) {
   if (data.allergies !== undefined) updates.allergies = data.allergies;
   if (data.medications !== undefined) updates.medications = data.medications;
   if (data.injuries !== undefined) updates.injuries = data.injuries;
+  if (data.targetWeightKg !== undefined)
+    updates.targetWeightKg = data.targetWeightKg;
+  if (data.bio !== undefined) updates.bio = data.bio;
+  if (data.specialties !== undefined) updates.specialties = data.specialties;
 
   // Keep fullName in sync when first/last name changes
   if (data.firstName !== undefined || data.lastName !== undefined) {

@@ -29,5 +29,20 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { supabase, user, response: supabaseResponse };
+  // Assurance level (aal1 / aal2) is needed upstream by the 2FA-enforce
+  // logic in the root middleware. We fetch once here so the middleware
+  // doesn't duplicate the call.
+  let aal: { currentLevel: string | null; nextLevel: string | null } = {
+    currentLevel: null,
+    nextLevel: null,
+  };
+  if (user) {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    aal = {
+      currentLevel: data?.currentLevel ?? null,
+      nextLevel: data?.nextLevel ?? null,
+    };
+  }
+
+  return { supabase, user, aal, response: supabaseResponse };
 }

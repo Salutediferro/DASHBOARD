@@ -85,6 +85,18 @@ enum NotificationType {
   AI
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum CheckInStatus {
+  PENDING
+  REVIEWED
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -135,6 +147,15 @@ model User {
   medications       String?
   injuries          String?
 
+  // Weight goal in kilograms (optional — set from the patient profile
+  // and rendered as progress bar vs. latest biometric weight).
+  targetWeightKg Float?
+
+  // Public professional profile (visible to linked patients).
+  // Free-text; specialties is a comma-separated list rendered as tags.
+  bio         String?
+  specialties String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -160,6 +181,18 @@ model User {
   aiConversations AiConversation[]
   notifications   Notification[]
   auditLogs       AuditLog[]
+
+  // Direct messaging
+  conversationMemberships ConversationMember[]
+  sentMessages            Message[]             @relation("MessageSender")
+
+  // Patient onboarding via professional invite link
+  professionalInvitations Invitation[] @relation("ProfessionalInvitations")
+  usedInvitations         Invitation[] @relation("UsedInvitations")
+
+  // Structured patient-owned health data (new 2026-04-18)
+  medicationsList Medication[]
+  symptomLogs     SymptomLog[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -257,6 +290,48 @@ model BiometricLog {
   @@index([patientId, date])
 }
 
+// Structured medication / therapy entries owned by the patient. Active
+// medications are shown on the dashboard; completed ones stay in history.
+// Professionals read via CareRelationship ACTIVE check at the API layer.
+model Medication {
+  id         String    @id @default(uuid()) @db.Uuid
+  patientId  String    @db.Uuid
+  name       String
+  dose       String?
+  frequency  String?
+  notes      String?
+  startDate  DateTime? @db.Date
+  endDate    DateTime? @db.Date
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, active])
+  @@index([patientId, startDate(sort: Desc)])
+}
+
+// Daily symptom / wellbeing journal (1 row per patient per calendar day).
+// mood / energy / sleepQuality are 1-5 self-ratings; symptoms is a free
+// string array (e.g. ["mal di testa", "nausea"]).
+model SymptomLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @db.Uuid
+  date         DateTime @db.Date
+  mood         Int?     @db.SmallInt
+  energy       Int?     @db.SmallInt
+  sleepQuality Int?     @db.SmallInt
+  symptoms     String[] @default([])
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, date])
+  @@index([patientId, date(sort: Desc)])
+}
+
 model CheckIn {
   id                    String           @id @default(uuid()) @db.Uuid
   patientId             String           @db.Uuid
@@ -269,9 +344,12 @@ model CheckIn {
   sidePhotoUrl          String?
   backPhotoUrl          String?
   notes                 String?
+  rating                Int? // 1..5 self-assessment
   professionalFeedback  String?
   aiAnalysis            String?
+  status                CheckInStatus    @default(PENDING)
   createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
 
   patient      User @relation("PatientCheckIns", fields: [patientId], references: [id], onDelete: Cascade)
   professional User @relation("ProfessionalCheckIns", fields: [professionalId], references: [id], onDelete: Cascade)
@@ -279,6 +357,7 @@ model CheckIn {
   @@index([patientId])
   @@index([professionalId])
   @@index([date])
+  @@index([status])
 }
 
 // ============================================================
@@ -296,6 +375,11 @@ model Appointment {
   status           AppointmentStatus @default(SCHEDULED)
   notes            String?
   meetingUrl       String?
+  /// Reminder email sent markers — set by the hourly cron to prevent
+  /// duplicates. Null means the reminder at that horizon hasn't fired
+  /// yet for this appointment.
+  reminder24SentAt DateTime?
+  reminder1SentAt  DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -437,6 +521,39 @@ model ReportPermission {
 }
 
 // ============================================================
+// PATIENT INVITATIONS (professional → patient onboarding link)
+// ============================================================
+
+/// A DOCTOR or COACH creates an Invitation to onboard a new patient.
+/// The patient follows the URL (/register?invite=<token>) to sign up;
+/// consuming the invite auto-creates a CareRelationship between the
+/// inviting professional and the new patient. Tokens are one-shot and
+/// expire after the `expiresAt` cutoff.
+model Invitation {
+  id               String           @id @default(uuid()) @db.Uuid
+  token            String           @unique
+  professionalId   String           @db.Uuid
+  professionalRole ProfessionalRole
+  email            String?
+  firstName        String?
+  lastName         String?
+  note             String?
+  status           InvitationStatus @default(PENDING)
+  expiresAt        DateTime
+  createdAt        DateTime         @default(now())
+  usedAt           DateTime?
+  usedByUserId     String?          @db.Uuid
+
+  professional User  @relation("ProfessionalInvitations", fields: [professionalId], references: [id], onDelete: Cascade)
+  usedBy       User? @relation("UsedInvitations", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([token])
+  @@index([professionalId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// ============================================================
 // AUDIT LOG (GDPR Art. 30 — record of processing activities)
 // ============================================================
 
@@ -461,4 +578,53 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ============================================================
+// DIRECT MESSAGING
+// Beta is 1:1 between a patient and a professional they have an
+// ACTIVE CareRelationship with. The pivot (ConversationMember) keeps
+// the schema open to group conversations later without a migration.
+// ============================================================
+
+model Conversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  /// Bumped on every new message so the inbox can order by recency.
+  updatedAt DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([updatedAt])
+}
+
+model ConversationMember {
+  conversationId String    @db.Uuid
+  userId         String    @db.Uuid
+  /// Last time this user opened the thread. NULL = never opened. Used
+  /// to compute per-user unread counts without a separate MessageRead
+  /// table (good enough for 1:1 — add one when we add groups).
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid
+  senderId       String   @db.Uuid
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
 }

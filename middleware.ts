@@ -11,6 +11,17 @@ const ROLE_HOME: Record<string, string> = {
   PATIENT: "/dashboard/patient",
 };
 
+// Routes that stay reachable while a professional is being forced to
+// finish 2FA setup — the security page itself, the logout endpoint and
+// the whole /api surface so React-Query mutations don't deadlock.
+const MFA_ESCAPE_PREFIXES = [
+  "/dashboard/settings/security",
+  "/auth",
+  "/api",
+];
+
+const ROLES_REQUIRING_2FA = new Set(["DOCTOR", "COACH", "ADMIN"]);
+
 // Allowed role(s) for each protected dashboard subtree, by URL prefix.
 // Longer prefixes must come first so they win the match.
 const ROLE_RULES: Array<{ prefix: string; roles: readonly string[] }> = [
@@ -26,7 +37,7 @@ type DevBypassUser = {
 };
 
 export async function middleware(request: NextRequest) {
-  const { user: authUser, response } = await updateSession(request);
+  const { user: authUser, aal, response } = await updateSession(request);
   const { pathname, searchParams } = request.nextUrl;
 
   // ── Dev bypass ────────────────────────────────────────────────────────
@@ -73,6 +84,42 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // 2FA hard-enforce for professional roles. Gated by ENFORCE_2FA=1 so
+  // we can roll it out progressively — flipping it on immediately would
+  // lock out every existing DOCTOR/COACH/ADMIN that hasn't enrolled yet.
+  //
+  // Policy when enabled:
+  //   - current aal === "aal2" → pass (fully authenticated)
+  //   - nextLevel === "aal2" && current === "aal1" → user HAS a verified
+  //     factor but hasn't challenged yet. The login form handles the
+  //     step-up; we don't block dashboard access just for this.
+  //   - else (no enrolled factor) → redirect to settings/security with a
+  //     banner flag so the user is forced to complete enrollment.
+  const enforce2fa = process.env.ENFORCE_2FA === "1";
+  if (
+    enforce2fa &&
+    user &&
+    isDashboard &&
+    !devBypassEnabled &&
+    !MFA_ESCAPE_PREFIXES.some((p) => pathname.startsWith(p))
+  ) {
+    const role =
+      (user.app_metadata?.role as string | undefined) ??
+      (user.user_metadata?.role as string | undefined);
+    if (role && ROLES_REQUIRING_2FA.has(role)) {
+      const currentLevel = aal?.currentLevel ?? null;
+      const nextLevel = aal?.nextLevel ?? null;
+      const hasEnrolled = nextLevel === "aal2";
+      if (currentLevel !== "aal2" && !hasEnrolled) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard/settings/security";
+        url.search = "";
+        url.searchParams.set("reason", "2fa-required");
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   // Role-based routing inside /dashboard.

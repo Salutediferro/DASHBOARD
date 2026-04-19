@@ -66,6 +66,11 @@ export const profilePatchSchema = z.object({
   allergies: nullableString(2000),
   medications: nullableString(2000),
   injuries: nullableString(2000),
+  targetWeightKg: nullableNumber(30, 250),
+
+  // Public professional profile (DOCTOR/COACH only — ignored otherwise)
+  bio: nullableString(2000),
+  specialties: nullableString(500),
 });
 
 export type ProfilePatch = z.infer<typeof profilePatchSchema>;
@@ -89,6 +94,9 @@ export const profileFormSchema = z.object({
   allergies: z.string().max(2000).nullable(),
   medications: z.string().max(2000).nullable(),
   injuries: z.string().max(2000).nullable(),
+  targetWeightKg: z.number().nullable(),
+  bio: z.string().max(2000).nullable(),
+  specialties: z.string().max(500).nullable(),
 });
 
 export type ProfileFormInput = z.infer<typeof profileFormSchema>;

@@ -16,6 +16,31 @@ if (!connectionString) {
   throw new Error("DATABASE_URL / DIRECT_URL is not set");
 }
 
+// ── Production guard ──────────────────────────────────────────────────────
+// Refuse to run against the known production Supabase project unless
+// SEED_ALLOW_PRODUCTION=1 is set. The guard matches the specific
+// project ref (zzpzptvtshyetdpvwhfc) rather than any Supabase host —
+// that way a staging Supabase project (which is also on *.supabase.com)
+// can still be seeded without the override.
+//
+// When rotating the prod ref (new project, migration) update the
+// constant below in the same commit.
+const PROD_PROJECT_REF = "zzpzptvtshyetdpvwhfc";
+const isProductionRef = connectionString.includes(`.${PROD_PROJECT_REF}`) ||
+  connectionString.includes(`postgres.${PROD_PROJECT_REF}`);
+const allowProd = process.env.SEED_ALLOW_PRODUCTION === "1";
+if (isProductionRef && !allowProd) {
+  console.error(
+    "\n✖ Seed refused: DIRECT_URL points to the production Supabase " +
+      "project.\n" +
+      "  The seed recreates test accounts with the public default " +
+      "password from SEED.md.\n" +
+      "  If you really mean to run this on production, re-run with " +
+      "SEED_ALLOW_PRODUCTION=1.\n",
+  );
+  process.exit(1);
+}
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {

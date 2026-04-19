@@ -26,7 +26,9 @@ export type AuditAction =
   | "USER_REGISTER"
   | "USER_SOFT_DELETE"
   | "USER_EXPORT"
-  | "ADMIN_USER_PROVISION";
+  | "ADMIN_USER_PROVISION"
+  | "INVITATION_CREATE"
+  | "INVITATION_REVOKE";
 
 export type AuditParams = {
   actorId: string | null;

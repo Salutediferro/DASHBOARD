@@ -32,7 +32,15 @@ export async function GET() {
     orderBy: { startDate: "desc" },
     include: {
       professional: {
-        select: { id: true, fullName: true, email: true, role: true },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+          bio: true,
+          specialties: true,
+        },
       },
     },
   });
