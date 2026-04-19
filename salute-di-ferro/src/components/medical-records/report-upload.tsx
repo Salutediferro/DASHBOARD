@@ -61,9 +61,10 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function iconForFile(mime: string) {
-  if (mime.startsWith("image/")) return ImageIcon;
-  return FileText;
+function iconForFile(mime: string): React.ReactElement {
+  const props = { className: "h-5 w-5" } as const;
+  if (mime.startsWith("image/")) return <ImageIcon {...props} />;
+  return <FileText {...props} />;
 }
 
 type Props = {
@@ -143,7 +144,7 @@ export function ReportUpload({ patientId, onSuccess }: Props) {
     }
   }
 
-  const FileIcon = file ? iconForFile(file.type) : null;
+  const fileIcon = file ? iconForFile(file.type) : null;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -166,13 +167,13 @@ export function ReportUpload({ patientId, onSuccess }: Props) {
         )}
         aria-label="Area di caricamento referto"
       >
-        {file && FileIcon ? (
+        {file && fileIcon ? (
           <div className="flex w-full items-center gap-3">
             <span
               aria-hidden
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-500/10 text-primary-500"
             >
-              <FileIcon className="h-5 w-5" />
+              {fileIcon}
             </span>
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-medium">{file.name}</p>
