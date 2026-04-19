@@ -1,40 +1,189 @@
-"use client";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  CalendarClock,
+  ClipboardList,
+  HeartPulse,
+  NotebookPen,
+  Pill,
+} from "lucide-react";
 
-import { Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/lib/hooks/use-user";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
+import { greeting } from "@/lib/greeting";
+import {
+  getPatientActivity,
+  getPatientKpis,
+} from "@/lib/queries/dashboard";
+import PageHeader from "@/components/brand/page-header";
+import SectionHeader from "@/components/brand/section-header";
+import StatCard from "@/components/brand/stat-card";
+import EmptyState from "@/components/brand/empty-state";
+import RecentActivity from "@/components/dashboard/recent-activity";
+import QuickLinkCard, {
+  formatItalianDate,
+} from "@/components/dashboard/quick-link-card";
 
-export default function ClientDashboardPage() {
-  const { profile, isLoading } = useUser();
+export const metadata = { title: "Dashboard — Salute di Ferro" };
+export const dynamic = "force-dynamic";
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
+export default async function PatientDashboardPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, fullName: true, firstName: true, role: true },
+  });
+  if (!me) redirect("/login");
+  if (me.role !== "PATIENT") redirect("/dashboard");
+
+  const [kpis, activity] = await Promise.all([
+    getPatientKpis(me.id),
+    getPatientActivity(me.id, 5),
+  ]);
+
+  const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Ciao{profile?.firstName ? `, ${profile.firstName}` : ""}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {profile?.email}
-        </p>
-      </header>
+    <div className="flex flex-col gap-8 pb-6">
+      <PageHeader
+        title={`${greeting()}, ${firstName}`}
+        description={formatItalianDate()}
+        sticky={false}
+        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Dashboard paziente</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          In costruzione. Le sezioni di questa area verranno abilitate nei
-          prossimi moduli (biometria, referti, appuntamenti, check-in).
-        </CardContent>
-      </Card>
+      <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <StatCard
+          label="Peso corrente"
+          value={
+            kpis.currentWeightKg != null
+              ? kpis.currentWeightKg.toFixed(1)
+              : "—"
+          }
+          unit={kpis.currentWeightKg != null ? "kg" : undefined}
+          delta={
+            kpis.weightDelta14d != null && kpis.currentWeightKg
+              ? (kpis.weightDelta14d / kpis.currentWeightKg) * 100
+              : undefined
+          }
+          trend={kpis.sparklines.weight ?? undefined}
+          invertDelta
+        />
+        <StatCard
+          label="BMI"
+          value={kpis.bmi != null ? kpis.bmi.toFixed(1) : "—"}
+          trend={kpis.sparklines.bmi ?? undefined}
+          invertDelta
+        />
+        <StatCard
+          label="Check-in settimana"
+          value={kpis.checkInsThisWeek}
+          trend={kpis.sparklines.checkIns}
+        />
+        <StatCard
+          label="Prossimo appuntamento"
+          value={
+            kpis.nextAppointment
+              ? kpis.nextAppointment.daysAway === 0
+                ? "Oggi"
+                : `${kpis.nextAppointment.daysAway}g`
+              : "—"
+          }
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Prossimo"
+          subtitle="Il tuo impegno più vicino nel calendario."
+        />
+        {kpis.nextAppointment ? (
+          <Link
+            href={kpis.nextAppointment.href ?? "#"}
+            className="surface-2 focus-ring flex flex-col gap-1 rounded-xl px-5 py-4 transition-colors hover:bg-muted/30"
+          >
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Prossimo appuntamento
+            </span>
+            <span className="text-display text-xl">
+              {kpis.nextAppointment.title}
+            </span>
+            <span className="text-sm text-muted-foreground capitalize">
+              {kpis.nextAppointment.whenLabel}
+            </span>
+          </Link>
+        ) : (
+          <EmptyState
+            icon={CalendarClock}
+            title="Nessun appuntamento in programma"
+            description="Quando un professionista pubblica la sua disponibilità, lo vedrai qui."
+          />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Attività recente"
+          subtitle="Le ultime 5 voci della tua timeline."
+          action={
+            <Link
+              href="/dashboard/patient/timeline"
+              className="focus-ring rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Vedi tutto →
+            </Link>
+          }
+        />
+        <RecentActivity
+          items={activity}
+          emptyTitle="Nessuna attività recente"
+          emptyDescription="Le voci della tua timeline appariranno qui man mano che usi la piattaforma."
+          emptyAction={
+            <Link
+              href="/dashboard/patient/check-in/new"
+              className="focus-ring inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Registra un check-in
+            </Link>
+          }
+        />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Suggeriti" subtitle="Scorciatoie utili." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickLinkCard
+            href="/dashboard/patient/health"
+            icon={HeartPulse}
+            title="Dati salute"
+            description="Traccia peso, pressione e biometrie."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/medical-records"
+            icon={ClipboardList}
+            title="Cartella clinica"
+            description="Referti e documenti condivisi."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/symptoms"
+            icon={NotebookPen}
+            title="Diario"
+            description="Umore, energia, sintomi del giorno."
+          />
+          <QuickLinkCard
+            href="/dashboard/patient/medications"
+            icon={Pill}
+            title="Terapia"
+            description="Farmaci e integratori attivi."
+          />
+        </div>
+      </section>
     </div>
   );
 }

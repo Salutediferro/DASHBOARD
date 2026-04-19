@@ -11,6 +11,7 @@ import type { MedicalReportCategory } from "@prisma/client";
 export type MedicalReportListItem = {
   id: string;
   patientId: string;
+  patient: { id: string; fullName: string; email: string };
   uploadedById: string;
   uploadedBy: { id: string; fullName: string; role: string };
   fileName: string;

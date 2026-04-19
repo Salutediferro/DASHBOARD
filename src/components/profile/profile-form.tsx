@@ -42,6 +42,8 @@ import {
 type Props = {
   /** Whether to show the clinical section (patient-only fields). */
   showClinical?: boolean;
+  /** Whether to show the public professional section (bio + specialties). */
+  showProfessional?: boolean;
 };
 
 function initials(name: string, email: string) {
@@ -64,7 +66,10 @@ function computeAge(birthDate: string | null | undefined): number | null {
   return Math.abs(ageDt.getUTCFullYear() - 1970);
 }
 
-export function ProfileForm({ showClinical = false }: Props) {
+export function ProfileForm({
+  showClinical = false,
+  showProfessional = false,
+}: Props) {
   const router = useRouter();
   const supabase = createClient();
   const qc = useQueryClient();
@@ -86,6 +91,9 @@ export function ProfileForm({ showClinical = false }: Props) {
       allergies: "",
       medications: "",
       injuries: "",
+      targetWeightKg: null,
+      bio: "",
+      specialties: "",
     },
   });
 
@@ -105,6 +113,9 @@ export function ProfileForm({ showClinical = false }: Props) {
       allergies: profile.allergies ?? "",
       medications: profile.medications ?? "",
       injuries: profile.injuries ?? "",
+      targetWeightKg: profile.targetWeightKg ?? null,
+      bio: profile.bio ?? "",
+      specialties: profile.specialties ?? "",
     });
   }, [profile, form]);
 
@@ -397,6 +408,41 @@ export function ProfileForm({ showClinical = false }: Props) {
           </CardContent>
         </Card>
 
+        {showProfessional && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Profilo pubblico
+              </CardTitle>
+              <p className="text-muted-foreground text-xs">
+                Visibile ai pazienti collegati. Aiuta a costruire fiducia.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  rows={4}
+                  placeholder="Chi sei, cosa offri, il tuo approccio..."
+                  {...form.register("bio")}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="specialties">Specializzazioni</Label>
+                <Input
+                  id="specialties"
+                  placeholder="Es. Powerlifting, Riabilitazione, Nutrizione sportiva"
+                  {...form.register("specialties")}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Separa con virgole. Verranno mostrate come tag.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {showClinical && (
           <Card>
             <CardHeader>
@@ -433,6 +479,23 @@ export function ProfileForm({ showClinical = false }: Props) {
                   placeholder="Es. Ramipril 5mg/die..."
                   {...form.register("medications")}
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="targetWeightKg">Peso obiettivo (kg)</Label>
+                <Input
+                  id="targetWeightKg"
+                  type="number"
+                  step="0.1"
+                  placeholder="Es. 72.0"
+                  {...form.register("targetWeightKg", {
+                    setValueAs: (v) =>
+                      v === "" || v == null ? null : Number(v),
+                  })}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Opzionale. Sarà mostrato come barra di progresso rispetto
+                  al peso più recente.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="injuries">Infortuni / limitazioni</Label>

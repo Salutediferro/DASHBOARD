@@ -1,16 +1,29 @@
 import { create } from "zustand";
 
+// ══════════════════════════════════════════════════════════════════════
+// COACH
+// ══════════════════════════════════════════════════════════════════════
+
 export type CoachOnboardingData = {
+  // Legacy fields (kept — consumed elsewhere in the app)
   avatarUrl: string | null;
   bio: string;
   specializations: string[];
   yearsExperience: number;
-  availability: Record<number, { start: string; end: string; closed: boolean }>;
+  availability: Record<
+    number,
+    { start: string; end: string; closed: boolean }
+  >;
   brandColor: string;
   brandName: string;
   logoUrl: string | null;
   createdFirstTemplate: boolean;
   inviteEmails: string[];
+  // v2 stepper fields
+  fullName: string;
+  title: string;
+  credentials: string[];
+  photoUrl: string | null;
 };
 
 type CoachState = {
@@ -35,11 +48,15 @@ const coachInitial: CoachOnboardingData = {
     5: { start: "08:00", end: "20:00", closed: false },
     6: { start: "09:00", end: "13:00", closed: false },
   },
-  brandColor: "#C9A96E",
+  brandColor: "#B22222",
   brandName: "",
   logoUrl: null,
   createdFirstTemplate: false,
   inviteEmails: [],
+  fullName: "",
+  title: "",
+  credentials: [],
+  photoUrl: null,
 };
 
 export const useCoachOnboarding = create<CoachState>((set) => ({
@@ -50,20 +67,29 @@ export const useCoachOnboarding = create<CoachState>((set) => ({
   reset: () => set({ step: 1, data: coachInitial }),
 }));
 
-// ---------------------------------------------------------------------------
+// ══════════════════════════════════════════════════════════════════════
+// PATIENT (legacy name: Client)
+// ══════════════════════════════════════════════════════════════════════
 
 export type ClientOnboardingData = {
+  // Legacy fields (kept — consumed elsewhere in the app)
   avatarUrl: string | null;
   birthDate: string;
   sex: "M" | "F" | "";
   heightCm: number;
   weightKg: number;
-  goal: "MASS" | "CUTTING" | "STRENGTH" | "HEALTH" | "SPORT" | "";
+  allergies: string;
+  medicalConditions: string;
+  emergencyContact: string;
+  // v2 stepper fields
+  fullName: string;
+  phone: string;
+  waistCm: number | null;
   targetWeightKg: number | null;
-  experience: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "";
-  yearsTraining: number;
-  injuries: string;
-  equipment: string[];
+  primaryGoal: string;
+  medications: string;
+  consentDataProcessing: boolean;
+  consentMarketing: boolean;
 };
 
 type ClientState = {
@@ -80,12 +106,17 @@ const clientInitial: ClientOnboardingData = {
   sex: "",
   heightCm: 175,
   weightKg: 75,
-  goal: "",
+  allergies: "",
+  medicalConditions: "",
+  emergencyContact: "",
+  fullName: "",
+  phone: "",
+  waistCm: null,
   targetWeightKg: null,
-  experience: "",
-  yearsTraining: 0,
-  injuries: "",
-  equipment: [],
+  primaryGoal: "",
+  medications: "",
+  consentDataProcessing: false,
+  consentMarketing: false,
 };
 
 export const useClientOnboarding = create<ClientState>((set) => ({

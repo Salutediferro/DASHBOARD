@@ -121,8 +121,33 @@ export function useCancelAppointment() {
       if (!res.ok) throw new Error("Errore cancellazione");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["appointments"] });
+    // Mark the appointment CANCELED across every cached list so the
+    // calendar, "Prossimi" card and the detail dialog flip states
+    // immediately, without waiting for the DELETE round-trip.
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ["appointments"] });
+      const snapshots: Array<
+        [readonly unknown[], AppointmentDTO[] | undefined]
+      > = [];
+      qc.getQueriesData<AppointmentDTO[]>({ queryKey: ["appointments"] }).forEach(
+        ([key, data]) => {
+          snapshots.push([key, data]);
+          if (!data) return;
+          qc.setQueryData<AppointmentDTO[]>(
+            key,
+            data.map((a) =>
+              a.id === id ? { ...a, status: "CANCELED" as const } : a,
+            ),
+          );
+        },
+      );
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["appointments"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["availability-slots"] });
     },
   });
