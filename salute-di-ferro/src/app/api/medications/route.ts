@@ -46,8 +46,8 @@ export async function GET(req: Request) {
     targetId = explicit;
   }
 
-  const items = await prisma.medication.findMany({
-    where: { patientId: targetId },
+  const items = await prisma.therapyItem.findMany({
+    where: { patientId: targetId, kind: "SELF" },
     orderBy: [{ active: "desc" }, { startDate: "desc" }, { createdAt: "desc" }],
     take: 100,
   });
@@ -81,9 +81,10 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
 
-  const created = await prisma.medication.create({
+  const created = await prisma.therapyItem.create({
     data: {
       patientId: me.id,
+      kind: "SELF",
       name: data.name,
       dose: data.dose ?? null,
       frequency: data.frequency ?? null,

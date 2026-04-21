@@ -5,13 +5,17 @@ import { updateMedicationSchema } from "@/lib/validators/medication";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function getOwnedMedication(userId: string, id: string) {
-  const row = await prisma.medication.findUnique({
+async function getOwnedSelfItem(userId: string, id: string) {
+  const row = await prisma.therapyItem.findUnique({
     where: { id },
-    select: { id: true, patientId: true },
+    select: { id: true, patientId: true, kind: true },
   });
   if (!row) return null;
+  // Legacy endpoint — only patient-owned SELF items are editable here.
+  // PRESCRIBED items will be routed through /api/therapy once the service
+  // layer lands in the next commit.
   if (row.patientId !== userId) return null;
+  if (row.kind !== "SELF") return null;
   return row;
 }
 
@@ -23,7 +27,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const owned = await getOwnedMedication(user.id, id);
+  const owned = await getOwnedSelfItem(user.id, id);
   if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -46,7 +50,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
   if (data.active !== undefined) updates.active = data.active;
 
-  const updated = await prisma.medication.update({
+  const updated = await prisma.therapyItem.update({
     where: { id },
     data: updates,
   });
@@ -61,9 +65,9 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const owned = await getOwnedMedication(user.id, id);
+  const owned = await getOwnedSelfItem(user.id, id);
   if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.medication.delete({ where: { id } });
+  await prisma.therapyItem.delete({ where: { id } });
   return NextResponse.json({ deleted: true });
 }

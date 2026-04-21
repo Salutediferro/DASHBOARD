@@ -96,7 +96,7 @@ export async function GET() {
         uploadedAt: true,
       },
     }),
-    prisma.medication.findMany({
+    prisma.therapyItem.findMany({
       where: { patientId: me.id },
       orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
       take: 20,

@@ -260,7 +260,7 @@ export async function getPatientActivity(
         take: 6,
         select: { id: true, title: true, category: true, uploadedAt: true },
       }),
-      prisma.medication.findMany({
+      prisma.therapyItem.findMany({
         where: { patientId },
         orderBy: { createdAt: "desc" },
         take: 6,

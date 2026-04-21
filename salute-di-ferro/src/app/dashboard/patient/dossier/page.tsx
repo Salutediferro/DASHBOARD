@@ -138,7 +138,7 @@ export default async function PatientDossierPage() {
           },
         },
       }),
-      prisma.medication.findMany({
+      prisma.therapyItem.findMany({
         where: { patientId: me.id },
         orderBy: [{ active: "desc" }, { startDate: "desc" }],
         take: 50,
