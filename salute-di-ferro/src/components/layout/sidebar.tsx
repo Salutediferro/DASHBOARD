@@ -116,10 +116,10 @@ function SidebarHeader({ collapsed }: { collapsed: boolean }) {
         aria-label="Salute di Ferro — vai alla dashboard"
       >
         {collapsed ? (
-          <Logo variant="mark" size="md" src="/logo-sdf.png" />
+          <Logo variant="mark" size="md" src="/logo-sdf.svg" />
         ) : (
           <span className="flex items-center gap-2">
-            <Logo variant="mark" size="md" src="/logo-sdf.png" />
+            <Logo variant="mark" size="md" src="/logo-sdf.svg" />
             <span className="text-sm font-semibold tracking-tight">
               Salute di Ferro
             </span>

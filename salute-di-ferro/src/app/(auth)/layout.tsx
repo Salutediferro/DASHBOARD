@@ -17,7 +17,7 @@ export default function AuthLayout({
       <section className="relative flex min-h-screen flex-1 flex-col lg:w-1/2">
         {/* Mobile logo strip */}
         <header className="flex items-center justify-center gap-2 px-6 pt-10 pb-4 lg:hidden">
-          <Logo variant="mark" size="md" src="/logo-sdf.png" />
+          <Logo variant="mark" size="md" src="/logo-sdf.svg" />
           <Logo variant="full" size="sm" />
         </header>
 
@@ -79,7 +79,7 @@ function HeroPanel() {
       />
 
       <div className="relative z-10 flex flex-col gap-2">
-        <Logo variant="mark" size="lg" src="/logo-sdf.png" />
+        <Logo variant="mark" size="lg" src="/logo-sdf.svg" />
       </div>
 
       <div className="relative z-10 flex max-w-lg flex-col gap-8">

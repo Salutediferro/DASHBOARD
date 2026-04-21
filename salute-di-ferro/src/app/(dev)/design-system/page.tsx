@@ -151,19 +151,19 @@ export default function DesignSystemPage() {
           </div>
           <div className="mt-8 border-t border-border pt-6">
             <p className="mb-4 text-xs text-muted-foreground">
-              Con asset reale (<code>src=&quot;/logo-sdf.png&quot;</code>):
+              Con asset reale (<code>src=&quot;/logo-sdf.svg&quot;</code>):
             </p>
             <div className="flex flex-wrap items-end gap-8">
               <div className="flex flex-col items-center gap-2">
-                <Logo variant="mark" size="sm" src="/logo-sdf.png" />
+                <Logo variant="mark" size="sm" src="/logo-sdf.svg" />
                 <code className="text-xs text-muted-foreground">mark / sm</code>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <Logo variant="mark" size="md" src="/logo-sdf.png" />
+                <Logo variant="mark" size="md" src="/logo-sdf.svg" />
                 <code className="text-xs text-muted-foreground">mark / md</code>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <Logo variant="mark" size="lg" src="/logo-sdf.png" />
+                <Logo variant="mark" size="lg" src="/logo-sdf.svg" />
                 <code className="text-xs text-muted-foreground">mark / lg</code>
               </div>
             </div>
