@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Pill,
   ScrollText,
+  Stethoscope,
   UserRound,
   Users,
   type LucideIcon,
@@ -86,6 +87,7 @@ export const coachNav: NavItem[] = [
 
 export const patientNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true, group: G.journey },
+  { label: "Percorso", href: "/dashboard/patient/percorso", icon: Stethoscope, mobile: true, group: G.journey },
   { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true, group: G.journey },
   { label: "Cartella del cliente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true, group: G.journey },
   { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen, group: G.journey },
