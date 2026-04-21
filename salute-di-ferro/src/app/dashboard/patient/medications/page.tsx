@@ -92,7 +92,7 @@ export default function PatientMedicationsPage() {
       return res.json();
     },
     onSuccess: () => {
-      toast.success("Farmaco aggiunto");
+      toast.success("Supplemento aggiunto");
       setForm(EMPTY_FORM);
       setShowForm(false);
       qc.invalidateQueries({ queryKey: ["medications"] });
@@ -148,7 +148,7 @@ export default function PatientMedicationsPage() {
       });
       return { prev };
     },
-    onSuccess: () => toast.success("Farmaco rimosso"),
+    onSuccess: () => toast.success("Supplemento rimosso"),
     onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["medications"], ctx.prev);
       toast.error(e.message);
@@ -164,7 +164,7 @@ export default function PatientMedicationsPage() {
 
   function submit() {
     if (!form.name.trim()) {
-      toast.error("Nome del farmaco obbligatorio");
+      toast.error("Nome del supplemento obbligatorio");
       return;
     }
     createMutation.mutate(form);
@@ -175,23 +175,23 @@ export default function PatientMedicationsPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Terapia in corso
+            Supplementi in corso
           </h1>
           <p className="text-muted-foreground text-sm">
-            Farmaci che assumi regolarmente, dosaggi e durata. Il tuo team
+            Supplementi che assumi regolarmente, dosaggi e durata. Il tuo team
             può vederli per coordinare meglio le cure.
           </p>
         </div>
         <Button type="button" onClick={() => setShowForm((v) => !v)}>
           <Plus className="mr-2 h-4 w-4" />
-          Aggiungi farmaco
+          Aggiungi supplemento
         </Button>
       </header>
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Nuovo farmaco</CardTitle>
+            <CardTitle className="text-base">Nuovo supplemento</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -293,7 +293,7 @@ export default function PatientMedicationsPage() {
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Pill className="text-muted-foreground h-10 w-10" />
             <p className="text-muted-foreground text-sm">
-              Nessun farmaco registrato.
+              Nessun supplemento registrato.
             </p>
             <Button type="button" onClick={() => setShowForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -305,11 +305,11 @@ export default function PatientMedicationsPage() {
         <>
           <MedSection
             title="In corso"
-            empty="Nessun farmaco attivo."
+            empty="Nessun supplemento attivo."
             meds={active}
             onToggle={(id, a) => toggleMutation.mutate({ id, active: a })}
             onDelete={(id) => {
-              if (confirm("Rimuovere definitivamente questo farmaco?")) {
+              if (confirm("Rimuovere definitivamente questo supplemento?")) {
                 deleteMutation.mutate(id);
               }
             }}
@@ -321,7 +321,7 @@ export default function PatientMedicationsPage() {
               meds={archived}
               onToggle={(id, a) => toggleMutation.mutate({ id, active: a })}
               onDelete={(id) => {
-                if (confirm("Rimuovere definitivamente questo farmaco?")) {
+                if (confirm("Rimuovere definitivamente questo supplemento?")) {
                   deleteMutation.mutate(id);
                 }
               }}

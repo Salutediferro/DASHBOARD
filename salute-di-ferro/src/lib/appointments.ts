@@ -77,7 +77,7 @@ function serialize(a: DbAppointment): Appointment {
     professionalId: a.professionalId,
     patientId: a.patientId,
     professionalRole: a.professionalRole,
-    patientName: a.patient?.fullName ?? "Paziente",
+    patientName: a.patient?.fullName ?? "Cliente",
     startTime: a.startTime.toISOString(),
     endTime: a.endTime.toISOString(),
     type: a.type,

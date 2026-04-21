@@ -180,7 +180,7 @@ export async function POST(req: Request) {
     userId: target.professionalId,
     type: "CHECK_IN",
     title: "Nuovo check-in da revisionare",
-    body: `${patient?.fullName ?? "Un paziente"} ha inviato il check-in settimanale${
+    body: `${patient?.fullName ?? "Un cliente"} ha inviato il check-in settimanale${
       parsed.data.weightKg ? ` (${parsed.data.weightKg} kg)` : ""
     }.`,
     actionUrl: reviewUrl,

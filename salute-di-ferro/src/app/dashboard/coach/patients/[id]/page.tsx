@@ -87,7 +87,7 @@ export default function PatientProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Scheda paziente</CardTitle>
+          <CardTitle className="text-base">Scheda cliente</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
           In costruzione. Biometria, referti, check-in e appuntamenti verranno

@@ -211,8 +211,8 @@ export async function GET() {
       kind: "MEDICATION",
       date: (m.startDate ?? m.createdAt).toISOString(),
       title: m.active
-        ? `Terapia avviata: ${m.name}`
-        : `Terapia archiviata: ${m.name}`,
+        ? `Supplemento avviato: ${m.name}`
+        : `Supplemento archiviato: ${m.name}`,
       description: [m.dose, m.frequency].filter(Boolean).join(" · ") || null,
       href: "/dashboard/patient/medications",
       meta: { active: m.active },

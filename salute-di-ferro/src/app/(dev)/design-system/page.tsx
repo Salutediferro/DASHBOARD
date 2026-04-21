@@ -173,7 +173,7 @@ export default function DesignSystemPage() {
         <Showcase title="StatCard">
           <div className="grid gap-4 md:grid-cols-4">
             <StatCard
-              label="Pazienti attivi"
+              label="Clienti attivi"
               value="128"
               delta={8.4}
               trend={sparkUp}
@@ -218,7 +218,7 @@ export default function DesignSystemPage() {
             />
             <EmptyState
               icon={Users}
-              title="Ancora nessun paziente"
+              title="Ancora nessun cliente"
               description="Invita il primo atleta per iniziare a monitorare progressi e carichi."
               action={
                 <Button size="sm">

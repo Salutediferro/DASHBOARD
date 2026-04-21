@@ -71,7 +71,7 @@ export function NewChatDialog({ open, onOpenChange }: Props) {
         id: r.patient.id,
         fullName: r.patient.fullName,
         avatarUrl: r.patient.avatarUrl,
-        roleLabel: "Paziente",
+        roleLabel: "Cliente",
       }));
 
   async function pick(participantId: string) {
@@ -98,7 +98,7 @@ export function NewChatDialog({ open, onOpenChange }: Props) {
             <p className="py-8 text-center text-sm text-muted-foreground">
               {isPatient
                 ? "Non hai ancora professionisti collegati."
-                : "Nessun paziente attivo."}
+                : "Nessun cliente attivo."}
             </p>
           ) : (
             candidates.map((c) => (

@@ -100,13 +100,13 @@ export default function DoctorReportsPage() {
           Referti condivisi
         </h1>
         <p className="text-muted-foreground text-sm">
-          Tutti i referti che i tuoi pazienti hanno scelto di condividere con te.
+          Tutti i referti che i tuoi clienti hanno scelto di condividere con te.
         </p>
       </header>
 
       <div className="flex flex-wrap items-end gap-3 border-b border-border pb-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="patient">Paziente</Label>
+          <Label htmlFor="patient">Cliente</Label>
           <Select
             value={patientFilter}
             onValueChange={(v) => setPatientFilter(v ?? "ALL")}
@@ -115,7 +115,7 @@ export default function DoctorReportsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tutti i pazienti</SelectItem>
+              <SelectItem value="ALL">Tutti i clienti</SelectItem>
               {patients.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.fullName}
@@ -175,7 +175,7 @@ export default function DoctorReportsPage() {
             <FileText className="text-muted-foreground h-10 w-10" />
             <p className="text-muted-foreground text-sm">
               {data.length === 0
-                ? "Nessun paziente ha ancora condiviso referti con te."
+                ? "Nessun cliente ha ancora condiviso referti con te."
                 : "Nessun referto corrispondente ai filtri."}
             </p>
           </CardContent>

@@ -183,7 +183,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Nessuna relazione di cura attiva tra il paziente e il professionista",
+          "Nessuna relazione di cura attiva tra il cliente e il professionista",
       },
       { status: 403 },
     );
@@ -230,7 +230,7 @@ export async function POST(req: Request) {
     appointmentId: created.id,
     patientId: created.patientId,
     professionalId: created.professionalId,
-    patientName: created.patient?.fullName ?? "Paziente",
+    patientName: created.patient?.fullName ?? "Cliente",
     professionalName: created.professional?.fullName ?? "Professionista",
     when: created.startTime,
     action: "CREATED",

@@ -13,7 +13,7 @@ export default function DoctorPatientHealthPage() {
         href={`/dashboard/doctor/patients/${params.id}`}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <ArrowLeft className="h-4 w-4" /> Scheda paziente
+        <ArrowLeft className="h-4 w-4" /> Scheda cliente
       </Link>
       <header>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">

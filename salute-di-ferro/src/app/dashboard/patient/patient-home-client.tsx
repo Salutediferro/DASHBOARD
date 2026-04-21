@@ -437,7 +437,7 @@ export function PatientHomeClient({
           <QuickAction
             href="/dashboard/patient/medical-records"
             icon={<ClipboardList className="h-5 w-5" />}
-            title="Cartella clinica"
+            title="Cartella del cliente"
             desc="Referti & permessi"
           />
           <QuickAction
@@ -455,8 +455,8 @@ export function PatientHomeClient({
           <QuickAction
             href="/dashboard/patient/medications"
             icon={<Pill className="h-5 w-5" />}
-            title="Terapia"
-            desc="Farmaci in corso"
+            title="Supplementi"
+            desc="In corso e archiviati"
           />
           <QuickAction
             href="/dashboard/patient/symptoms"

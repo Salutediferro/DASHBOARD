@@ -265,7 +265,7 @@ function roleLabel(role: string | undefined) {
     case "ADMIN":
       return "Admin";
     case "PATIENT":
-      return "Paziente";
+      return "Cliente";
     default:
       return "";
   }

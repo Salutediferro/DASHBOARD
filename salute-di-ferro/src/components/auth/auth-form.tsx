@@ -664,7 +664,7 @@ function InviteStatus({
         <div className="flex-1">
           <p className="font-medium">Invito non valido</p>
           <p className="text-xs text-muted-foreground">
-            {error}. Puoi comunque registrarti come paziente, ma non verrai
+            {error}. Puoi comunque registrarti come cliente, ma non verrai
             collegato automaticamente a un professionista.
           </p>
         </div>

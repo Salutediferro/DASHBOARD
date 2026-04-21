@@ -167,7 +167,7 @@ export default async function PatientDashboardPage() {
           <QuickLinkCard
             href="/dashboard/patient/medical-records"
             icon={ClipboardList}
-            title="Cartella clinica"
+            title="Cartella del cliente"
             description="Referti e documenti condivisi."
           />
           <QuickLinkCard
@@ -179,8 +179,8 @@ export default async function PatientDashboardPage() {
           <QuickLinkCard
             href="/dashboard/patient/medications"
             icon={Pill}
-            title="Terapia"
-            description="Farmaci e integratori attivi."
+            title="Supplementi"
+            description="Tutto quello che prendi regolarmente."
           />
         </div>
       </section>

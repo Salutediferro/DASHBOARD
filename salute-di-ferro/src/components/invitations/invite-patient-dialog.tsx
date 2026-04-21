@@ -31,7 +31,7 @@ type InviteCreated = {
 };
 
 /**
- * "Invita paziente" dialog for DOCTOR and COACH dashboards.
+ * "Invita cliente" dialog for DOCTOR and COACH dashboards.
  *
  * The dialog has two states:
  *   1. Form    — email / nome / cognome / note optional. Submit → POST /api/invitations.
@@ -119,7 +119,7 @@ export function InvitePatientDialog({
         render={
           <Button>
             <UserPlus className="mr-2 h-4 w-4" />
-            Invita paziente
+            Invita cliente
           </Button>
         }
       />
@@ -127,7 +127,7 @@ export function InvitePatientDialog({
         {!invite ? (
           <>
             <DialogHeader>
-              <DialogTitle>Invita un nuovo paziente</DialogTitle>
+              <DialogTitle>Invita un nuovo cliente</DialogTitle>
               <DialogDescription>
                 Genera un link di registrazione personale. Chi lo usa viene
                 assegnato automaticamente a te.
@@ -144,7 +144,7 @@ export function InvitePatientDialog({
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="paziente@example.com"
+                  placeholder="cliente@example.com"
                   autoComplete="off"
                 />
                 <p className="text-muted-foreground text-xs">
@@ -191,7 +191,7 @@ export function InvitePatientDialog({
             <DialogHeader>
               <DialogTitle>Link di invito pronto</DialogTitle>
               <DialogDescription>
-                Invialo al paziente. Vale fino al{" "}
+                Invialo al cliente. Vale fino al{" "}
                 {new Date(invite.expiresAt).toLocaleDateString("it-IT")}.
               </DialogDescription>
             </DialogHeader>

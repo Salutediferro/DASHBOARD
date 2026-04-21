@@ -140,7 +140,7 @@ export default async function CoachDashboardPage() {
             href="/dashboard/coach/patients"
             icon={Users}
             title="I miei assistiti"
-            description="Lista e inviti pazienti."
+            description="Lista e inviti clienti."
           />
           <QuickLinkCard
             href="/dashboard/coach/monitoring"

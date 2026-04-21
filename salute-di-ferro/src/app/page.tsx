@@ -18,7 +18,7 @@ import Logo from "@/components/brand/logo";
 export const metadata = {
   title: "Salute di Ferro — La tua centrale salute",
   description:
-    "Piattaforma sanitaria che collega pazienti, medici e coach. Cartella clinica, appuntamenti, check-in e messaggi in un unico spazio sicuro.",
+    "Piattaforma sanitaria che collega clienti, medici e coach. Cartella del cliente, appuntamenti, check-in e messaggi in un unico spazio sicuro.",
 };
 
 export default function LandingPage() {
@@ -83,7 +83,7 @@ function Hero() {
         <span className="text-primary">al sicuro</span>
       </h1>
       <p className="text-muted-foreground max-w-2xl text-lg">
-        Cartella clinica, appuntamenti, check-in settimanali e messaggi
+        Cartella del cliente, appuntamenti, check-in settimanali e messaggi
         diretti con medici e coach. Tutto in un unico spazio, cifrato e
         conforme al GDPR.
       </p>
@@ -110,7 +110,7 @@ function Hero() {
 const FEATURES = [
   {
     icon: ClipboardCheck,
-    title: "Cartella clinica digitale",
+    title: "Cartella del cliente digitale",
     desc: "Carica referti, analisi e visite. Solo tu decidi quali professionisti possono vederli.",
   },
   {
@@ -130,8 +130,8 @@ const FEATURES = [
   },
   {
     icon: Pill,
-    title: "Terapia in corso",
-    desc: "Farmaci, dosaggi e durate strutturati. Il tuo team ha sempre il quadro completo.",
+    title: "Supplementi in corso",
+    desc: "Supplementi, dosaggi e durate strutturati. Il tuo team ha sempre il quadro completo.",
   },
   {
     icon: FileText,
@@ -179,7 +179,7 @@ const STEPS = [
     n: "1",
     icon: UserRound,
     title: "Registrati",
-    desc: "Crea il tuo account paziente in 2 minuti. Email + password, nessuna carta richiesta.",
+    desc: "Crea il tuo account cliente in 2 minuti. Email + password, nessuna carta richiesta.",
   },
   {
     n: "2",
@@ -278,7 +278,7 @@ function Trust() {
 const FAQS = [
   {
     q: "Quanto costa Salute di Ferro?",
-    a: "La registrazione paziente è gratuita. Le prestazioni sanitarie (visite, consulti) sono a tariffa del singolo professionista.",
+    a: "La registrazione cliente è gratuita. Le prestazioni sanitarie (visite, consulti) sono a tariffa del singolo professionista.",
   },
   {
     q: "I miei dati sono al sicuro?",

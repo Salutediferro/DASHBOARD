@@ -74,7 +74,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
   if (result.readOnly) {
     return NextResponse.json(
-      { error: "Solo il paziente può modificare le proprie misurazioni" },
+      { error: "Solo il cliente può modificare le proprie misurazioni" },
       { status: 403 },
     );
   }
@@ -114,7 +114,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   }
   if (result.readOnly) {
     return NextResponse.json(
-      { error: "Solo il paziente può cancellare le proprie misurazioni" },
+      { error: "Solo il cliente può cancellare le proprie misurazioni" },
       { status: 403 },
     );
   }

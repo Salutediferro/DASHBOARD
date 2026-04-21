@@ -54,7 +54,7 @@ export default function DoctorPatientProfilePage() {
         href="/dashboard/doctor/patients"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <ArrowLeft className="h-4 w-4" /> Tutti i pazienti
+        <ArrowLeft className="h-4 w-4" /> Tutti i clienti
       </Link>
 
       <Card>
@@ -100,7 +100,7 @@ export default function DoctorPatientProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Scheda paziente</CardTitle>
+          <CardTitle className="text-base">Scheda cliente</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
           In costruzione. Referti, check-in e appuntamenti verranno abilitati

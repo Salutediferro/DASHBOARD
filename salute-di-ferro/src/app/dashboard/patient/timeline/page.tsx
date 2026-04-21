@@ -65,7 +65,7 @@ const KIND_META: Record<
     tone: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
   },
   MEDICATION: {
-    label: "Terapia",
+    label: "Supplementi",
     icon: <Pill className="h-4 w-4" />,
     tone: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
   },
@@ -86,7 +86,7 @@ const FILTER_OPTIONS: Array<
   { v: "APPOINTMENT", label: "Appuntamenti" },
   { v: "REPORT", label: "Referti" },
   { v: "FEEDBACK", label: "Feedback" },
-  { v: "MEDICATION", label: "Terapia" },
+  { v: "MEDICATION", label: "Supplementi" },
   { v: "SYMPTOM", label: "Diario" },
 ];
 

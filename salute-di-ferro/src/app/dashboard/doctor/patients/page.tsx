@@ -4,7 +4,7 @@ export default function DoctorPatientsPage() {
   return (
     <PatientsListSection
       basePath="/dashboard/doctor/patients"
-      title="I miei pazienti"
+      title="I miei clienti"
     />
   );
 }
