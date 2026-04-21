@@ -39,7 +39,7 @@ function NavBar() {
   return (
     <header className="border-border sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur">
       <Link href="/" className="flex items-center gap-2">
-        <Logo variant="mark" size="md" src="/logo-sdf.png" />
+        <Logo variant="mark" size="md" src="/logo-sdf.svg" />
         <span className="text-sm font-semibold tracking-tight">
           Salute di Ferro
         </span>
