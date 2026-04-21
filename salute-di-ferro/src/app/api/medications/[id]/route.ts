@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { updateMedicationSchema } from "@/lib/validators/medication";
+import { updateTherapySchema } from "@/lib/validators/therapy";
+import {
+  TherapyError,
+  deleteTherapy,
+  updateTherapy,
+} from "@/lib/services/therapy";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-async function getOwnedSelfItem(userId: string, id: string) {
-  const row = await prisma.therapyItem.findUnique({
-    where: { id },
-    select: { id: true, patientId: true, kind: true },
-  });
-  if (!row) return null;
-  // Legacy endpoint — only patient-owned SELF items are editable here.
-  // PRESCRIBED items will be routed through /api/therapy once the service
-  // layer lands in the next commit.
-  if (row.patientId !== userId) return null;
-  if (row.kind !== "SELF") return null;
-  return row;
-}
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const supabase = await createClient();
@@ -26,35 +17,25 @@ export async function PATCH(req: Request, { params }: Ctx) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const owned = await getOwnedSelfItem(user.id, id);
-  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true },
+  });
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { id } = await params;
   const body = await req.json();
-  const parsed = updateMedicationSchema.safeParse(body);
+  const parsed = updateTherapySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const data = parsed.data;
 
-  const updates: Record<string, unknown> = {};
-  if (data.name !== undefined) updates.name = data.name;
-  if (data.dose !== undefined) updates.dose = data.dose;
-  if (data.frequency !== undefined) updates.frequency = data.frequency;
-  if (data.notes !== undefined) updates.notes = data.notes;
-  if (data.startDate !== undefined) {
-    updates.startDate = data.startDate ? new Date(data.startDate) : null;
+  try {
+    const updated = await updateTherapy(me, id, parsed.data);
+    return NextResponse.json(updated);
+  } catch (e) {
+    return therapyErrorResponse(e);
   }
-  if (data.endDate !== undefined) {
-    updates.endDate = data.endDate ? new Date(data.endDate) : null;
-  }
-  if (data.active !== undefined) updates.active = data.active;
-
-  const updated = await prisma.therapyItem.update({
-    where: { id },
-    data: updates,
-  });
-  return NextResponse.json(updated);
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {
@@ -64,10 +45,38 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const owned = await getOwnedSelfItem(user.id, id);
-  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true },
+  });
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await prisma.therapyItem.delete({ where: { id } });
-  return NextResponse.json({ deleted: true });
+  const { id } = await params;
+  try {
+    await deleteTherapy(me, id);
+    return NextResponse.json({ deleted: true });
+  } catch (e) {
+    return therapyErrorResponse(e);
+  }
+}
+
+function therapyErrorResponse(e: unknown) {
+  if (e instanceof TherapyError) {
+    if (e.code === "forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (e.code === "not_found") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (e.code === "kind_immutable") {
+      return NextResponse.json(
+        { error: "Il tipo di una terapia non può essere modificato" },
+        { status: 400 },
+      );
+    }
+    if (e.code === "missing_patient_id") {
+      return NextResponse.json({ error: "patientId richiesto" }, { status: 400 });
+    }
+  }
+  throw e;
 }

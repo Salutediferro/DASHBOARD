@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { createMedicationSchema } from "@/lib/validators/medication";
+import { createTherapySchema } from "@/lib/validators/therapy";
+import {
+  TherapyError,
+  createTherapy,
+  listTherapy,
+} from "@/lib/services/therapy";
 
 /**
  * GET /api/medications
  *
- * List the caller patient's medications. Sort: active first, then by
- * startDate desc (most recent at the top).
- *
- * Query params:
- *   - patientId: DOCTOR/COACH/ADMIN can read someone else's list if they
- *     have an ACTIVE CareRelationship (admin always).
+ * Legacy surface — returns the caller's SELF therapy items (supplements).
+ * The new surface at /api/therapy supports kind filtering and write by
+ * doctors; this route is kept until the UI has been migrated in a
+ * follow-up commit.
  */
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -27,37 +30,19 @@ export async function GET(req: Request) {
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const explicit = new URL(req.url).searchParams.get("patientId");
-  let targetId = me.id;
-  if (explicit && explicit !== me.id) {
-    if (me.role === "PATIENT") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    if (me.role !== "ADMIN") {
-      const rel = await prisma.careRelationship.findFirst({
-        where: {
-          professionalId: me.id,
-          patientId: explicit,
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
-      if (!rel) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    targetId = explicit;
-  }
+  const patientId = explicit && explicit !== me.id ? explicit : me.id;
 
-  const items = await prisma.therapyItem.findMany({
-    where: { patientId: targetId, kind: "SELF" },
-    orderBy: [{ active: "desc" }, { startDate: "desc" }, { createdAt: "desc" }],
-    take: 100,
-  });
-  return NextResponse.json({ items });
+  try {
+    const items = await listTherapy(me, patientId, { kind: "SELF" });
+    return NextResponse.json({ items });
+  } catch (e) {
+    return therapyErrorResponse(e);
+  }
 }
 
 /**
- * POST /api/medications — PATIENT only (coaches/doctors shouldn't add
- * medications on behalf of the patient; they'd go through a different
- * prescription flow).
+ * POST /api/medications — PATIENT only; creates a SELF supplement.
+ * Doctor-prescribed therapy uses /api/therapy (next commit).
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -70,30 +55,39 @@ export async function POST(req: Request) {
     where: { id: user.id },
     select: { id: true, role: true },
   });
-  if (!me || me.role !== "PATIENT") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const parsed = createMedicationSchema.safeParse(body);
+  const parsed = createTherapySchema.safeParse({ ...body, kind: "SELF" });
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
-  const data = parsed.data;
 
-  const created = await prisma.therapyItem.create({
-    data: {
-      patientId: me.id,
-      kind: "SELF",
-      name: data.name,
-      dose: data.dose ?? null,
-      frequency: data.frequency ?? null,
-      notes: data.notes ?? null,
-      startDate: data.startDate ? new Date(data.startDate) : null,
-      endDate: data.endDate ? new Date(data.endDate) : null,
-      active: data.active ?? true,
-    },
-  });
+  try {
+    const created = await createTherapy(me, parsed.data);
+    return NextResponse.json(created, { status: 201 });
+  } catch (e) {
+    return therapyErrorResponse(e);
+  }
+}
 
-  return NextResponse.json(created, { status: 201 });
+function therapyErrorResponse(e: unknown) {
+  if (e instanceof TherapyError) {
+    if (e.code === "forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (e.code === "not_found") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (e.code === "kind_immutable") {
+      return NextResponse.json(
+        { error: "Il tipo di una terapia non può essere modificato" },
+        { status: 400 },
+      );
+    }
+    if (e.code === "missing_patient_id") {
+      return NextResponse.json({ error: "patientId richiesto" }, { status: 400 });
+    }
+  }
+  throw e;
 }
