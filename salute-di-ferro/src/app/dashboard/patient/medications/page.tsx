@@ -63,9 +63,9 @@ export default function PatientMedicationsPage() {
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
 
   const { data, isLoading } = useQuery<{ items: Medication[] }>({
-    queryKey: ["medications"],
+    queryKey: ["therapy", "SELF"],
     queryFn: async () => {
-      const res = await fetch("/api/medications");
+      const res = await fetch("/api/therapy?kind=SELF");
       if (!res.ok) throw new Error("Errore caricamento");
       return res.json();
     },
@@ -73,10 +73,11 @@ export default function PatientMedicationsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (f: FormState) => {
-      const res = await fetch("/api/medications", {
+      const res = await fetch("/api/therapy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "SELF",
           name: f.name.trim(),
           dose: f.dose.trim() || null,
           frequency: f.frequency.trim() || null,
@@ -95,14 +96,14 @@ export default function PatientMedicationsPage() {
       toast.success("Supplemento aggiunto");
       setForm(EMPTY_FORM);
       setShowForm(false);
-      qc.invalidateQueries({ queryKey: ["medications"] });
+      qc.invalidateQueries({ queryKey: ["therapy", "SELF"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const res = await fetch(`/api/medications/${id}`, {
+      const res = await fetch(`/api/therapy/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active }),
@@ -113,9 +114,9 @@ export default function PatientMedicationsPage() {
     // Flip locally so the item jumps between "In corso" and "Archivio"
     // without a reload — we also re-sort so the order stays coherent.
     onMutate: async ({ id, active }) => {
-      await qc.cancelQueries({ queryKey: ["medications"] });
-      const prev = qc.getQueryData<{ items: Medication[] }>(["medications"]);
-      qc.setQueryData<{ items: Medication[] }>(["medications"], (old) => {
+      await qc.cancelQueries({ queryKey: ["therapy", "SELF"] });
+      const prev = qc.getQueryData<{ items: Medication[] }>(["therapy", "SELF"]);
+      qc.setQueryData<{ items: Medication[] }>(["therapy", "SELF"], (old) => {
         if (!old) return old;
         return {
           items: old.items.map((m) => (m.id === id ? { ...m, active } : m)),
@@ -124,25 +125,25 @@ export default function PatientMedicationsPage() {
       return { prev };
     },
     onError: (e: Error, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["medications"], ctx.prev);
+      if (ctx?.prev) qc.setQueryData(["therapy", "SELF"], ctx.prev);
       toast.error(e.message);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["medications"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["therapy", "SELF"], refetchType: "none" });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/medications/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/therapy/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Errore");
       return res.json();
     },
     // Optimistically drop the row — rollback if the server rejects.
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: ["medications"] });
-      const prev = qc.getQueryData<{ items: Medication[] }>(["medications"]);
-      qc.setQueryData<{ items: Medication[] }>(["medications"], (old) => {
+      await qc.cancelQueries({ queryKey: ["therapy", "SELF"] });
+      const prev = qc.getQueryData<{ items: Medication[] }>(["therapy", "SELF"]);
+      qc.setQueryData<{ items: Medication[] }>(["therapy", "SELF"], (old) => {
         if (!old) return old;
         return { items: old.items.filter((m) => m.id !== id) };
       });
@@ -150,11 +151,11 @@ export default function PatientMedicationsPage() {
     },
     onSuccess: () => toast.success("Supplemento rimosso"),
     onError: (e: Error, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["medications"], ctx.prev);
+      if (ctx?.prev) qc.setQueryData(["therapy", "SELF"], ctx.prev);
       toast.error(e.message);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["medications"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["therapy", "SELF"], refetchType: "none" });
     },
   });
 

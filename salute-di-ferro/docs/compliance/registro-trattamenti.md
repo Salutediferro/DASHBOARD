@@ -104,7 +104,7 @@ tabella Prisma / endpoint che implementa il trattamento.
 | Trasferimenti extra-UE | No |
 | Conservazione | Come T3 |
 | Misure sicurezza | Come T2 |
-| Riferimento tecnico | Tabella `Medication`, `/api/medications` |
+| Riferimento tecnico | Tabella `TherapyItem` (kind=SELF per supplementi, kind=PRESCRIBED per indicazioni del medico), `/api/therapy` |
 
 ### T7 — Cartella clinica (referti medici)
 

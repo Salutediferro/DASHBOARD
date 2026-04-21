@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { TherapyKind } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { createTherapySchema } from "@/lib/validators/therapy";
@@ -9,12 +10,17 @@ import {
 } from "@/lib/services/therapy";
 
 /**
- * GET /api/medications
+ * GET /api/therapy
  *
- * Legacy surface — returns the caller's SELF therapy items (supplements).
- * The new surface at /api/therapy supports kind filtering and write by
- * doctors; this route is kept until the UI has been migrated in a
- * follow-up commit.
+ * List therapy items for a patient. ACL is enforced in the service
+ * layer (canReadTherapy). The optional `kind` query param narrows the
+ * result to one vertical — PRESCRIBED for the doctor-facing Percorso
+ * view, SELF for the patient-facing Supplementi view.
+ *
+ * Query params:
+ *   - patientId: required when the caller is not the target (doctor/coach);
+ *     defaults to the caller's id for PATIENT.
+ *   - kind:      optional, "PRESCRIBED" | "SELF".
  */
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -29,11 +35,19 @@ export async function GET(req: Request) {
   });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const explicit = new URL(req.url).searchParams.get("patientId");
+  const url = new URL(req.url);
+  const explicit = url.searchParams.get("patientId");
+  const kindParam = url.searchParams.get("kind");
   const patientId = explicit && explicit !== me.id ? explicit : me.id;
 
+  if (kindParam && kindParam !== "PRESCRIBED" && kindParam !== "SELF") {
+    return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+  }
+
   try {
-    const items = await listTherapy(me, patientId, { kind: "SELF" });
+    const items = await listTherapy(me, patientId, {
+      kind: kindParam ? (kindParam as TherapyKind) : undefined,
+    });
     return NextResponse.json({ items });
   } catch (e) {
     return therapyErrorResponse(e);
@@ -41,8 +55,12 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/medications — PATIENT only; creates a SELF supplement.
- * Doctor-prescribed therapy uses /api/therapy (next commit).
+ * POST /api/therapy
+ *
+ * Body must include `kind` ("PRESCRIBED" | "SELF"). PATIENT callers can
+ * only create SELF items on themselves; DOCTOR callers can only create
+ * PRESCRIBED items on patients they have an active CareRelationship
+ * with. All validation happens in the service layer.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -58,7 +76,7 @@ export async function POST(req: Request) {
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const parsed = createTherapySchema.safeParse({ ...body, kind: "SELF" });
+  const parsed = createTherapySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
