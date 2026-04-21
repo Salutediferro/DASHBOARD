@@ -453,7 +453,7 @@ export function PatientHomeClient({
             desc="Peso, foto, note"
           />
           <QuickAction
-            href="/dashboard/patient/medications"
+            href="/dashboard/patient/supplementi"
             icon={<Pill className="h-5 w-5" />}
             title="Supplementi"
             desc="In corso e archiviati"

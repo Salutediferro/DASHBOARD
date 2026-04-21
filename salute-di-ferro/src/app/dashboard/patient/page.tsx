@@ -177,7 +177,7 @@ export default async function PatientDashboardPage() {
             description="Umore, energia, sintomi del giorno."
           />
           <QuickLinkCard
-            href="/dashboard/patient/medications"
+            href="/dashboard/patient/supplementi"
             icon={Pill}
             title="Supplementi"
             description="Tutto quello che prendi regolarmente."

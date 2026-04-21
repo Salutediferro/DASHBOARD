@@ -90,7 +90,7 @@ export const patientNav: NavItem[] = [
   { label: "Cartella del cliente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true, group: G.journey },
   { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen, group: G.journey },
   { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity, group: G.journey },
-  { label: "Supplementi", href: "/dashboard/patient/medications", icon: Pill, group: G.therapy },
+  { label: "Supplementi", href: "/dashboard/patient/supplementi", icon: Pill, group: G.therapy },
   { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, group: G.therapy, badge: "unread-notifications" },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true, group: G.interactions },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true, group: G.interactions, badge: "unread-messages" },

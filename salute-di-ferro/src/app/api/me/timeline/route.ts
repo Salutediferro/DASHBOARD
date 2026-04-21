@@ -214,7 +214,7 @@ export async function GET() {
         ? `Supplemento avviato: ${m.name}`
         : `Supplemento archiviato: ${m.name}`,
       description: [m.dose, m.frequency].filter(Boolean).join(" · ") || null,
-      href: "/dashboard/patient/medications",
+      href: "/dashboard/patient/supplementi",
       meta: { active: m.active },
     });
   }

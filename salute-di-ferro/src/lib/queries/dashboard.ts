@@ -341,7 +341,7 @@ export async function getPatientActivity(
       date: (m.startDate ?? m.createdAt).toISOString(),
       title: m.active ? `Supplemento avviato: ${m.name}` : `Supplemento archiviato: ${m.name}`,
       description: m.dose,
-      href: "/dashboard/patient/medications",
+      href: "/dashboard/patient/supplementi",
     });
   }
   for (const s of symptoms) {
