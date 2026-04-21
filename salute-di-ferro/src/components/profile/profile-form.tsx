@@ -415,7 +415,7 @@ export function ProfileForm({
                 Profilo pubblico
               </CardTitle>
               <p className="text-muted-foreground text-xs">
-                Visibile ai pazienti collegati. Aiuta a costruire fiducia.
+                Visibile ai clienti collegati. Aiuta a costruire fiducia.
               </p>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -472,7 +472,7 @@ export function ProfileForm({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="medications">Farmaci in uso</Label>
+                <Label htmlFor="medications">Supplementi in uso</Label>
                 <Textarea
                   id="medications"
                   rows={2}

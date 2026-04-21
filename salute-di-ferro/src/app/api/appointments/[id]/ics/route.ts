@@ -67,7 +67,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const typeLabel = APPOINTMENT_TYPE_LABELS[appt.type] ?? appt.type;
   const summary = `Salute di Ferro · ${typeLabel}`;
   const descLines = [
-    `Paziente: ${appt.patient?.fullName ?? "—"}`,
+    `Cliente: ${appt.patient?.fullName ?? "—"}`,
     `Professionista: ${appt.professional?.fullName ?? "—"}`,
     `Tipo: ${typeLabel}`,
     `Stato: ${appt.status}`,

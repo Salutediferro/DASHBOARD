@@ -847,7 +847,7 @@ function ProfessionalCreateDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (!pickedPatientId || !startLocal) {
-        throw new Error("Seleziona paziente e orario");
+        throw new Error("Seleziona cliente e orario");
       }
       const startDate = new Date(startLocal);
       return create.mutateAsync({
@@ -877,7 +877,7 @@ function ProfessionalCreateDialog({
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="grid gap-1.5">
-            <Label>Paziente</Label>
+            <Label>Cliente</Label>
             <Select
               value={pickedPatientId}
               onValueChange={(v) => setPickedPatientId(v ?? "")}
@@ -888,7 +888,7 @@ function ProfessionalCreateDialog({
               <SelectContent>
                 {patientItems.length === 0 && (
                   <SelectItem value="__none" disabled>
-                    Nessun paziente attivo
+                    Nessun cliente attivo
                   </SelectItem>
                 )}
                 {patientItems.map((rel) => (

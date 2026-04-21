@@ -118,7 +118,7 @@ export function ProfileHero({ profile, stats }: Props) {
 
 function RoleChip({ role }: { role: UserRole }) {
   const map: Record<UserRole, { label: string; cls: string }> = {
-    PATIENT: { label: "Paziente", cls: "bg-info/15 text-info border-info/30" },
+    PATIENT: { label: "Cliente", cls: "bg-info/15 text-info border-info/30" },
     COACH: {
       label: "Coach",
       cls: "bg-accent-500/15 text-accent-500 border-accent-500/30",

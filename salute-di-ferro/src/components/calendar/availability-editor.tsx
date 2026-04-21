@@ -129,7 +129,7 @@ function RecurringRow({
   }
 
   async function handleRemove(id: string) {
-    if (!confirm("Rimuovere questa fascia? I pazienti non potranno più prenotare in questo intervallo.")) return;
+    if (!confirm("Rimuovere questa fascia? I clienti non potranno più prenotare in questo intervallo.")) return;
     try {
       await del.mutateAsync(id);
       toast.success("Fascia rimossa");

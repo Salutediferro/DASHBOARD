@@ -127,7 +127,7 @@ export function ReportsEmptyState({ action }: { action?: ReactNode }) {
           viewBox="0 0 160 140"
           className="h-24 w-28"
         >
-          <title id="rep-empty-t">Cartella clinica con anello cromato</title>
+          <title id="rep-empty-t">Cartella del cliente con anello cromato</title>
           <desc id="rep-empty-d">
             Una cartella stilizzata con documento all&apos;interno, circondata
             da un anello cromato.

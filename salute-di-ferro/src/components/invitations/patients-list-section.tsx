@@ -91,7 +91,7 @@ export function PatientsListSection({
   /** Used to build the per-patient detail link */
   basePath,
   /** Page title shown in the header */
-  title = "I miei pazienti",
+  title = "I miei clienti",
 }: {
   basePath: "/dashboard/coach/patients" | "/dashboard/doctor/patients";
   title?: string;
@@ -172,7 +172,7 @@ export function PatientsListSection({
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Users className="text-muted-foreground h-10 w-10" />
             <p className="text-muted-foreground text-sm">
-              Nessun paziente attivo. Invia un invito per iniziare.
+              Nessun cliente attivo. Invia un invito per iniziare.
             </p>
           </CardContent>
         </Card>

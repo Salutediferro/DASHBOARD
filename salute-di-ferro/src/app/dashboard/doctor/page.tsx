@@ -59,7 +59,7 @@ export default async function DoctorDashboardPage() {
       />
 
       <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <StatCard label="Pazienti assegnati" value={kpis.activeClients} />
+        <StatCard label="Clienti assegnati" value={kpis.activeClients} />
         <StatCard
           label="Visite questa settimana"
           value={kpis.visitsThisWeek ?? 0}
@@ -94,7 +94,7 @@ export default async function DoctorDashboardPage() {
           <EmptyState
             icon={CalendarClock}
             title="Nessuna visita in programma"
-            description="Imposta la disponibilità per consentire ai pazienti di prenotare."
+            description="Imposta la disponibilità per consentire ai clienti di prenotare."
             action={
               <Link
                 href="/dashboard/doctor/availability"
@@ -123,7 +123,7 @@ export default async function DoctorDashboardPage() {
         <RecentActivity
           items={activity}
           emptyTitle="Nessuna attività recente"
-          emptyDescription="Visite, referti e check-in dei pazienti compariranno qui."
+          emptyDescription="Visite, referti e check-in dei clienti compariranno qui."
         />
       </section>
 
@@ -133,7 +133,7 @@ export default async function DoctorDashboardPage() {
           <QuickLinkCard
             href="/dashboard/doctor/patients"
             icon={Users}
-            title="I miei pazienti"
+            title="I miei clienti"
             description="Lista e inviti."
           />
           <QuickLinkCard

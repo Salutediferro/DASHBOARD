@@ -181,7 +181,7 @@ export async function POST(req: Request) {
 
   if (me.role !== "PATIENT" && me.role !== "DOCTOR") {
     return NextResponse.json(
-      { error: "Solo paziente o medico possono caricare referti" },
+      { error: "Solo cliente o medico possono caricare referti" },
       { status: 403 },
     );
   }
@@ -224,7 +224,7 @@ export async function POST(req: Request) {
     // DOCTOR
     if (!parsed.data.patientId) {
       return NextResponse.json(
-        { error: "patientId richiesto per l'upload a nome del paziente" },
+        { error: "patientId richiesto per l'upload a nome del cliente" },
         { status: 400 },
       );
     }

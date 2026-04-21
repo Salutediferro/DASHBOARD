@@ -46,7 +46,7 @@ export type NavItem = {
 const G = {
   overview: "Panoramica",
   journey: "Il mio percorso",
-  therapy: "Terapia",
+  therapy: "Supplementazione",
   interactions: "Interazioni",
   schedule: "Agenda",
   work: "Il mio lavoro",
@@ -66,7 +66,7 @@ export const adminNav: NavItem[] = [
 
 export const doctorNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/doctor", icon: LayoutDashboard, mobile: true, group: G.work },
-  { label: "I miei pazienti", href: "/dashboard/doctor/patients", icon: Users, mobile: true, group: G.work },
+  { label: "I miei clienti", href: "/dashboard/doctor/patients", icon: Users, mobile: true, group: G.work },
   { label: "Calendario", href: "/dashboard/doctor/calendar", icon: Calendar, mobile: true, group: G.schedule },
   { label: "Disponibilità", href: "/dashboard/doctor/availability", icon: CalendarClock, group: G.schedule },
   { label: "Referti", href: "/dashboard/doctor/reports", icon: FileText, group: G.docs },
@@ -87,10 +87,10 @@ export const coachNav: NavItem[] = [
 export const patientNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true, group: G.journey },
   { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true, group: G.journey },
-  { label: "Cartella Clinica", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true, group: G.journey },
+  { label: "Cartella del cliente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true, group: G.journey },
   { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen, group: G.journey },
   { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity, group: G.journey },
-  { label: "Terapia", href: "/dashboard/patient/medications", icon: Pill, group: G.therapy },
+  { label: "Supplementi", href: "/dashboard/patient/medications", icon: Pill, group: G.therapy },
   { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, group: G.therapy, badge: "unread-notifications" },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true, group: G.interactions },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true, group: G.interactions, badge: "unread-messages" },

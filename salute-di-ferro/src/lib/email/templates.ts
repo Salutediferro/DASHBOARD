@@ -85,7 +85,7 @@ export function invitationEmail(params: {
     <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${greeting}</td></tr>
     <tr><td style="color:${MUTED};padding-bottom:20px;">
       ${proName} ti ha invitato a entrare su <strong style="color:${TEXT};">Salute di Ferro</strong>
-      come suo paziente. Clicca il bottone qui sotto per completare la registrazione;
+      come suo cliente. Clicca il bottone qui sotto per completare la registrazione;
       al termine sarai collegato automaticamente a ${roleLabel}.
     </td></tr>
     <tr><td align="center" style="padding:8px 0 24px;">
@@ -103,7 +103,7 @@ export function invitationEmail(params: {
   const text = [
     greeting,
     "",
-    `${params.professionalName} ti ha invitato su Salute di Ferro come suo paziente.`,
+    `${params.professionalName} ti ha invitato su Salute di Ferro come suo cliente.`,
     "",
     "Completa la registrazione al link qui sotto:",
     params.inviteUrl,

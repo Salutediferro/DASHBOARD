@@ -213,7 +213,7 @@ export default async function PatientDossierPage() {
         <div className="mt-2 flex flex-col gap-2 text-sm">
           <TextBlock label="Patologie note" value={me.medicalConditions} />
           <TextBlock label="Allergie" value={me.allergies} />
-          <TextBlock label="Terapie / farmaci" value={me.medications} />
+          <TextBlock label="Terapie / supplementi" value={me.medications} />
           <TextBlock label="Infortuni / limitazioni" value={me.injuries} />
         </div>
       </section>
@@ -305,7 +305,7 @@ export default async function PatientDossierPage() {
                 </p>
                 {c.notes && (
                   <p className="text-muted-foreground mt-1 text-xs whitespace-pre-wrap">
-                    Note paziente: {c.notes}
+                    Note cliente: {c.notes}
                   </p>
                 )}
                 {c.professionalFeedback && (
@@ -350,11 +350,11 @@ export default async function PatientDossierPage() {
 
       <section className="dossier-section">
         <h3 className="font-heading text-base font-semibold">
-          Terapia in corso ({medications.filter((m) => m.active).length})
+          Supplementi in corso ({medications.filter((m) => m.active).length})
         </h3>
         {medications.length === 0 ? (
           <p className="text-muted-foreground mt-2 text-sm">
-            Nessun farmaco registrato.
+            Nessun supplemento registrato.
           </p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1 text-sm">
@@ -434,7 +434,7 @@ export default async function PatientDossierPage() {
         )}
         <p className="text-muted-foreground mt-3 text-xs">
           I file originali non sono inclusi. Puoi scaricarli singolarmente
-          dalla cartella clinica.
+          dalla cartella del cliente.
         </p>
       </section>
 

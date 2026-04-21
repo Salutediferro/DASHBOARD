@@ -23,7 +23,7 @@ const PATIENT_FIELDS: ProfileField[] = [
   { key: "emergencyContact", label: "Contatto di emergenza", critical: true },
   { key: "allergies", label: "Allergie", critical: true },
   { key: "medicalConditions", label: "Patologie", critical: true },
-  { key: "medications", label: "Farmaci in uso", critical: false },
+  { key: "medications", label: "Supplementi in uso", critical: false },
   { key: "injuries", label: "Infortuni / limitazioni", critical: false },
 ];
 

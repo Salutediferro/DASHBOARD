@@ -53,7 +53,7 @@ export const registerSchema = z
       (d.acceptTerms === true && d.acceptHealthDataProcessing === true),
     {
       message:
-        "Per registrarti come paziente devi accettare privacy, termini e il trattamento dei dati sanitari.",
+        "Per registrarti come cliente devi accettare privacy, termini e il trattamento dei dati sanitari.",
       path: ["acceptTerms"],
     },
   )

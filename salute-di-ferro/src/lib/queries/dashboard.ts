@@ -339,7 +339,7 @@ export async function getPatientActivity(
       id: `med:${m.id}`,
       kind: "MEDICATION",
       date: (m.startDate ?? m.createdAt).toISOString(),
-      title: m.active ? `Terapia avviata: ${m.name}` : `Terapia archiviata: ${m.name}`,
+      title: m.active ? `Supplemento avviato: ${m.name}` : `Supplemento archiviato: ${m.name}`,
       description: m.dose,
       href: "/dashboard/patient/medications",
     });
@@ -530,7 +530,7 @@ export async function getProfessionalActivity(
       id: `app:${a.id}`,
       kind: "APPOINTMENT",
       date: a.startTime.toISOString(),
-      title: `${a.type} · ${a.patient?.fullName ?? "Paziente"}`,
+      title: `${a.type} · ${a.patient?.fullName ?? "Cliente"}`,
       description: null,
       href: "#",
     });
@@ -540,7 +540,7 @@ export async function getProfessionalActivity(
       id: `checkin:${c.id}`,
       kind: "CHECK_IN",
       date: c.date.toISOString(),
-      title: `Check-in · ${c.patient?.fullName ?? "Paziente"}`,
+      title: `Check-in · ${c.patient?.fullName ?? "Cliente"}`,
       description: c.weight != null ? `${c.weight.toFixed(1)} kg · ${c.status}` : c.status,
       href: "#",
     });
@@ -551,7 +551,7 @@ export async function getProfessionalActivity(
       kind: "REPORT",
       date: r.uploadedAt.toISOString(),
       title: r.title,
-      description: `Referto · ${r.patient?.fullName ?? "Paziente"}`,
+      description: `Referto · ${r.patient?.fullName ?? "Cliente"}`,
       href: "#",
     });
   }

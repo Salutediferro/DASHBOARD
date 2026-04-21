@@ -64,7 +64,7 @@ export function SearchCommand({
           )}
         >
           <Search className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="flex-1 text-left">Cerca pagine, pazienti…</span>
+          <span className="flex-1 text-left">Cerca pagine, clienti…</span>
           <kbd className="inline-flex items-center gap-0.5 rounded border border-border/70 bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             ⌘K
           </kbd>

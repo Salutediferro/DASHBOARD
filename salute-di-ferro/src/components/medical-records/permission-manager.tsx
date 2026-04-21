@@ -373,7 +373,7 @@ function roleLabel(role: string) {
     case "ADMIN":
       return "Admin";
     case "PATIENT":
-      return "Paziente";
+      return "Cliente";
     default:
       return role;
   }

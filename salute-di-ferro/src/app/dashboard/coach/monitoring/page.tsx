@@ -440,7 +440,7 @@ function CheckInReviewDialog({
           {row.notes && (
             <div>
               <p className="text-muted-foreground text-xs uppercase">
-                Note del paziente
+                Note del cliente
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm">{row.notes}</p>
             </div>

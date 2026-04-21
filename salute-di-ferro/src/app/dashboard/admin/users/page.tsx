@@ -75,7 +75,7 @@ const ROLE_META: Record<
     tone: "bg-green-500/15 text-green-700 dark:text-green-300",
   },
   PATIENT: {
-    label: "Paziente",
+    label: "Cliente",
     icon: <UserIcon className="h-3 w-3" />,
     tone: "bg-muted text-foreground",
   },
@@ -187,7 +187,7 @@ export default function AdminUsersPage() {
               <SelectItem value="ADMIN">Admin</SelectItem>
               <SelectItem value="DOCTOR">Medici</SelectItem>
               <SelectItem value="COACH">Coach</SelectItem>
-              <SelectItem value="PATIENT">Pazienti</SelectItem>
+              <SelectItem value="PATIENT">Clienti</SelectItem>
             </SelectContent>
           </Select>
         </div>

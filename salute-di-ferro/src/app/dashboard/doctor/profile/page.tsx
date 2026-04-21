@@ -38,7 +38,7 @@ export default function DoctorProfilePage() {
   const completedVisits =
     appointments.data?.filter((a) => a.status === "COMPLETED").length ?? 0;
   const stats = [
-    { label: "Pazienti attivi", value: patientsQuery.data?.total ?? 0 },
+    { label: "Clienti attivi", value: patientsQuery.data?.total ?? 0 },
     { label: "Visite completate", value: completedVisits },
     { label: "Referti caricati", value: reports.data?.length ?? 0 },
   ];

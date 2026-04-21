@@ -182,7 +182,7 @@ export function AppointmentDetail({
         {fmtLong(appointment.startTime)}
       </p>
       <dl className="grid gap-1.5 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
-        <Row label="Paziente" value={appointment.patientName ?? "—"} />
+        <Row label="Cliente" value={appointment.patientName ?? "—"} />
         <Row
           label="Professionista"
           value={appointment.professionalName ?? "—"}

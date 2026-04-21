@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   });
   if (!me || me.role !== "PATIENT") {
     return NextResponse.json(
-      { error: "Solo i pazienti possono inserire misurazioni" },
+      { error: "Solo i clienti possono inserire misurazioni" },
       { status: 403 },
     );
   }

@@ -146,7 +146,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const allowedForPatient = new Set(["SCHEDULED"]);
     if (!allowedForPatient.has(patch.status)) {
       return NextResponse.json(
-        { error: "Il paziente non può aggiornare lo stato" },
+        { error: "Il cliente non può aggiornare lo stato" },
         { status: 403 },
       );
     }
@@ -181,7 +181,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       appointmentId: updated.id,
       patientId: updated.patientId,
       professionalId: updated.professionalId,
-      patientName: updated.patient?.fullName ?? "Paziente",
+      patientName: updated.patient?.fullName ?? "Cliente",
       professionalName: updated.professional?.fullName ?? "Professionista",
       when: updated.startTime,
       action: hasReschedule ? "RESCHEDULED" : "COMPLETED",
@@ -240,7 +240,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     appointmentId: updated.id,
     patientId: updated.patientId,
     professionalId: updated.professionalId,
-    patientName: updated.patient?.fullName ?? "Paziente",
+    patientName: updated.patient?.fullName ?? "Cliente",
     professionalName: updated.professional?.fullName ?? "Professionista",
     when: updated.startTime,
     action: "CANCELED",
