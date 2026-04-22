@@ -254,8 +254,7 @@ export default function PatientSupplementiPage() {
             Supplementi in corso
           </h1>
           <p className="text-muted-foreground text-sm">
-            Supplementi che assumi regolarmente, dosaggi e durata. Il tuo team
-            può vederli per coordinare meglio le cure.
+            Supplementi che assumi regolarmente, dosaggi e durata.
           </p>
         </div>
         <Button type="button" onClick={() => setShowForm((v) => !v)}>

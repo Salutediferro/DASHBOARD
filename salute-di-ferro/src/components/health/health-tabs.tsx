@@ -97,10 +97,16 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
     { name: "bodyTempC", label: "Temperatura", unit: "°C", step: "0.1" },
   ],
   sleep: [
-    { name: "sleepHours", label: "Ore dormite", unit: "h", step: "0.25" },
-    { name: "sleepQuality", label: "Qualità (1-10)", step: "1" },
     { name: "sleepBedtime", label: "A letto", type: "time", placeholder: "23:30" },
     { name: "sleepWakeTime", label: "Sveglia", type: "time", placeholder: "07:00" },
+    {
+      name: "sleepHours",
+      label: "Ore dormite",
+      unit: "h",
+      step: "0.25",
+      hint: "Calcolate automaticamente da 'A letto' e 'Sveglia', oppure inseriscile a mano.",
+    },
+    { name: "sleepQuality", label: "Qualità (1-10)", step: "1" },
     { name: "sleepAwakenings", label: "Risvegli", step: "1" },
   ],
   activity: [
@@ -447,6 +453,15 @@ function CategoryPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <SectionHeader
+        title={primary.label}
+        subtitle={
+          primary.unit
+            ? `Parametro in analisi · unità di misura: ${primary.unit}`
+            : "Parametro in analisi"
+        }
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PeriodPills value={period} onChange={onPeriodChange} />
         <span className="text-xs text-muted-foreground">
