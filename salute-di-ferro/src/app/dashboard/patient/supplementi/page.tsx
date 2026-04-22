@@ -3,15 +3,19 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { DayOfWeek } from "@prisma/client";
 import {
   Archive,
   Bell,
   BellOff,
+  Check,
   CheckCircle2,
   Loader2,
+  Pencil,
   Pill,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +47,15 @@ type TherapySelfItem = {
   active: boolean;
   reminderTime: string | null;
   reminderEnabled: boolean;
+  daysOfWeek: DayOfWeek[];
   createdAt: string;
+};
+
+type TherapyIntakeItem = {
+  id: string;
+  itemId: string;
+  date: string;
+  taken: boolean;
 };
 
 type FormState = {
@@ -55,6 +67,7 @@ type FormState = {
   endDate: string;
   reminderEnabled: boolean;
   reminderTime: string;
+  daysOfWeek: DayOfWeek[];
 };
 
 const EMPTY_FORM: FormState = {
@@ -66,9 +79,45 @@ const EMPTY_FORM: FormState = {
   endDate: "",
   reminderEnabled: false,
   reminderTime: "",
+  daysOfWeek: [],
 };
 
 const QUERY_KEY = ["therapy", "SELF"] as const;
+const INTAKE_KEY = ["therapy", "intake", "today"] as const;
+
+const WEEKDAYS: { day: DayOfWeek; label: string; short: string }[] = [
+  { day: "MON", label: "Lunedì", short: "Lun" },
+  { day: "TUE", label: "Martedì", short: "Mar" },
+  { day: "WED", label: "Mercoledì", short: "Mer" },
+  { day: "THU", label: "Giovedì", short: "Gio" },
+  { day: "FRI", label: "Venerdì", short: "Ven" },
+  { day: "SAT", label: "Sabato", short: "Sab" },
+  { day: "SUN", label: "Domenica", short: "Dom" },
+];
+
+// JS getDay(): 0=Sun..6=Sat → our DayOfWeek enum.
+const WEEKDAY_AT: Record<number, DayOfWeek> = {
+  0: "SUN",
+  1: "MON",
+  2: "TUE",
+  3: "WED",
+  4: "THU",
+  5: "FRI",
+  6: "SAT",
+};
+
+function todayWeekday(): DayOfWeek {
+  return WEEKDAY_AT[new Date().getDay()];
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isScheduledToday(item: TherapySelfItem): boolean {
+  if (!item.daysOfWeek || item.daysOfWeek.length === 0) return true;
+  return item.daysOfWeek.includes(todayWeekday());
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -94,6 +143,7 @@ function fmtTime(iso: string | null): string | null {
 export default function PatientSupplementiPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
 
   const { data, isLoading } = useQuery<{ items: TherapySelfItem[] }>({
@@ -105,27 +155,39 @@ export default function PatientSupplementiPage() {
     },
   });
 
+  const intakeToday = useQuery<{ items: TherapyIntakeItem[] }>({
+    queryKey: INTAKE_KEY,
+    queryFn: async () => {
+      const d = todayIsoDate();
+      const res = await fetch(`/api/therapy/intake?from=${d}&to=${d}`);
+      if (!res.ok) throw new Error("Errore caricamento");
+      return res.json();
+    },
+  });
+
   // Arm the client-side reminder scheduler for every active SELF item
   // with a reminder enabled. Delivery falls back to a toast if the
   // browser notification permission is not granted.
   useTherapyReminders(data?.items ?? []);
+
+  const bodyFrom = (f: FormState) => ({
+    name: f.name.trim(),
+    dose: f.dose.trim() || null,
+    frequency: f.frequency.trim() || null,
+    notes: f.notes.trim() || null,
+    startDate: f.startDate || null,
+    endDate: f.endDate || null,
+    reminderEnabled: f.reminderEnabled && !!f.reminderTime,
+    reminderTime: f.reminderTime || null,
+    daysOfWeek: f.daysOfWeek,
+  });
 
   const createMutation = useMutation({
     mutationFn: async (f: FormState) => {
       const res = await fetch("/api/therapy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "SELF",
-          name: f.name.trim(),
-          dose: f.dose.trim() || null,
-          frequency: f.frequency.trim() || null,
-          notes: f.notes.trim() || null,
-          startDate: f.startDate || null,
-          endDate: f.endDate || null,
-          reminderEnabled: f.reminderEnabled && !!f.reminderTime,
-          reminderTime: f.reminderTime || null,
-        }),
+        body: JSON.stringify({ kind: "SELF", ...bodyFrom(f) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -135,11 +197,74 @@ export default function PatientSupplementiPage() {
     },
     onSuccess: () => {
       toast.success("Supplemento aggiunto");
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      resetForm();
       qc.invalidateQueries({ queryKey: QUERY_KEY });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, f }: { id: string; f: FormState }) => {
+      const res = await fetch(`/api/therapy/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyFrom(f)),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Errore");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Supplemento aggiornato");
+      resetForm();
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const intakeMutation = useMutation({
+    mutationFn: async (args: { itemId: string; taken: boolean }) => {
+      const res = await fetch("/api/therapy/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: args.itemId,
+          date: todayIsoDate(),
+          taken: args.taken,
+        }),
+      });
+      if (!res.ok) throw new Error("Errore");
+      return res.json();
+    },
+    onMutate: async ({ itemId, taken }) => {
+      await qc.cancelQueries({ queryKey: INTAKE_KEY });
+      const prev = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY);
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => {
+        const existing = old?.items ?? [];
+        const others = existing.filter((i) => i.itemId !== itemId);
+        return {
+          items: [
+            ...others,
+            {
+              id: `optimistic-${itemId}`,
+              itemId,
+              date: todayIsoDate(),
+              taken,
+            },
+          ],
+        };
+      });
+      return { prev };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(INTAKE_KEY, ctx.prev);
+      toast.error(e.message);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: INTAKE_KEY, refetchType: "none" });
+    },
   });
 
   const toggleMutation = useMutation({
@@ -223,6 +348,37 @@ export default function PatientSupplementiPage() {
   const items = data?.items ?? [];
   const active = items.filter((m) => m.active);
   const archived = items.filter((m) => !m.active);
+  const dueToday = active.filter(isScheduledToday);
+  const intakeByItem = React.useMemo(() => {
+    const map = new Map<string, TherapyIntakeItem>();
+    for (const i of intakeToday.data?.items ?? []) map.set(i.itemId, i);
+    return map;
+  }, [intakeToday.data?.items]);
+
+  function resetForm() {
+    setForm(EMPTY_FORM);
+    setShowForm(false);
+    setEditingId(null);
+  }
+
+  function startEdit(m: TherapySelfItem) {
+    setEditingId(m.id);
+    setForm({
+      name: m.name,
+      dose: m.dose ?? "",
+      frequency: m.frequency ?? "",
+      notes: m.notes ?? "",
+      startDate: m.startDate ? m.startDate.slice(0, 10) : "",
+      endDate: m.endDate ? m.endDate.slice(0, 10) : "",
+      reminderEnabled: m.reminderEnabled,
+      reminderTime: fmtTime(m.reminderTime) ?? "",
+      daysOfWeek: m.daysOfWeek ?? [],
+    });
+    setShowForm(true);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
 
   async function submit() {
     if (!form.name.trim()) {
@@ -243,8 +399,14 @@ export default function PatientSupplementiPage() {
         );
       }
     }
-    createMutation.mutate(form);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, f: form });
+    } else {
+      createMutation.mutate(form);
+    }
   }
+
+  const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6">
@@ -257,16 +419,36 @@ export default function PatientSupplementiPage() {
             Supplementi che assumi regolarmente, dosaggi e durata.
           </p>
         </div>
-        <Button type="button" onClick={() => setShowForm((v) => !v)}>
+        <Button
+          type="button"
+          onClick={() => {
+            setEditingId(null);
+            setForm(EMPTY_FORM);
+            setShowForm((v) => !v);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Aggiungi supplemento
         </Button>
       </header>
 
+      {dueToday.length > 0 && (
+        <TodayCheckCard
+          meds={dueToday}
+          intakeByItem={intakeByItem}
+          loading={intakeToday.isLoading}
+          onMark={(itemId, taken) =>
+            intakeMutation.mutate({ itemId, taken })
+          }
+        />
+      )}
+
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Nuovo supplemento</CardTitle>
+            <CardTitle className="text-base">
+              {editingId ? "Modifica supplemento" : "Nuovo supplemento"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -289,7 +471,7 @@ export default function PatientSupplementiPage() {
                 />
               </div>
               <div className="flex flex-col gap-1.5 md:col-span-2">
-                <Label htmlFor="frequency">Frequenza</Label>
+                <Label htmlFor="frequency">Frequenza (nota)</Label>
                 <Input
                   id="frequency"
                   placeholder="Es. 1 volta al giorno la sera"
@@ -298,6 +480,18 @@ export default function PatientSupplementiPage() {
                     setForm({ ...form, frequency: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <Label className="mb-1.5 block">Giorni di assunzione</Label>
+                <DaySelector
+                  value={form.daysOfWeek}
+                  onChange={(next) => setForm({ ...form, daysOfWeek: next })}
+                />
+                <p className="text-muted-foreground mt-1.5 text-xs">
+                  Se non selezioni nessun giorno il supplemento vale per ogni
+                  giorno della settimana.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="startDate">Inizio</Label>
@@ -373,23 +567,14 @@ export default function PatientSupplementiPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setForm(EMPTY_FORM);
-                }}
-                disabled={createMutation.isPending}
+                onClick={resetForm}
+                disabled={saving}
               >
                 Annulla
               </Button>
-              <Button
-                type="button"
-                onClick={submit}
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Salva
+              <Button type="button" onClick={submit} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingId ? "Aggiorna" : "Salva"}
               </Button>
             </div>
           </CardContent>
@@ -419,6 +604,7 @@ export default function PatientSupplementiPage() {
             title="In corso"
             empty="Nessun supplemento attivo."
             meds={active}
+            onEdit={startEdit}
             onToggleActive={(id, a) =>
               toggleMutation.mutate({ id, active: a })
             }
@@ -447,6 +633,7 @@ export default function PatientSupplementiPage() {
               title="Archivio"
               empty=""
               meds={archived}
+              onEdit={startEdit}
               onToggleActive={(id, a) =>
                 toggleMutation.mutate({ id, active: a })
               }
@@ -466,10 +653,141 @@ export default function PatientSupplementiPage() {
   );
 }
 
+function DaySelector({
+  value,
+  onChange,
+}: {
+  value: DayOfWeek[];
+  onChange: (next: DayOfWeek[]) => void;
+}) {
+  const set = new Set(value);
+  const toggle = (d: DayOfWeek) => {
+    const next = new Set(set);
+    if (next.has(d)) next.delete(d);
+    else next.add(d);
+    onChange(WEEKDAYS.map((w) => w.day).filter((d) => next.has(d)));
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {WEEKDAYS.map((w) => {
+        const active = set.has(w.day);
+        return (
+          <button
+            key={w.day}
+            type="button"
+            onClick={() => toggle(w.day)}
+            aria-pressed={active}
+            aria-label={w.label}
+            className={cn(
+              "focus-ring inline-flex h-9 min-w-[3rem] items-center justify-center rounded-md border px-3 text-xs font-medium transition-colors",
+              active
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+            )}
+          >
+            {w.short}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TodayCheckCard({
+  meds,
+  intakeByItem,
+  loading,
+  onMark,
+}: {
+  meds: TherapySelfItem[];
+  intakeByItem: Map<string, TherapyIntakeItem>;
+  loading: boolean;
+  onMark: (itemId: string, taken: boolean) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Oggi</CardTitle>
+        <p className="text-muted-foreground text-xs">
+          Segna i supplementi che hai assunto oggi. Lo storico resta nel tuo
+          diario.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="flex h-20 items-center justify-center">
+            <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+          </div>
+        ) : (
+          <ul className="divide-border divide-y">
+            {meds.map((m) => {
+              const intake = intakeByItem.get(m.id);
+              const state: "taken" | "skipped" | "pending" = intake
+                ? intake.taken
+                  ? "taken"
+                  : "skipped"
+                : "pending";
+              return (
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3"
+                >
+                  <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
+                    <Pill className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{m.name}</p>
+                    {m.dose && (
+                      <p className="text-muted-foreground text-xs">
+                        {m.dose}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onMark(m.id, true)}
+                      className={cn(
+                        "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+                        state === "taken"
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-input bg-background text-muted-foreground hover:bg-muted",
+                      )}
+                      aria-pressed={state === "taken"}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Assunto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMark(m.id, false)}
+                      className={cn(
+                        "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+                        state === "skipped"
+                          ? "border-destructive bg-destructive text-destructive-foreground"
+                          : "border-input bg-background text-muted-foreground hover:bg-muted",
+                      )}
+                      aria-pressed={state === "skipped"}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Non assunto
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MedSection({
   title,
   empty,
   meds,
+  onEdit,
   onToggleActive,
   onToggleReminder,
   onDelete,
@@ -477,6 +795,7 @@ function MedSection({
   title: string;
   empty: string;
   meds: TherapySelfItem[];
+  onEdit: (item: TherapySelfItem) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onToggleReminder: (item: TherapySelfItem, enabled: boolean) => void;
   onDelete: (id: string) => void;
@@ -529,6 +848,25 @@ function MedSection({
                         {m.frequency}
                       </p>
                     )}
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {(m.daysOfWeek?.length ?? 0) === 0 ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          Ogni giorno
+                        </Badge>
+                      ) : (
+                        WEEKDAYS.filter((w) =>
+                          m.daysOfWeek.includes(w.day),
+                        ).map((w) => (
+                          <Badge
+                            key={w.day}
+                            variant="outline"
+                            className="text-[10px]"
+                          >
+                            {w.short}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
                     <p className="text-muted-foreground mt-1 text-[11px]">
                       Dal {fmtDate(m.startDate)}
                       {m.endDate && ` al ${fmtDate(m.endDate)}`}
@@ -563,6 +901,15 @@ function MedSection({
                         )}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => onEdit(m)}
+                      className="hover:bg-muted text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs"
+                      aria-label="Modifica"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Modifica
+                    </button>
                     <button
                       type="button"
                       onClick={() => onToggleActive(m.id, !m.active)}

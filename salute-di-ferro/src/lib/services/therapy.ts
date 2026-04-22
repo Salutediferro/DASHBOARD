@@ -1,7 +1,13 @@
-import type { TherapyItem, TherapyKind, UserRole } from "@prisma/client";
+import type {
+  TherapyIntake,
+  TherapyItem,
+  TherapyKind,
+  UserRole,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
   CreateTherapyInput,
+  IntakeInput,
   UpdateTherapyInput,
 } from "@/lib/validators/therapy";
 
@@ -134,6 +140,9 @@ export async function createTherapy(
           : null,
       reminderEnabled:
         input.kind === "SELF" ? (input.reminderEnabled ?? false) : false,
+      // Scheduling only applies to SELF items; PRESCRIBED keeps free-text
+      // frequency. Empty array = every day.
+      daysOfWeek: input.kind === "SELF" ? (input.daysOfWeek ?? []) : [],
     },
   });
 }
@@ -172,9 +181,9 @@ export async function updateTherapy(
     updates.endDate = patch.endDate ? new Date(patch.endDate) : null;
   }
   if (patch.active !== undefined) updates.active = patch.active;
-  // Reminder fields are only honoured on SELF items; silently ignored
-  // on PRESCRIBED so a stray doctor-side PATCH can't plant a reminder
-  // on a row the patient doesn't own.
+  // Reminder + schedule fields are only honoured on SELF items;
+  // silently ignored on PRESCRIBED so a stray doctor-side PATCH can't
+  // plant a reminder on a row the patient doesn't own.
   if (existing.kind === "SELF") {
     if (patch.reminderTime !== undefined) {
       updates.reminderTime = patch.reminderTime
@@ -183,6 +192,9 @@ export async function updateTherapy(
     }
     if (patch.reminderEnabled !== undefined) {
       updates.reminderEnabled = patch.reminderEnabled;
+    }
+    if (patch.daysOfWeek !== undefined) {
+      updates.daysOfWeek = patch.daysOfWeek ?? [];
     }
   }
 
@@ -202,6 +214,75 @@ export async function deleteTherapy(actor: Actor, id: string): Promise<void> {
     throw new TherapyError("forbidden");
   }
   await prisma.therapyItem.delete({ where: { id } });
+}
+
+// ============================================================
+// INTAKE — daily "assunto / non assunto" check-off on SELF items.
+// ============================================================
+
+/**
+ * List intake rows for a patient over [from, to] (inclusive). Patients
+ * can read their own; doctors/coaches read only via an active
+ * CareRelationship (same ACL as the therapy item list).
+ */
+export async function listIntakes(
+  actor: Actor,
+  patientId: string,
+  from: Date,
+  to: Date,
+): Promise<TherapyIntake[]> {
+  if (!(await canReadTherapy(actor, patientId))) {
+    throw new TherapyError("forbidden");
+  }
+  return prisma.therapyIntake.findMany({
+    where: {
+      patientId,
+      date: { gte: from, lte: to },
+    },
+    orderBy: { date: "desc" },
+  });
+}
+
+/**
+ * Upsert a daily intake row. Only the patient themselves can mark an
+ * intake — doctors/coaches read-only. The (itemId, date) unique index
+ * makes this idempotent: re-tapping "assunto" updates `takenAt` but
+ * doesn't create duplicates.
+ */
+export async function upsertIntake(
+  actor: Actor,
+  input: IntakeInput,
+): Promise<TherapyIntake> {
+  const item = await prisma.therapyItem.findUnique({
+    where: { id: input.itemId },
+    select: { id: true, patientId: true, kind: true },
+  });
+  if (!item) throw new TherapyError("not_found");
+
+  // Only the owning patient can log intake. Intentionally stricter than
+  // canWriteTherapy: a doctor must never be able to tick off intake on
+  // the patient's behalf, since the primary use case is self-reporting.
+  if (actor.role !== "PATIENT" || actor.id !== item.patientId) {
+    throw new TherapyError("forbidden");
+  }
+
+  const date = new Date(`${input.date}T00:00:00.000Z`);
+  const takenAt = input.taken ? new Date() : null;
+
+  return prisma.therapyIntake.upsert({
+    where: { itemId_date: { itemId: input.itemId, date } },
+    create: {
+      itemId: input.itemId,
+      patientId: item.patientId,
+      date,
+      taken: input.taken,
+      takenAt,
+    },
+    update: {
+      taken: input.taken,
+      takenAt,
+    },
+  });
 }
 
 // Store HH:MM as a Date anchored at 1970-01-01 UTC so Postgres Time

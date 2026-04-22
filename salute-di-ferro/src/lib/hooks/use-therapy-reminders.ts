@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import type { DayOfWeek } from "@prisma/client";
 
 type TherapyItemForReminder = {
   id: string;
@@ -13,7 +14,25 @@ type TherapyItemForReminder = {
   /// the patient set, the date portion is always 1970-01-01 UTC (Postgres
   /// Time type) and is ignored by the scheduler.
   reminderTime: string | null;
+  /// Scheduled weekdays. Empty = every day (legacy behaviour preserved).
+  daysOfWeek: DayOfWeek[];
 };
+
+const WEEKDAY_AT: Record<number, DayOfWeek> = {
+  0: "SUN",
+  1: "MON",
+  2: "TUE",
+  3: "WED",
+  4: "THU",
+  5: "FRI",
+  6: "SAT",
+};
+
+/** True if `item` is scheduled to ring on the given JS weekday (0=Sun..6=Sat). */
+function isScheduledOn(item: TherapyItemForReminder, weekday: number): boolean {
+  if (!item.daysOfWeek || item.daysOfWeek.length === 0) return true;
+  return item.daysOfWeek.includes(WEEKDAY_AT[weekday]);
+}
 
 /**
  * Client-side scheduler for SELF supplement reminders. When the tab is
@@ -47,12 +66,15 @@ export function useTherapyReminders(items: TherapyItemForReminder[]) {
     function schedule(item: TherapyItemForReminder) {
       const hhmm = extractHHMM(item.reminderTime);
       if (!hhmm) return;
-      const delay = msUntilNext(hhmm);
+      const { delay, firesAt } = nextFire(hhmm);
       const key = `${item.id}:${hhmm}`;
       const timer = window.setTimeout(() => {
-        // Guard against double-fire when the hook re-runs within the
-        // same minute (e.g. item list changes).
-        if (!firedRef.current.has(key + ":" + todayStamp())) {
+        // Skip firing if this day isn't in the item's weekly schedule.
+        // (We still re-arm for the following day so cross-day edits land.)
+        if (
+          isScheduledOn(item, firesAt.getDay()) &&
+          !firedRef.current.has(key + ":" + todayStamp())
+        ) {
           firedRef.current.add(key + ":" + todayStamp());
           fire(item);
         }
@@ -122,7 +144,7 @@ function extractHHMM(iso: string | null): string | null {
   return `${hh}:${mm}`;
 }
 
-function msUntilNext(hhmm: string): number {
+function nextFire(hhmm: string): { delay: number; firesAt: Date } {
   const [h, m] = hhmm.split(":").map(Number);
   const now = new Date();
   const target = new Date(
@@ -137,7 +159,7 @@ function msUntilNext(hhmm: string): number {
   if (target.getTime() <= now.getTime()) {
     target.setDate(target.getDate() + 1);
   }
-  return target.getTime() - now.getTime();
+  return { delay: target.getTime() - now.getTime(), firesAt: target };
 }
 
 function todayStamp(): string {
