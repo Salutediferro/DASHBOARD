@@ -330,12 +330,7 @@ export function HealthTabs({
               value={category}
               onValueChange={(v) => setCategory(v as CategoryKey)}
             >
-              <TabsList
-                className={cn(
-                  "grid w-full",
-                  gridColsClass(effectiveCategories.length),
-                )}
-              >
+              <TabsList>
                 {effectiveCategories.map((c) => (
                   <TabsTrigger key={c.key} value={c.key}>
                     {c.label}
@@ -579,7 +574,7 @@ function PeriodPills({
     <div
       role="radiogroup"
       aria-label="Periodo"
-      className="inline-flex gap-1 rounded-full border border-border/60 bg-muted/30 p-1"
+      className="inline-flex flex-wrap gap-1.5"
     >
       {PERIODS.map((p) => {
         const active = value === p.key;
@@ -591,10 +586,10 @@ function PeriodPills({
             type="button"
             onClick={() => onChange(p.key)}
             className={cn(
-              "focus-ring rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              "focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-primary-500/40 bg-primary-500/15 text-primary-500"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {p.label}
@@ -829,25 +824,6 @@ function LoadingState() {
       />
     </div>
   );
-}
-
-// Tailwind JIT needs full class names present in the source, so we map
-// category count → a static grid-cols-* class instead of interpolating.
-function gridColsClass(count: number): string {
-  switch (count) {
-    case 1:
-      return "grid-cols-1";
-    case 2:
-      return "grid-cols-2";
-    case 3:
-      return "grid-cols-3";
-    case 4:
-      return "grid-cols-2 md:grid-cols-4";
-    case 5:
-      return "grid-cols-3 md:grid-cols-5";
-    default:
-      return "grid-cols-3 md:grid-cols-6";
-  }
 }
 
 // ── Preferences dialog body ────────────────────────────────────────────────
