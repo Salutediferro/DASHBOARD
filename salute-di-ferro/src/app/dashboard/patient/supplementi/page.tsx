@@ -83,8 +83,11 @@ function fmtTime(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+  // reminderTime is stored as UTC wall-clock by the server (see
+  // parseHHMM in src/lib/services/therapy.ts); read it back with the
+  // UTC accessors so CEST users don't see "01:00" instead of "23:00".
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
 

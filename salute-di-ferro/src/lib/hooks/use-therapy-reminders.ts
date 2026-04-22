@@ -110,13 +110,15 @@ function fire(item: TherapyItemForReminder) {
 
 function extractHHMM(iso: string | null): string | null {
   if (!iso) return null;
-  // API emits a full ISO string anchored to 1970-01-01 UTC. We only
-  // need the HH:MM in the user's local timezone — Date parsing does
-  // that conversion for us.
+  // The server stores reminderTime as UTC wall-clock (parseHHMM in
+  // src/lib/services/therapy.ts uses setUTCHours), so we read it back
+  // with getUTCHours/getUTCMinutes. Using getHours here would shift
+  // the time by the browser's timezone offset — e.g. "23:00" saved on
+  // a CEST client would come back as "01:00".
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
 
