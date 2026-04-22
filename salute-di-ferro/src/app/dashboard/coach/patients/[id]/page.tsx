@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, HeartPulse, Loader2, Mail, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  HeartPulse,
+  Loader2,
+  Mail,
+  Phone,
+  Stethoscope,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,13 +82,22 @@ export default function PatientProfilePage() {
               )}
             </div>
           </div>
-          <Link
-            href={`/dashboard/coach/patients/${params.id}/health`}
-            className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
-          >
-            <HeartPulse className="h-4 w-4" />
-            Dati salute
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link
+              href={`/dashboard/coach/patients/${params.id}/percorso`}
+              className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
+            >
+              <Stethoscope className="h-4 w-4" />
+              Percorso
+            </Link>
+            <Link
+              href={`/dashboard/coach/patients/${params.id}/health`}
+              className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
+            >
+              <HeartPulse className="h-4 w-4" />
+              Dati salute
+            </Link>
+          </div>
         </CardContent>
       </Card>
 

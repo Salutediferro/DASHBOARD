@@ -97,6 +97,15 @@ enum CheckInStatus {
   REVIEWED
 }
 
+/// PRESCRIBED = written by a DOCTOR, part of the patient's "Percorso"
+/// (visible to patient/doctor/coach). SELF = patient-entered supplement.
+/// The kind is immutable after creation — a doctor who wants to take
+/// ownership of a patient's supplement creates a new PRESCRIBED item.
+enum TherapyKind {
+  PRESCRIBED
+  SELF
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -190,9 +199,13 @@ model User {
   professionalInvitations Invitation[] @relation("ProfessionalInvitations")
   usedInvitations         Invitation[] @relation("UsedInvitations")
 
-  // Structured patient-owned health data (new 2026-04-18)
-  medicationsList Medication[]
-  symptomLogs     SymptomLog[]
+  // Structured therapy / supplement entries. `therapyItems` covers both
+  // the items this user owns as a patient (kind=SELF) and the ones a
+  // doctor prescribed for them (kind=PRESCRIBED). `prescribedTherapyItems`
+  // is the reverse side for doctors — everything they prescribed.
+  therapyItems           TherapyItem[] @relation("PatientTherapyItems")
+  prescribedTherapyItems TherapyItem[] @relation("PrescribedTherapyItems")
+  symptomLogs            SymptomLog[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -290,26 +303,37 @@ model BiometricLog {
   @@index([patientId, date])
 }
 
-// Structured medication / therapy entries owned by the patient. Active
-// medications are shown on the dashboard; completed ones stay in history.
-// Professionals read via CareRelationship ACTIVE check at the API layer.
-model Medication {
-  id         String    @id @default(uuid()) @db.Uuid
-  patientId  String    @db.Uuid
-  name       String
-  dose       String?
-  frequency  String?
-  notes      String?
-  startDate  DateTime? @db.Date
-  endDate    DateTime? @db.Date
-  active     Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+// Therapy items split into two verticals via `kind`:
+//   - PRESCRIBED: written by a DOCTOR (`prescribedById`), read by the
+//     patient and any active professional (doctor or coach).
+//   - SELF: written by the patient, optional in-app reminder.
+// ACL enforced in src/lib/services/therapy.ts — `kind` is immutable
+// after creation so ownership stays unambiguous in the audit trail.
+model TherapyItem {
+  id              String      @id @default(uuid()) @db.Uuid
+  patientId       String      @db.Uuid
+  kind            TherapyKind @default(SELF)
+  prescribedById  String?     @db.Uuid
+  name            String
+  dose            String?
+  frequency       String?
+  notes           String?
+  startDate       DateTime?   @db.Date
+  endDate         DateTime?   @db.Date
+  active          Boolean     @default(true)
+  // Reminder preference, only meaningful when kind=SELF. Delivery is
+  // client-side (setTimeout + Notification API) — no server cron yet.
+  reminderTime    DateTime?   @db.Time
+  reminderEnabled Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient      User  @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
+  prescribedBy User? @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
 
-  @@index([patientId, active])
+  @@index([patientId, kind, active])
   @@index([patientId, startDate(sort: Desc)])
+  @@index([prescribedById])
 }
 
 // Daily symptom / wellbeing journal (1 row per patient per calendar day).

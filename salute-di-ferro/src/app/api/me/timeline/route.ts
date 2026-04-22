@@ -96,7 +96,7 @@ export async function GET() {
         uploadedAt: true,
       },
     }),
-    prisma.medication.findMany({
+    prisma.therapyItem.findMany({
       where: { patientId: me.id },
       orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
       take: 20,
@@ -214,7 +214,7 @@ export async function GET() {
         ? `Supplemento avviato: ${m.name}`
         : `Supplemento archiviato: ${m.name}`,
       description: [m.dose, m.frequency].filter(Boolean).join(" · ") || null,
-      href: "/dashboard/patient/medications",
+      href: "/dashboard/patient/supplementi",
       meta: { active: m.active },
     });
   }

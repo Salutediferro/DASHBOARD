@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, FileText, HeartPulse, Loader2, Mail, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  HeartPulse,
+  Loader2,
+  Mail,
+  Phone,
+  Stethoscope,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -80,6 +88,13 @@ export default function DoctorPatientProfilePage() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
+            <Link
+              href={`/dashboard/doctor/patients/${params.id}/percorso`}
+              className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
+            >
+              <Stethoscope className="h-4 w-4" />
+              Percorso
+            </Link>
             <Link
               href={`/dashboard/doctor/patients/${params.id}/health`}
               className="border-border hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
