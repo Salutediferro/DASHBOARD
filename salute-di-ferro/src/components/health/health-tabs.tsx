@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Sex } from "@prisma/client";
 
@@ -26,6 +26,10 @@ import {
   useDeleteBiometric,
   type BiometricLogDTO,
 } from "@/lib/hooks/use-biometrics";
+import {
+  useHealthCategoryPrefs,
+  type HealthCategoryKey,
+} from "@/lib/hooks/use-health-category-prefs";
 
 import PageHeader from "@/components/brand/page-header";
 import MetricRing from "@/components/brand/metric-ring";
@@ -153,8 +157,35 @@ export function HealthTabs({
   const [category, setCategory] = React.useState<CategoryKey>("body");
   const [period, setPeriod] = React.useState<PeriodKey>(30);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [formCategory, setFormCategory] =
     React.useState<CategoryKey>("body");
+
+  const { hidden, hydrated, toggle } = useHealthCategoryPrefs();
+  const visibleCategories = React.useMemo(
+    () => CATEGORIES.filter((c) => !hidden.has(c.key as HealthCategoryKey)),
+    [hidden],
+  );
+  // Fall back to the full list before hydration so the first paint of
+  // the tabs matches what the server rendered (nothing hidden yet).
+  const effectiveCategories = hydrated ? visibleCategories : CATEGORIES;
+
+  // Keep the selected tab valid: if the user hides the current category
+  // switch to the first visible one.
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (!effectiveCategories.some((c) => c.key === category)) {
+      setCategory(effectiveCategories[0]?.key ?? "body");
+    }
+  }, [hydrated, effectiveCategories, category]);
+
+  // Same for the dialog's form-category pill.
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (!effectiveCategories.some((c) => c.key === formCategory)) {
+      setFormCategory(effectiveCategories[0]?.key ?? "body");
+    }
+  }, [hydrated, effectiveCategories, formCategory]);
 
   const list = useBiometrics({ patientId, perPage: 500 });
   const items = list.data?.items ?? [];
@@ -186,48 +217,75 @@ export function HealthTabs({
         className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
         actions={
           !readOnly && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger
-                className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" aria-hidden />
-                Aggiungi rilevazione
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md md:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Nuova rilevazione</DialogTitle>
-                  <DialogDescription>
-                    Inserisci uno o più valori. I campi vuoti vengono ignorati.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-wrap gap-1 border-b border-border/60 pb-3">
-                  {CATEGORIES.map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => setFormCategory(c.key)}
-                      className={cn(
-                        "focus-ring rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                        formCategory === c.key
-                          ? "bg-primary-500/15 text-primary-500"
-                          : "text-muted-foreground hover:bg-muted",
-                      )}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="max-h-[60vh] overflow-y-auto">
-                  <MetricForm
-                    key={formCategory}
-                    category={formCategory}
-                    fields={FIELDS[formCategory]}
-                    dense
-                    onSaved={() => setDialogOpen(false)}
+            <div className="flex items-center gap-2">
+              <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <DialogTrigger
+                  className="focus-ring inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted"
+                  aria-label="Scegli quali parametri mostrare"
+                  title="Scegli quali parametri mostrare"
+                >
+                  <Settings className="h-4 w-4" aria-hidden />
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Parametri da tracciare</DialogTitle>
+                    <DialogDescription>
+                      Scegli quali categorie vuoi vedere nelle tue schermate di
+                      Dati Salute. Quelle nascoste restano disponibili ma non
+                      occupano spazio.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <CategoryPrefsList
+                    hidden={hidden}
+                    onToggle={(k) => toggle(k as HealthCategoryKey)}
                   />
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger
+                  className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Aggiungi rilevazione
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md md:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Nuova rilevazione</DialogTitle>
+                    <DialogDescription>
+                      Inserisci uno o più valori. I campi vuoti vengono
+                      ignorati.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-wrap gap-1 border-b border-border/60 pb-3">
+                    {effectiveCategories.map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => setFormCategory(c.key)}
+                        className={cn(
+                          "focus-ring rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                          formCategory === c.key
+                            ? "bg-primary-500/15 text-primary-500"
+                            : "text-muted-foreground hover:bg-muted",
+                        )}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-[60vh] overflow-y-auto">
+                    <MetricForm
+                      key={formCategory}
+                      category={formCategory}
+                      fields={FIELDS[formCategory]}
+                      dense
+                      onSaved={() => setDialogOpen(false)}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           )
         }
       />
@@ -270,15 +328,20 @@ export function HealthTabs({
               value={category}
               onValueChange={(v) => setCategory(v as CategoryKey)}
             >
-              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-                {CATEGORIES.map((c) => (
+              <TabsList
+                className={cn(
+                  "grid w-full",
+                  gridColsClass(effectiveCategories.length),
+                )}
+              >
+                {effectiveCategories.map((c) => (
                   <TabsTrigger key={c.key} value={c.key}>
                     {c.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
 
-              {CATEGORIES.map((c) => (
+              {effectiveCategories.map((c) => (
                 <TabsContent
                   key={c.key}
                   value={c.key}
@@ -755,3 +818,80 @@ function LoadingState() {
     </div>
   );
 }
+
+// Tailwind JIT needs full class names present in the source, so we map
+// category count → a static grid-cols-* class instead of interpolating.
+function gridColsClass(count: number): string {
+  switch (count) {
+    case 1:
+      return "grid-cols-1";
+    case 2:
+      return "grid-cols-2";
+    case 3:
+      return "grid-cols-3";
+    case 4:
+      return "grid-cols-2 md:grid-cols-4";
+    case 5:
+      return "grid-cols-3 md:grid-cols-5";
+    default:
+      return "grid-cols-3 md:grid-cols-6";
+  }
+}
+
+// ── Preferences dialog body ────────────────────────────────────────────────
+
+function CategoryPrefsList({
+  hidden,
+  onToggle,
+}: {
+  hidden: Set<HealthCategoryKey>;
+  onToggle: (key: HealthCategoryKey) => void;
+}) {
+  // Block the user from hiding the last visible category — an empty
+  // tab row would be confusing and has no useful state.
+  const visibleCount = CATEGORIES.length - hidden.size;
+
+  return (
+    <ul className="flex flex-col divide-y divide-border/60">
+      {CATEGORIES.map((c) => {
+        const isHidden = hidden.has(c.key as HealthCategoryKey);
+        const isOnlyVisible = !isHidden && visibleCount <= 1;
+        return (
+          <li
+            key={c.key}
+            className="flex items-center justify-between gap-3 py-3"
+          >
+            <div>
+              <p className="text-sm font-medium">{c.label}</p>
+              <p className="text-xs text-muted-foreground">
+                {CATEGORY_DESCRIPTIONS[c.key]}
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                className="focus-ring h-4 w-4 cursor-pointer rounded border-input accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                checked={!isHidden}
+                disabled={isOnlyVisible}
+                onChange={() => onToggle(c.key as HealthCategoryKey)}
+                aria-label={`Mostra ${c.label}`}
+              />
+              <span className="text-xs text-muted-foreground">
+                {isHidden ? "Nascosto" : "Visibile"}
+              </span>
+            </label>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const CATEGORY_DESCRIPTIONS: Record<CategoryKey, string> = {
+  body: "Peso, massa grassa, massa muscolare, acqua.",
+  circumferences: "Vita, fianchi, petto, braccia, coscia, polpaccio.",
+  cardiovascular: "Pressione, frequenza cardiaca, SpO2, HRV.",
+  metabolic: "Glicemia, chetoni, temperatura corporea.",
+  sleep: "Ore, qualità, orari, risvegli.",
+  activity: "Passi, calorie, minuti attivi, distanza.",
+};
