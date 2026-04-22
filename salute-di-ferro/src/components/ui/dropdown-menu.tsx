@@ -53,17 +53,27 @@ function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
   return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
 }
 
+// `Menu.GroupLabel` requires a `<Menu.Group>` ancestor in Base UI — if
+// one is missing it throws production error #31
+// ("MenuGroupRootContext is missing"). Real callers (UserMenu header,
+// QuickActions "Azioni rapide") don't actually need a group: they use
+// the label as a plain section header inside the popup. So we render
+// a styled `<div role="presentation">` instead, keeping the same API
+// surface and styling but dropping the group-context requirement.
+// Consumers who DO want ARIA group-labeling can still reach for
+// `DropdownMenuGroup` + a native `<div>` label.
 function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
+      role="presentation"
       className={cn(
         "px-1.5 py-1 text-xs font-medium text-muted-foreground data-inset:pl-7",
         className
