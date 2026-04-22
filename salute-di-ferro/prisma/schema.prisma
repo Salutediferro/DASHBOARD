@@ -106,6 +106,19 @@ enum TherapyKind {
   SELF
 }
 
+// Days of week for scheduling self-managed therapy items (SELF kind).
+// An empty daysOfWeek[] means "every day" — keeps the legacy "no schedule"
+// rows working without a data migration.
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -193,7 +206,7 @@ model User {
 
   // Direct messaging
   conversationMemberships ConversationMember[]
-  sentMessages            Message[]             @relation("MessageSender")
+  sentMessages            Message[]            @relation("MessageSender")
 
   // Patient onboarding via professional invite link
   professionalInvitations Invitation[] @relation("ProfessionalInvitations")
@@ -203,8 +216,9 @@ model User {
   // the items this user owns as a patient (kind=SELF) and the ones a
   // doctor prescribed for them (kind=PRESCRIBED). `prescribedTherapyItems`
   // is the reverse side for doctors — everything they prescribed.
-  therapyItems           TherapyItem[] @relation("PatientTherapyItems")
-  prescribedTherapyItems TherapyItem[] @relation("PrescribedTherapyItems")
+  therapyItems           TherapyItem[]   @relation("PatientTherapyItems")
+  prescribedTherapyItems TherapyItem[]   @relation("PrescribedTherapyItems")
+  therapyIntakes         TherapyIntake[] @relation("PatientTherapyIntakes")
   symptomLogs            SymptomLog[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
@@ -325,15 +339,41 @@ model TherapyItem {
   // client-side (setTimeout + Notification API) — no server cron yet.
   reminderTime    DateTime?   @db.Time
   reminderEnabled Boolean     @default(false)
+  // Days the item should be taken on. Empty array = every day. Only
+  // meaningful for kind=SELF; PRESCRIBED items keep free-text frequency.
+  daysOfWeek      DayOfWeek[] @default([])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  patient      User  @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
-  prescribedBy User? @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
+  patient      User            @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
+  prescribedBy User?           @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
+  intakes      TherapyIntake[]
 
   @@index([patientId, kind, active])
   @@index([patientId, startDate(sort: Desc)])
   @@index([prescribedById])
+}
+
+// Daily check-off for self-managed supplements (AT-7 feedback).
+// One row per (item, date). `taken=false` rows are allowed so the user
+// can explicitly mark "non assunto" (vs "not yet answered" which is
+// absence of a row). PRESCRIBED items can be tracked too but the UI
+// currently only exposes it for SELF.
+model TherapyIntake {
+  id        String    @id @default(uuid()) @db.Uuid
+  itemId    String    @db.Uuid
+  patientId String    @db.Uuid
+  date      DateTime  @db.Date
+  taken     Boolean
+  takenAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  item    TherapyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  patient User        @relation("PatientTherapyIntakes", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, date])
+  @@index([patientId, date])
 }
 
 // Daily symptom / wellbeing journal (1 row per patient per calendar day).
@@ -357,23 +397,23 @@ model SymptomLog {
 }
 
 model CheckIn {
-  id                    String           @id @default(uuid()) @db.Uuid
-  patientId             String           @db.Uuid
-  professionalId        String           @db.Uuid
-  professionalRole      ProfessionalRole
-  date                  DateTime         @default(now())
-  weight                Float?
-  measurements          Json? // { waist, chest, arms, ... }
-  frontPhotoUrl         String?
-  sidePhotoUrl          String?
-  backPhotoUrl          String?
-  notes                 String?
-  rating                Int? // 1..5 self-assessment
-  professionalFeedback  String?
-  aiAnalysis            String?
-  status                CheckInStatus    @default(PENDING)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  id                   String           @id @default(uuid()) @db.Uuid
+  patientId            String           @db.Uuid
+  professionalId       String           @db.Uuid
+  professionalRole     ProfessionalRole
+  date                 DateTime         @default(now())
+  weight               Float?
+  measurements         Json? // { waist, chest, arms, ... }
+  frontPhotoUrl        String?
+  sidePhotoUrl         String?
+  backPhotoUrl         String?
+  notes                String?
+  rating               Int? // 1..5 self-assessment
+  professionalFeedback String?
+  aiAnalysis           String?
+  status               CheckInStatus    @default(PENDING)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   patient      User @relation("PatientCheckIns", fields: [patientId], references: [id], onDelete: Cascade)
   professional User @relation("ProfessionalCheckIns", fields: [professionalId], references: [id], onDelete: Cascade)

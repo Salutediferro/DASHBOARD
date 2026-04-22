@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { TherapyKind } from "@prisma/client";
+import { DayOfWeek, TherapyKind } from "@prisma/client";
+
+const daysOfWeekSchema = z.preprocess(
+  (v) => {
+    if (v == null) return [];
+    return v;
+  },
+  z.array(z.nativeEnum(DayOfWeek)).max(7).optional(),
+);
 
 const nullableDate = z.preprocess(
   (v) => {
@@ -50,6 +58,8 @@ export const createTherapySchema = z.object({
   active: z.boolean().optional(),
   reminderTime: nullableTime,
   reminderEnabled: z.boolean().optional(),
+  // Empty/omitted = every day. Only honoured for SELF items in the service.
+  daysOfWeek: daysOfWeekSchema,
 });
 
 // `kind` is intentionally absent from the update schema — the service
@@ -65,7 +75,15 @@ export const updateTherapySchema = z.object({
   active: z.boolean().optional(),
   reminderTime: nullableTime,
   reminderEnabled: z.boolean().optional(),
+  daysOfWeek: daysOfWeekSchema,
+});
+
+export const intakeSchema = z.object({
+  itemId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD richiesto"),
+  taken: z.boolean(),
 });
 
 export type CreateTherapyInput = z.infer<typeof createTherapySchema>;
 export type UpdateTherapyInput = z.infer<typeof updateTherapySchema>;
+export type IntakeInput = z.infer<typeof intakeSchema>;
