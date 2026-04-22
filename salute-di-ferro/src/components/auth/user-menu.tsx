@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import type { UserRole } from "@prisma/client";
 import { LogOut, User as UserIcon, Shield } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,13 +33,25 @@ type UserMenuProps = {
   contentSideOffset?: number;
 };
 
+// Role → canonical profile route. /dashboard/profile doesn't exist as
+// a route — each role has its own /dashboard/<role>/profile page, and
+// pushing to the wrong URL surfaces the app-level error boundary
+// ("Qualcosa è andato storto"), which is what users were hitting from
+// the avatar menu before this map landed.
+const PROFILE_HREF_BY_ROLE: Record<UserRole, string> = {
+  PATIENT: "/dashboard/patient/profile",
+  DOCTOR: "/dashboard/doctor/profile",
+  COACH: "/dashboard/coach/profile",
+  ADMIN: "/dashboard/admin/profile",
+};
+
 export function UserMenu({
   trigger,
   contentSide = "bottom",
   contentAlign = "end",
   contentSideOffset = 4,
 }: UserMenuProps = {}) {
-  const { profile, user, isLoading } = useUser();
+  const { profile, role, user, isLoading } = useUser();
   const router = useRouter();
   const supabase = createClient();
 
@@ -51,6 +64,10 @@ export function UserMenu({
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  // Fallback to /dashboard (role-redirect page) if profile/role hasn't
+  // resolved yet — never push to a 404 route.
+  const profileHref = role ? PROFILE_HREF_BY_ROLE[role] : "/dashboard";
 
   async function handleLogout() {
     // Record the LOGOUT audit row BEFORE signOut clears the session —
@@ -99,7 +116,7 @@ export function UserMenu({
           <span className="text-muted-foreground text-xs">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
+        <DropdownMenuItem onClick={() => router.push(profileHref)}>
           <UserIcon className="mr-2 h-4 w-4" />
           Profilo
         </DropdownMenuItem>

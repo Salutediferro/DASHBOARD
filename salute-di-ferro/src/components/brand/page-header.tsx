@@ -22,7 +22,10 @@ export default function PageHeader({
   description,
   breadcrumbs,
   actions,
-  sticky = true,
+  // Default OFF: sticky headers were overlapping the filter pills /
+  // section headers below them on content-dense pages (Referti,
+  // Appuntamenti). Pages that genuinely want a sticky title can opt in.
+  sticky = false,
   className,
 }: PageHeaderProps) {
   return (

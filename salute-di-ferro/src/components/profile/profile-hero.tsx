@@ -39,7 +39,7 @@ export function ProfileHero({ profile, stats }: Props) {
        * the dark theme — replaced with a primary-red → background mix
        * so the hero has brand presence without visual noise. */}
       <div
-        className="relative h-32 w-full overflow-hidden rounded-xl md:h-40"
+        className="relative h-28 w-full overflow-hidden rounded-xl md:h-36"
         style={{
           backgroundImage:
             "linear-gradient(135deg, color-mix(in oklab, var(--primary) 55%, var(--background)) 0%, var(--background) 100%)",
@@ -51,14 +51,21 @@ export function ProfileHero({ profile, stats }: Props) {
         />
       </div>
 
-      {/* Card with avatar + meta + stats */}
-      <div className="-mt-12 flex flex-col gap-4 px-2 md:-mt-14">
-        <div className="flex flex-wrap items-end gap-4">
+      {/* Card with avatar + meta + stats.
+       *
+       * Layout note — the earlier version used `-mt-12/-14` combined
+       * with `items-end` so the avatar AND the name row both pulled up
+       * into the cover area. On real profiles with a full "First Last"
+       * name the two visually collided — the display title ran right
+       * into the avatar's shadow. We now only offset the avatar, and
+       * the name sits cleanly below on its own baseline. */}
+      <div className="flex flex-col gap-5 px-2 pt-2">
+        <div className="flex flex-wrap items-end gap-5">
           <button
             type="button"
             onClick={() => setUploadOpen(true)}
             aria-label="Cambia foto profilo"
-            className="focus-ring group relative inline-flex overflow-visible rounded-full"
+            className="focus-ring group relative -mt-14 inline-flex overflow-visible rounded-full md:-mt-16"
           >
             <Avatar className="h-24 w-24 border-4 border-background shadow-lg md:h-28 md:w-28">
               {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} />}
@@ -74,10 +81,10 @@ export function ProfileHero({ profile, stats }: Props) {
             </span>
           </button>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-1 pb-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <h1
               id="profile-hero-name"
-              className="text-display text-2xl md:text-3xl"
+              className="text-display text-2xl leading-tight md:text-3xl"
             >
               {profile.fullName}
             </h1>
