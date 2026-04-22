@@ -337,6 +337,17 @@
     border-radius: var(--radius);
   }
 
+  /* Flat glass bar for sticky PageHeader: keeps the translucent feel
+   * of .surface-glass but drops rounded corners and side borders so
+   * full-bleed (negative-margin) headers don't look like a floating
+   * card on top of the page's other cards. Bottom border is added by
+   * the component itself so it's easy to remove per page. */
+  .page-header-glass {
+    background: color-mix(in oklab, var(--card) 82%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+  }
+
   /* Display headings — Avenir Next / Manrope, tight tracking, weight 700. */
   .text-display {
     font-family: var(--font-heading);

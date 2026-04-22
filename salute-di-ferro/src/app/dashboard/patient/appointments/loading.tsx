@@ -8,7 +8,7 @@ export default function AppointmentsLoading() {
       aria-busy="true"
       aria-label="Caricamento appuntamenti"
     >
-      <div className="-mx-4 -mt-4 md:-mx-8 md:-mt-8 surface-glass flex flex-col gap-2 px-6 py-4">
+      <div className="page-header-glass -mx-4 -mt-4 flex flex-col gap-2 border-b border-border/60 px-6 py-4 md:-mx-8 md:-mt-8">
         <Skeleton className="h-7 w-44" />
         <Skeleton className="h-3 w-80" />
       </div>

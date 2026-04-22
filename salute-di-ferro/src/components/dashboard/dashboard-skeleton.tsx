@@ -16,7 +16,7 @@ function Bar({ className = "" }: { className?: string }) {
 export default function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 pb-6" role="status" aria-busy="true">
-      <header className="-mx-4 -mt-4 md:-mx-8 md:-mt-8 surface-glass flex flex-col gap-2 px-6 py-4">
+      <header className="page-header-glass -mx-4 -mt-4 flex flex-col gap-2 border-b border-border/60 px-6 py-4 md:-mx-8 md:-mt-8">
         <Bar className="h-8 w-60" />
         <Bar className="h-3 w-48" />
       </header>
