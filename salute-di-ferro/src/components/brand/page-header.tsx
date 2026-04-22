@@ -28,7 +28,11 @@ export default function PageHeader({
   return (
     <header
       className={cn(
-        "surface-glass w-full px-6 py-4",
+        // Flat full-bleed bar rather than a card: keeps the translucent
+        // "glass" effect used on `.surface-glass` but drops the rounded
+        // corners and side borders that made the header look like a
+        // floating card stacked on top of the page's other cards.
+        "page-header-glass w-full border-b border-border/60 px-6 py-4",
         sticky && "sticky top-0 z-30",
         className,
       )}

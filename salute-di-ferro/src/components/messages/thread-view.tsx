@@ -201,7 +201,7 @@ function ThreadHeader({
   avatarUrl: string | null;
 }) {
   return (
-    <header className="surface-glass sticky top-0 z-10 flex items-center gap-3 border-b border-border/50 px-4 py-3">
+    <header className="page-header-glass sticky top-0 z-10 flex items-center gap-3 border-b border-border/50 px-4 py-3">
       <Link
         href="/dashboard/messages"
         aria-label="Torna all'elenco"

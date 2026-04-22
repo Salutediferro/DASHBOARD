@@ -35,7 +35,11 @@ export function Topbar({ items, quickActions = [] }: Props) {
   return (
     <header
       className={cn(
-        "surface-glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/50 px-4 md:gap-4 md:px-6",
+        // `.page-header-glass` gives the translucent look without the
+        // rounded-card silhouette: keeping `surface-glass` here stacked
+        // a floating card over the sticky page headers below, which
+        // read as overlap on high-density pages (calendar, messages).
+        "page-header-glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/50 px-4 md:gap-4 md:px-6",
       )}
     >
       <Breadcrumb items={items} />

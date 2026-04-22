@@ -42,10 +42,10 @@ export default function MessagesLayout({
 
   return (
     <DashboardShell items={navForRole(role)}>
-      <div className="-mx-4 -my-4 flex h-[calc(100vh-4rem)] min-h-0 md:-mx-8 md:-my-8">
+      <div className="-mx-4 -my-4 flex h-[calc(100vh-4rem)] min-h-0 overflow-hidden md:-mx-8 md:-my-8">
         <aside
           className={cn(
-            "w-full shrink-0 lg:w-[320px]",
+            "w-full shrink-0 overflow-hidden lg:w-[320px]",
             isThread ? "hidden lg:block" : "block",
           )}
         >
@@ -53,7 +53,7 @@ export default function MessagesLayout({
         </aside>
         <main
           className={cn(
-            "min-w-0 flex-1",
+            "min-w-0 flex-1 overflow-hidden",
             isThread ? "block" : "hidden lg:block",
           )}
         >
