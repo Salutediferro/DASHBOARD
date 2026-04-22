@@ -78,5 +78,12 @@ function therapyErrorResponse(e: unknown) {
       return NextResponse.json({ error: "patientId richiesto" }, { status: 400 });
     }
   }
-  throw e;
+  // Unknown error: return a JSON 500 so the UI can surface the real
+  // message. See `src/app/api/therapy/route.ts` for the why.
+  console.error("[therapy/id] unexpected error", e);
+  const msg =
+    e instanceof Error && e.message
+      ? e.message
+      : "Errore interno nel salvataggio";
+  return NextResponse.json({ error: msg }, { status: 500 });
 }

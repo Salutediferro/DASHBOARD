@@ -28,6 +28,15 @@ export type MetricField = {
   type?: "number" | "time";
   step?: string;
   placeholder?: string;
+  /**
+   * Accepted range. MUST match the server-side Zod schema (see
+   * `src/lib/validators/biometric.ts`) — we use them to (a) set the
+   * `min`/`max` attributes on the <input>, (b) clamp the stepper, and
+   * (c) pre-validate before submit so users see "Qualità deve essere
+   * tra 1 e 10" instead of a generic 500.
+   */
+  min?: number;
+  max?: number;
   /** Helpful hint displayed below the input. */
   hint?: string;
 };
@@ -82,7 +91,11 @@ export function MetricForm({
     const safeStep = Number.isFinite(step) && step > 0 ? step : 1;
     const current = Number(values[field.name]);
     const base = Number.isFinite(current) ? current : 0;
-    const next = +(base + direction * safeStep).toFixed(2);
+    let next = +(base + direction * safeStep).toFixed(2);
+    // Clamp to the declared range so the +/- buttons can't walk the
+    // value past the validator bounds.
+    if (typeof field.min === "number" && next < field.min) next = field.min;
+    if (typeof field.max === "number" && next > field.max) next = field.max;
     setField(field.name, String(next));
   }
 
@@ -90,6 +103,7 @@ export function MetricForm({
     e.preventDefault();
 
     const categoryPayload: Record<string, number | string | null> = {};
+    const rangeErrors: string[] = [];
     for (const f of fields) {
       const raw = values[f.name];
       if (raw == null || raw === "") continue;
@@ -97,10 +111,27 @@ export function MetricForm({
         categoryPayload[f.name] = raw;
       } else {
         const n = Number(raw);
-        if (Number.isFinite(n)) categoryPayload[f.name] = n;
+        if (!Number.isFinite(n)) continue;
+        // Pre-validate against the declared range. This stops the
+        // common "errore salvataggio" UX where an out-of-range value
+        // (SpO2=32, quality=24, BP=5) sailed through to the server
+        // and came back as a generic 400 / 500.
+        if (typeof f.min === "number" && n < f.min) {
+          rangeErrors.push(`${f.label}: min ${f.min}${f.unit ? ` ${f.unit}` : ""}`);
+          continue;
+        }
+        if (typeof f.max === "number" && n > f.max) {
+          rangeErrors.push(`${f.label}: max ${f.max}${f.unit ? ` ${f.unit}` : ""}`);
+          continue;
+        }
+        categoryPayload[f.name] = n;
       }
     }
 
+    if (rangeErrors.length > 0) {
+      toast.error(`Valori fuori intervallo — ${rangeErrors.join(", ")}`);
+      return;
+    }
     if (Object.keys(categoryPayload).length === 0) {
       toast.error("Inserisci almeno un valore");
       return;
@@ -253,6 +284,8 @@ function StepperInput({
         type="number"
         inputMode="decimal"
         step={field.step ?? "any"}
+        min={field.min}
+        max={field.max}
         placeholder={field.placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

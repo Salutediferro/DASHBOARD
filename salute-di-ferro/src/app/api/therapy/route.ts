@@ -107,5 +107,16 @@ function therapyErrorResponse(e: unknown) {
       return NextResponse.json({ error: "patientId richiesto" }, { status: 400 });
     }
   }
-  throw e;
+  // Unknown error: still log server-side for Sentry, but return a JSON
+  // body so the client doesn't get an opaque 500 HTML page. Previously
+  // we re-threw and Next.js returned an HTML error page, which made
+  // `res.json()` on the client fall back to "Errore" / "Errore (500)"
+  // with zero context — the reason the supplementi save failed was
+  // invisible.
+  console.error("[therapy] unexpected error", e);
+  const msg =
+    e instanceof Error && e.message
+      ? e.message
+      : "Errore interno nel salvataggio";
+  return NextResponse.json({ error: msg }, { status: 500 });
 }

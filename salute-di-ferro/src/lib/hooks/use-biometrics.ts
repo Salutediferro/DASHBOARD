@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import type { BiometricLog } from "@prisma/client";
 import type { BiometricInput } from "@/lib/validators/biometric";
+import { readApiError } from "@/lib/api-error";
 
 export type BiometricLogDTO = Omit<
   BiometricLog,
@@ -122,10 +123,7 @@ export function useCreateBiometric() {
         body: JSON.stringify(input),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof body.error === "string" ? body.error : "Errore salvataggio",
-        );
+        throw new Error(await readApiError(res, "Errore salvataggio"));
       }
       return res.json() as Promise<BiometricLogDTO>;
     },

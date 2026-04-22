@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { readApiError } from "@/lib/api-error";
 import {
   ensureNotificationPermission,
   useTherapyReminders,
@@ -128,39 +129,6 @@ function fmtDate(iso: string | null): string {
   });
 }
 
-/**
- * Pull a useful error message out of an API response, regardless of
- * whether the route returned a string `error`, a Zod-issue array, or
- * an empty body (e.g. on a 500). Before this helper the UI always
- * said just "Errore" which hid validation mismatches — when "non mi
- * fa salvare i supplementi" was reported, the real reason was
- * invisible.
- */
-async function readApiError(res: Response): Promise<string> {
-  let body: unknown = null;
-  try {
-    body = await res.json();
-  } catch {
-    // non-JSON body (HTML error page, empty 500, etc.) → fall through
-  }
-  if (body && typeof body === "object" && "error" in body) {
-    const err = (body as { error: unknown }).error;
-    if (typeof err === "string" && err.trim()) return err;
-    if (Array.isArray(err)) {
-      // Zod issues ship as { path, message }; join them into a human line.
-      const msgs = err
-        .map((i) =>
-          typeof i === "object" && i && "message" in i
-            ? String((i as { message: unknown }).message)
-            : null,
-        )
-        .filter((s): s is string => !!s && s.trim().length > 0);
-      if (msgs.length > 0) return msgs.join(" · ");
-    }
-  }
-  return `Errore salvataggio (${res.status})`;
-}
-
 function fmtTime(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -223,7 +191,7 @@ export default function PatientSupplementiPage() {
         body: JSON.stringify({ kind: "SELF", ...bodyFrom(f) }),
       });
       if (!res.ok) {
-        throw new Error(await readApiError(res));
+        throw new Error(await readApiError(res, "Errore salvataggio"));
       }
       return res.json();
     },
@@ -243,7 +211,7 @@ export default function PatientSupplementiPage() {
         body: JSON.stringify(bodyFrom(f)),
       });
       if (!res.ok) {
-        throw new Error(await readApiError(res));
+        throw new Error(await readApiError(res, "Errore salvataggio"));
       }
       return res.json();
     },
