@@ -59,6 +59,18 @@ export function MetricForm({
   const [notes, setNotes] = React.useState("");
   const create = useCreateBiometric();
 
+  // Auto-compute sleep hours from bedtime + wake time (handles midnight crossing).
+  const sleepBedtime = values.sleepBedtime;
+  const sleepWakeTime = values.sleepWakeTime;
+  React.useEffect(() => {
+    if (category !== "sleep") return;
+    if (!sleepBedtime || !sleepWakeTime) return;
+    const hours = computeSleepHours(sleepBedtime, sleepWakeTime);
+    if (hours == null) return;
+    const formatted = String(hours);
+    setValues((s) => (s.sleepHours === formatted ? s : { ...s, sleepHours: formatted }));
+  }, [category, sleepBedtime, sleepWakeTime]);
+
   if (readOnly) return null;
 
   function setField(name: string, v: string) {
@@ -198,6 +210,16 @@ export function MetricForm({
       </div>
     </form>
   );
+}
+
+function computeSleepHours(bed: string, wake: string): number | null {
+  const [bh, bm] = bed.split(":").map(Number);
+  const [wh, wm] = wake.split(":").map(Number);
+  if (![bh, bm, wh, wm].every(Number.isFinite)) return null;
+  const bedMin = bh * 60 + bm;
+  let wakeMin = wh * 60 + wm;
+  if (wakeMin <= bedMin) wakeMin += 24 * 60; // crossed midnight
+  return +((wakeMin - bedMin) / 60).toFixed(2);
 }
 
 function StepperInput({
