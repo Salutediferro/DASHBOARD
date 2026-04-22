@@ -170,7 +170,7 @@ function ViewToggle({
     <div
       role="radiogroup"
       aria-label="Vista calendario"
-      className="inline-flex rounded-md border border-border/60 bg-muted/30 p-0.5"
+      className="inline-flex flex-wrap gap-1.5"
     >
       {views.map((v) => {
         const active = value === v.key;
@@ -182,10 +182,10 @@ function ViewToggle({
             aria-checked={active}
             onClick={() => onChange(v.key)}
             className={cn(
-              "focus-ring rounded-sm px-2.5 py-1 text-xs font-medium transition-colors",
+              "focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-primary-500/40 bg-primary-500/15 text-primary-500"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {v.label}

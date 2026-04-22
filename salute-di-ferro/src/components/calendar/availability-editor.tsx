@@ -44,7 +44,7 @@ export function AvailabilityEditor() {
   return (
     <div className="flex flex-col gap-6">
       <Tabs defaultValue="recurring">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto">
+        <TabsList>
           <TabsTrigger value="recurring">Ricorrente</TabsTrigger>
           <TabsTrigger value="one-off">Date specifiche</TabsTrigger>
         </TabsList>
