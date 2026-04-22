@@ -34,16 +34,20 @@ export function ProfileHero({ profile, stats }: Props) {
 
   return (
     <section className="flex flex-col" aria-labelledby="profile-hero-name">
-      {/* Cover */}
+      {/* Cover: subtle branded dark-red fade into page background.
+       * The old chrome-silver gradient read as a bright foreign slab on
+       * the dark theme — replaced with a primary-red → background mix
+       * so the hero has brand presence without visual noise. */}
       <div
-        className="relative h-32 w-full rounded-xl md:h-40"
+        className="relative h-32 w-full overflow-hidden rounded-xl md:h-40"
         style={{
-          backgroundImage: "var(--gradient-brand)",
+          backgroundImage:
+            "linear-gradient(135deg, color-mix(in oklab, var(--primary) 55%, var(--background)) 0%, var(--background) 100%)",
         }}
       >
         <span
           aria-hidden
-          className="absolute inset-0 rounded-xl bg-gradient-to-t from-background/80 to-transparent"
+          className="absolute inset-0 rounded-xl bg-gradient-to-t from-background/40 to-transparent"
         />
       </div>
 
