@@ -37,6 +37,8 @@ import SectionHeader from "@/components/brand/section-header";
 import { MetricChart } from "@/components/health/metric-chart";
 import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import HealthEmptyState from "@/components/health/health-empty-state";
+import { SleepScoreCard } from "@/components/health/sleep-score-card";
+import { summarizeSleep } from "@/lib/health/sleep-score";
 
 type PatientProfile = {
   targetWeightKg: number | null;
@@ -514,6 +516,14 @@ function CategoryPanel({
   const stats = computeStats(numericValues);
   const firstLast = firstAndLast(items, primary.key);
 
+  // Sleep wellness score + coach CTA (AT-2). Computed client-side over
+  // the full list (not the period-filtered slice) so the rolling avg
+  // uses a stable 14-day window regardless of the user's period toggle.
+  const sleepSummary = React.useMemo(
+    () => (category === "sleep" ? summarizeSleep(allItems) : null),
+    [category, allItems],
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <SectionHeader
@@ -524,6 +534,8 @@ function CategoryPanel({
             : "Parametro in analisi"
         }
       />
+
+      {sleepSummary && <SleepScoreCard summary={sleepSummary} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PeriodPills value={period} onChange={onPeriodChange} />
