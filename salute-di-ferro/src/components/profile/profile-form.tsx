@@ -44,6 +44,10 @@ type Props = {
   showClinical?: boolean;
   /** Whether to show the public professional section (bio + specialties). */
   showProfessional?: boolean;
+  /** Skip the avatar + name + upload header block. Pages that already
+   * render `<ProfileHero>` above the form pass this to avoid showing
+   * the same identity + avatar twice. */
+  hideHeader?: boolean;
 };
 
 function initials(name: string, email: string) {
@@ -69,6 +73,7 @@ function computeAge(birthDate: string | null | undefined): number | null {
 export function ProfileForm({
   showClinical = false,
   showProfessional = false,
+  hideHeader = false,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -202,6 +207,7 @@ export function ProfileForm({
 
   return (
     <div className="flex flex-col gap-6 pb-10">
+      {!hideHeader && (
       <header className="flex items-center gap-4">
         <Avatar className="size-20">
           {profile.avatarUrl && (
@@ -257,6 +263,7 @@ export function ProfileForm({
           </div>
         </div>
       </header>
+      )}
 
       <form
         className="flex flex-col gap-4"

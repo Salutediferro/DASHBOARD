@@ -49,7 +49,7 @@ export default function DoctorProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <ProfileForm showProfessional />
+          <ProfileForm showProfessional hideHeader />
           <DangerZone />
         </div>
         <aside className="order-first lg:order-last">
