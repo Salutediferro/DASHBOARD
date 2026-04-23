@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { getPlatformBool } from "@/lib/platform-settings";
 
 const PUBLIC_AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
 
@@ -97,13 +98,16 @@ export async function middleware(request: NextRequest) {
   //     step-up; we don't block dashboard access just for this.
   //   - else (no enrolled factor) → redirect to settings/security with a
   //     banner flag so the user is forced to complete enrollment.
-  const enforce2fa = process.env.ENFORCE_2FA === "1";
+  // Setting stored in Upstash Redis and flippable from the admin UI; the
+  // env var ENFORCE_2FA remains the fallback when Redis is unset/down —
+  // see `lib/platform-settings.ts`. We only pay the Redis round-trip
+  // on dashboard requests for authenticated users, not on every request.
   if (
-    enforce2fa &&
     user &&
     isDashboard &&
     !devBypassEnabled &&
-    !MFA_ESCAPE_PREFIXES.some((p) => pathname.startsWith(p))
+    !MFA_ESCAPE_PREFIXES.some((p) => pathname.startsWith(p)) &&
+    (await getPlatformBool("enforce-2fa"))
   ) {
     const role =
       (user.app_metadata?.role as string | undefined) ??
