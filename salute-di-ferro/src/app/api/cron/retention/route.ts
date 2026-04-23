@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  createAdminClient,
-  MEDICAL_REPORTS_BUCKET,
-} from "@/lib/supabase/admin";
+import { purgeUserStorage } from "@/lib/user-retention";
 
 /**
  * GET /api/cron/retention
@@ -43,32 +40,6 @@ type RunResult = {
   storageBlobsPurged: number;
   storageErrors: string[];
 };
-
-async function purgeUserStorage(
-  patientId: string,
-): Promise<{ purged: number; error: string | null }> {
-  // Collect any residual file paths owned by this patient before the
-  // DB cascade drops the rows we need to enumerate.
-  const reports = await prisma.medicalReport.findMany({
-    where: { patientId },
-    select: { fileUrl: true },
-  });
-  const paths = reports.map((r) => r.fileUrl).filter(Boolean);
-  if (paths.length === 0) return { purged: 0, error: null };
-  try {
-    const admin = createAdminClient();
-    const { error } = await admin.storage
-      .from(MEDICAL_REPORTS_BUCKET)
-      .remove(paths);
-    if (error) return { purged: 0, error: error.message };
-    return { purged: paths.length, error: null };
-  } catch (e) {
-    return {
-      purged: 0,
-      error: e instanceof Error ? e.message : String(e),
-    };
-  }
-}
 
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");

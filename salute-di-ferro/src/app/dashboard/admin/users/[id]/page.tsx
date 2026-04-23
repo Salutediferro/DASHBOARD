@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Download,
+  FlameKindling,
   KeyRound,
   Loader2,
   Mail,
@@ -187,6 +189,52 @@ export default function AdminUserDetailPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof json?.error === "string"
+            ? json.error
+            : "Eliminazione fallita",
+        );
+      }
+      return json as { ok: true; storagePurged: number };
+    },
+    onSuccess: (data) => {
+      toast.success(
+        `Utente eliminato definitivamente (${data.storagePurged} file purgati dallo storage)`,
+      );
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      router.push("/dashboard/admin/users");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleExport() {
+    window.location.href = `/api/admin/users/${id}/export`;
+  }
+
+  function handleHardDelete() {
+    if (!user) return;
+    const first = window.prompt(
+      `Eliminazione DEFINITIVA di ${user.fullName}.\n\n` +
+        `Tutti i dati (referti, misurazioni, appuntamenti, messaggi) saranno persi e non recuperabili.\n\n` +
+        `Scrivi l'email dell'utente per confermare:\n${user.email}`,
+    );
+    if (first !== user.email) return;
+    if (
+      !window.confirm(
+        `Ultimo conferma: eliminare definitivamente ${user.email}? ` +
+          `Questa azione NON è reversibile.`,
+      )
+    ) {
+      return;
+    }
+    hardDeleteMutation.mutate();
+  }
 
   function confirmThen(message: string, fn: () => void) {
     if (window.confirm(message)) fn();
@@ -394,6 +442,74 @@ export default function AdminUserDetailPage() {
             )}
             Invia reset password
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Esporta dati (GDPR Art. 15/20)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <p className="text-muted-foreground max-w-prose text-sm">
+            Scarica un JSON con tutti i dati dell&apos;utente: profilo,
+            misurazioni, appuntamenti, referti (metadati), permessi, messaggi,
+            notifiche, audit log. I file dei referti non sono inclusi — vanno
+            scaricati separatamente con i signed URL.
+          </p>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Scarica export JSON
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-500/30">
+        <CardHeader>
+          <CardTitle className="text-base text-red-600 dark:text-red-400">
+            Cancellazione definitiva (GDPR Art. 17)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-muted-foreground max-w-prose text-sm">
+            Elimina l&apos;utente e tutti i suoi dati in modo{" "}
+            <strong className="text-red-600 dark:text-red-400">
+              irreversibile
+            </strong>
+            . Purga i file dallo storage, elimina l&apos;account Supabase, e
+            cascata tutte le relazioni Prisma. Richiesta per l&apos;esercizio
+            del diritto all&apos;oblio.
+          </p>
+          {!disabled ? (
+            <p className="text-muted-foreground text-xs">
+              ⚠︎ Prima disabilita l&apos;utente (sezione &ldquo;Stato
+              account&rdquo;). Il processo è a due passi di sicurezza.
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              Un medico/coach che ha caricato referti per altri pazienti non
+              può essere eliminato finché quei referti non vengono riassegnati
+              o cancellati (FK Restrict).
+            </p>
+          )}
+          <div className="flex justify-end">
+            <Button
+              variant="destructive"
+              onClick={handleHardDelete}
+              disabled={!disabled || hardDeleteMutation.isPending}
+              className="gap-2"
+            >
+              {hardDeleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FlameKindling className="h-4 w-4" />
+              )}
+              Elimina definitivamente
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
