@@ -1,34 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { AUDIT_ACTIONS, type AuditAction } from "@/lib/audit-actions";
 
-/**
- * Canonical action names. Kept as a string literal union so misspellings
- * become tsc errors at the call site.
- */
-export type AuditAction =
-  | "LOGIN"
-  | "LOGOUT"
-  | "PROFILE_UPDATE"
-  | "AVATAR_UPDATE"
-  | "MEDICAL_REPORT_UPLOAD"
-  | "MEDICAL_REPORT_VIEW"
-  | "MEDICAL_REPORT_UPDATE"
-  | "MEDICAL_REPORT_DELETE"
-  | "REPORT_PERMISSION_GRANT"
-  | "REPORT_PERMISSION_REVOKE"
-  | "BIOMETRIC_CREATE"
-  | "BIOMETRIC_UPDATE"
-  | "BIOMETRIC_DELETE"
-  | "APPOINTMENT_CREATE"
-  | "APPOINTMENT_UPDATE"
-  | "APPOINTMENT_CANCEL"
-  | "AVAILABILITY_CREATE"
-  | "AVAILABILITY_DELETE"
-  | "USER_REGISTER"
-  | "USER_SOFT_DELETE"
-  | "USER_EXPORT"
-  | "ADMIN_USER_PROVISION"
-  | "INVITATION_CREATE"
-  | "INVITATION_REVOKE";
+export { AUDIT_ACTIONS, type AuditAction };
 
 export type AuditParams = {
   actorId: string | null;
