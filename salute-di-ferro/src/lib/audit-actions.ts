@@ -35,6 +35,7 @@ export const AUDIT_ACTIONS = [
   "ADMIN_USER_PROVISION",
   "INVITATION_CREATE",
   "INVITATION_REVOKE",
+  "INVITATION_RESEND",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
