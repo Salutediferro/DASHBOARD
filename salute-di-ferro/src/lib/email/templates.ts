@@ -177,6 +177,52 @@ export function welcomeProfessionalEmail(params: {
   return { html, text, subject };
 }
 
+// ── Admin-triggered password reset ────────────────────────────────────
+
+export function passwordResetEmail(params: {
+  /** Action link from supabase.auth.admin.generateLink (type: recovery). */
+  resetUrl: string;
+  firstName: string;
+}): { html: string; text: string; subject: string } {
+  const firstName = escapeHtml(params.firstName);
+  const subject = `Reset della password — Salute di Ferro`;
+
+  const html = layout(`
+    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">Ciao ${firstName},</td></tr>
+    <tr><td style="color:${MUTED};padding-bottom:20px;">
+      Un amministratore di <strong style="color:${TEXT};">Salute di Ferro</strong>
+      ha avviato un reset della tua password. Clicca il bottone qui sotto per
+      scegliere una nuova password e rientrare nel tuo account.
+    </td></tr>
+    <tr><td align="center" style="padding:8px 0 24px;">
+      ${button(params.resetUrl, "Imposta una nuova password")}
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
+      Il link scade entro 24 ore. Se non hai richiesto tu il reset ma riconosci
+      questa email, rispondi a info@salutediferro.com così verifichiamo.
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;word-break:break-all;">
+      Se il bottone non funziona, copia e incolla questo link nel browser:<br/>
+      <span style="color:${TEXT};">${escapeHtml(params.resetUrl)}</span>
+    </td></tr>
+  `);
+
+  const text = [
+    `Ciao ${params.firstName},`,
+    "",
+    "Un amministratore ha avviato un reset della tua password su Salute di Ferro.",
+    "Imposta una nuova password al link qui sotto:",
+    params.resetUrl,
+    "",
+    "Il link scade entro 24 ore.",
+    "Se non hai richiesto tu il reset, scrivi a info@salutediferro.com.",
+    "",
+    "— Salute di Ferro",
+  ].join("\n");
+
+  return { html, text, subject };
+}
+
 // ── Appointment reminder ──────────────────────────────────────────────
 
 export function appointmentReminderEmail(params: {
