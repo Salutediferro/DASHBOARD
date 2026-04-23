@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Download,
+  Eye,
   FlameKindling,
   KeyRound,
   Loader2,
@@ -322,6 +323,13 @@ export default function AdminUserDetailPage() {
             <span>Creato il {formatDate(user.createdAt)}</span>
           </div>
         </div>
+        <Link
+          href={`/dashboard/admin/users/${user.id}/view-as`}
+          className="border-border hover:bg-muted/40 inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium transition-colors"
+        >
+          <Eye className="h-4 w-4" />
+          Visualizza come utente
+        </Link>
       </header>
 
       <Card>
