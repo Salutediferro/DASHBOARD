@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email/send";
 import { appointmentReminderEmail } from "@/lib/email/templates";
+import { getFeatureFlag } from "@/lib/feature-flags";
 
 /**
  * GET /api/cron/appointment-reminders
@@ -119,6 +120,19 @@ export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret && auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Kill-switch: admin can flip `email-reminders-enabled` OFF from the
+  // feature-flags UI during an email-provider incident or a maintenance
+  // window. We still return 200 so Vercel Cron considers the run a
+  // success and doesn't spam retries.
+  const remindersEnabled = await getFeatureFlag("email-reminders-enabled");
+  if (!remindersEnabled) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "email-reminders-enabled flag is OFF",
+    });
   }
 
   const now = Date.now();

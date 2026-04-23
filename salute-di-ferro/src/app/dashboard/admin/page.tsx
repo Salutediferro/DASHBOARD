@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   Activity,
   Building2,
+  Flag,
   Megaphone,
   ScrollText,
   Settings2,
@@ -169,6 +170,12 @@ export default async function AdminDashboardPage() {
             icon={Megaphone}
             title="Broadcast"
             description="Banner globale per tutti."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/feature-flags"
+            icon={Flag}
+            title="Feature flags"
+            description="Kill-switch feature prodotto."
           />
           <QuickLinkCard
             href="/dashboard/admin/organizations"

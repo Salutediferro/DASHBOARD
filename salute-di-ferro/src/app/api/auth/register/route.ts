@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators/auth";
 import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { getFeatureFlag } from "@/lib/feature-flags";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeProfessionalEmail } from "@/lib/email/templates";
@@ -62,6 +63,23 @@ export async function POST(req: Request) {
     acceptTerms,
     acceptHealthDataProcessing,
   } = parsed.data;
+
+  // Feature flag: if PATIENT signup is globally closed (e.g. soft-launch
+  // or incident), reject early with a 503 so the client can show the
+  // dedicated "chiuso" message. Admin-provisioned DOCTOR/COACH still
+  // go through — the flag gates public signups only.
+  if (targetRole === "PATIENT") {
+    const registrationOpen = await getFeatureFlag("patient-registration-open");
+    if (!registrationOpen) {
+      return NextResponse.json(
+        {
+          error:
+            "Registrazione pazienti temporaneamente chiusa. Contattare info@salutediferro.com per assistenza.",
+        },
+        { status: 503 },
+      );
+    }
+  }
 
   // Authorization: only ADMIN may provision DOCTOR/COACH. PATIENT is public.
   if (targetRole !== "PATIENT") {
