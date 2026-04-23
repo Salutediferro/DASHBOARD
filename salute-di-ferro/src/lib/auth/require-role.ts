@@ -59,12 +59,16 @@ export async function requireRole(
 
   const dbUser = await prisma.user.findUnique({
     where: { id: authUser.id },
-    select: { id: true, email: true, role: true },
+    select: { id: true, email: true, role: true, deletedAt: true },
   });
   if (!dbUser) throw new UnauthorizedError("Profile not provisioned");
+  // Soft-deleted accounts count as unauthenticated — an admin who disables
+  // a user must kick them out immediately, even if their access token is
+  // still technically valid at the Supabase layer.
+  if (dbUser.deletedAt) throw new UnauthorizedError("Account disabled");
   if (!allowed.includes(dbUser.role)) throw new ForbiddenError();
 
-  return dbUser;
+  return { id: dbUser.id, email: dbUser.email, role: dbUser.role };
 }
 
 /**

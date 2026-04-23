@@ -48,6 +48,7 @@ export async function GET(req: Request) {
           avatarUrl: true,
           phone: true,
           createdAt: true,
+          deletedAt: true,
           onboardingCompleted: true,
           organization: { select: { id: true, name: true } },
         },

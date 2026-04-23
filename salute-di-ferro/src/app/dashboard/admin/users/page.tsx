@@ -4,11 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ChevronRight,
   Loader2,
   Mail,
   Phone,
   Plus,
   Shield,
+  ShieldAlert,
   Stethoscope,
   User as UserIcon,
   UserRound,
@@ -43,6 +45,7 @@ type UserRow = {
   avatarUrl: string | null;
   phone: string | null;
   createdAt: string;
+  deletedAt: string | null;
   onboardingCompleted: boolean;
   organization: { id: string; name: string } | null;
 };
@@ -217,49 +220,68 @@ export default function AdminUsersPage() {
           <CardContent className="p-0">
             <ul className="divide-border divide-y">
               {items.map((u) => (
-                <li
-                  key={u.id}
-                  className="flex flex-wrap items-center gap-3 px-4 py-3"
-                >
-                  <Avatar className="h-10 w-10">
-                    {u.avatarUrl && <AvatarImage src={u.avatarUrl} />}
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                      {initials(u.fullName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium">
-                        {u.fullName}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className={cn("gap-1", ROLE_META[u.role].tone)}
-                      >
-                        {ROLE_META[u.role].icon}
-                        {ROLE_META[u.role].label}
-                      </Badge>
-                      {!u.onboardingCompleted && u.role !== "ADMIN" && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Onboarding in corso
+                <li key={u.id}>
+                  <Link
+                    href={`/dashboard/admin/users/${u.id}`}
+                    className="hover:bg-muted/40 flex flex-wrap items-center gap-3 px-4 py-3 transition-colors"
+                  >
+                    <Avatar className="h-10 w-10">
+                      {u.avatarUrl && <AvatarImage src={u.avatarUrl} />}
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                        {initials(u.fullName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-medium",
+                            u.deletedAt && "text-muted-foreground line-through",
+                          )}
+                        >
+                          {u.fullName}
+                        </p>
+                        <Badge
+                          variant="secondary"
+                          className={cn("gap-1", ROLE_META[u.role].tone)}
+                        >
+                          {ROLE_META[u.role].icon}
+                          {ROLE_META[u.role].label}
                         </Badge>
-                      )}
-                    </div>
-                    <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-3 text-xs">
-                      <span className="inline-flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {u.email}
-                      </span>
-                      {u.phone && (
+                        {u.deletedAt && (
+                          <Badge
+                            variant="secondary"
+                            className="gap-1 bg-red-500/15 text-red-700 dark:text-red-300"
+                          >
+                            <ShieldAlert className="h-3 w-3" />
+                            Disabilitato
+                          </Badge>
+                        )}
+                        {!u.deletedAt &&
+                          !u.onboardingCompleted &&
+                          u.role !== "ADMIN" && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Onboarding in corso
+                            </Badge>
+                          )}
+                      </div>
+                      <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-3 text-xs">
                         <span className="inline-flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {u.phone}
+                          <Mail className="h-3 w-3" />
+                          {u.email}
                         </span>
-                      )}
-                      {u.organization && <span>{u.organization.name}</span>}
-                      <span>Dal {formatDate(u.createdAt)}</span>
+                        {u.phone && (
+                          <span className="inline-flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {u.phone}
+                          </span>
+                        )}
+                        {u.organization && <span>{u.organization.name}</span>}
+                        <span>Dal {formatDate(u.createdAt)}</span>
+                      </div>
                     </div>
-                  </div>
+                    <ChevronRight className="text-muted-foreground h-4 w-4" />
+                  </Link>
                 </li>
               ))}
             </ul>
