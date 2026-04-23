@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   Building2,
   ScrollText,
+  TicketCheck,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -137,16 +138,22 @@ export default async function AdminDashboardPage() {
             description="Invita medico o coach."
           />
           <QuickLinkCard
-            href="/dashboard/admin/organizations"
-            icon={Building2}
-            title="Organizzazioni"
-            description="Tenant white-label."
+            href="/dashboard/admin/invitations"
+            icon={TicketCheck}
+            title="Inviti"
+            description="Lista, reinvia, revoca."
           />
           <QuickLinkCard
             href="/dashboard/admin/audit"
             icon={ScrollText}
             title="Audit log"
             description="Tracciabilità GDPR."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/organizations"
+            icon={Building2}
+            title="Organizzazioni"
+            description="Tenant white-label."
           />
         </div>
       </section>
