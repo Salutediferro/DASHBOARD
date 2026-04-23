@@ -1,34 +1,38 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Canonical action names. Kept as a string literal union so misspellings
- * become tsc errors at the call site.
+ * Canonical action names. Kept as a const tuple so we get both the string
+ * literal union (compile-time safety at call sites) AND a runtime list the
+ * admin audit UI can iterate for its filter dropdown — single source of truth.
  */
-export type AuditAction =
-  | "LOGIN"
-  | "LOGOUT"
-  | "PROFILE_UPDATE"
-  | "AVATAR_UPDATE"
-  | "MEDICAL_REPORT_UPLOAD"
-  | "MEDICAL_REPORT_VIEW"
-  | "MEDICAL_REPORT_UPDATE"
-  | "MEDICAL_REPORT_DELETE"
-  | "REPORT_PERMISSION_GRANT"
-  | "REPORT_PERMISSION_REVOKE"
-  | "BIOMETRIC_CREATE"
-  | "BIOMETRIC_UPDATE"
-  | "BIOMETRIC_DELETE"
-  | "APPOINTMENT_CREATE"
-  | "APPOINTMENT_UPDATE"
-  | "APPOINTMENT_CANCEL"
-  | "AVAILABILITY_CREATE"
-  | "AVAILABILITY_DELETE"
-  | "USER_REGISTER"
-  | "USER_SOFT_DELETE"
-  | "USER_EXPORT"
-  | "ADMIN_USER_PROVISION"
-  | "INVITATION_CREATE"
-  | "INVITATION_REVOKE";
+export const AUDIT_ACTIONS = [
+  "LOGIN",
+  "LOGOUT",
+  "PROFILE_UPDATE",
+  "AVATAR_UPDATE",
+  "MEDICAL_REPORT_UPLOAD",
+  "MEDICAL_REPORT_VIEW",
+  "MEDICAL_REPORT_UPDATE",
+  "MEDICAL_REPORT_DELETE",
+  "REPORT_PERMISSION_GRANT",
+  "REPORT_PERMISSION_REVOKE",
+  "BIOMETRIC_CREATE",
+  "BIOMETRIC_UPDATE",
+  "BIOMETRIC_DELETE",
+  "APPOINTMENT_CREATE",
+  "APPOINTMENT_UPDATE",
+  "APPOINTMENT_CANCEL",
+  "AVAILABILITY_CREATE",
+  "AVAILABILITY_DELETE",
+  "USER_REGISTER",
+  "USER_SOFT_DELETE",
+  "USER_EXPORT",
+  "ADMIN_USER_PROVISION",
+  "INVITATION_CREATE",
+  "INVITATION_REVOKE",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export type AuditParams = {
   actorId: string | null;
