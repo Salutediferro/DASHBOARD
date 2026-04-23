@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { BroadcastBanner } from "@/components/broadcast-banner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useUser } from "@/lib/hooks/use-user";
 import { navForRole } from "@/lib/nav-items";
@@ -34,8 +35,15 @@ export default function DashboardLayout({
 
   // Security / settings pages render bare — they are focused flows
   // (password change, 2FA) that shouldn't be framed in the chrome.
+  // Broadcasts still apply there because an ongoing incident is
+  // relevant regardless of which screen the user lands on.
   if (pathname.startsWith("/dashboard/settings")) {
-    return <>{children}</>;
+    return (
+      <>
+        <BroadcastBanner />
+        {children}
+      </>
+    );
   }
 
   if (isLoading || !role) {
@@ -49,5 +57,10 @@ export default function DashboardLayout({
     );
   }
 
-  return <DashboardShell items={navForRole(role)}>{children}</DashboardShell>;
+  return (
+    <DashboardShell items={navForRole(role)}>
+      <BroadcastBanner />
+      {children}
+    </DashboardShell>
+  );
 }

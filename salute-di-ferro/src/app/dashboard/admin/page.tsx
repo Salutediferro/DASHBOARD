@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   Activity,
   Building2,
+  Megaphone,
   ScrollText,
   Settings2,
   TicketCheck,
@@ -162,6 +163,12 @@ export default async function AdminDashboardPage() {
             icon={Settings2}
             title="Impostazioni"
             description="Flag operativi (2FA...)"
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/broadcast"
+            icon={Megaphone}
+            title="Broadcast"
+            description="Banner globale per tutti."
           />
           <QuickLinkCard
             href="/dashboard/admin/organizations"
