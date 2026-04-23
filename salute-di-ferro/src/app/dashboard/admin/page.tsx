@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  Activity,
   Building2,
   ScrollText,
   TicketCheck,
@@ -148,6 +149,12 @@ export default async function AdminDashboardPage() {
             icon={ScrollText}
             title="Audit log"
             description="Tracciabilità GDPR."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/health"
+            icon={Activity}
+            title="Stato piattaforma"
+            description="Servizi esterni e cron."
           />
           <QuickLinkCard
             href="/dashboard/admin/organizations"
