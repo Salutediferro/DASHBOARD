@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Activity,
+  BarChart3,
   Building2,
   Flag,
   Megaphone,
@@ -176,6 +177,12 @@ export default async function AdminDashboardPage() {
             icon={Flag}
             title="Feature flags"
             description="Kill-switch feature prodotto."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/metrics"
+            icon={BarChart3}
+            title="Metriche prodotto"
+            description="Funnel onboarding, inviti."
           />
           <QuickLinkCard
             href="/dashboard/admin/organizations"
