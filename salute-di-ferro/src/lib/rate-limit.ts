@@ -152,3 +152,46 @@ export function requestKey(req: Request, scope: string): string {
 export function _resetRateLimit() {
   BUCKETS.clear();
 }
+
+/**
+ * Cheap health check: SET/GET a throwaway key to confirm the Upstash
+ * Redis is reachable from the current isolate. Returns `configured=false`
+ * when the env vars are missing (the rate limiter falls back to in-memory
+ * in that case — a valid dev path, not an error).
+ */
+export async function pingRedis(): Promise<{
+  ok: boolean;
+  configured: boolean;
+  latencyMs: number | null;
+  error?: string;
+}> {
+  const redis = getRedis();
+  if (!redis) {
+    return { ok: false, configured: false, latencyMs: null };
+  }
+  const started = Date.now();
+  try {
+    // Upstash SDK doesn't expose PING directly — a round-trip SET+GET on a
+    // short-TTL key is the canonical "liveness" pattern from their docs.
+    const key = `sdf:health:${Math.random().toString(36).slice(2)}`;
+    await redis.set(key, "1", { ex: 5 });
+    const v = await redis.get(key);
+    const latencyMs = Date.now() - started;
+    if (v !== "1") {
+      return {
+        ok: false,
+        configured: true,
+        latencyMs,
+        error: "set/get round-trip returned wrong value",
+      };
+    }
+    return { ok: true, configured: true, latencyMs };
+  } catch (e) {
+    return {
+      ok: false,
+      configured: true,
+      latencyMs: Date.now() - started,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
