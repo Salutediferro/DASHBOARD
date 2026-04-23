@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowRight,
+  CircleAlert,
   PanelLeft,
   PanelLeftClose,
   type LucideIcon,
@@ -420,11 +422,17 @@ function UserCardTrigger({ collapsed }: { collapsed: boolean }) {
           collapsed && "justify-center",
         )}
       >
-        <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+        <div
+          className={cn(
+            "animate-pulse rounded-full bg-muted",
+            collapsed ? "h-8 w-8" : "h-10 w-10",
+          )}
+        />
         {!collapsed && (
           <div className="flex-1 space-y-1">
-            <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-24 animate-pulse rounded bg-muted" />
             <div className="h-2 w-28 animate-pulse rounded bg-muted/60" />
+            <div className="h-2 w-16 animate-pulse rounded bg-muted/60" />
           </div>
         )}
       </div>
@@ -439,37 +447,121 @@ function UserCardTrigger({ collapsed }: { collapsed: boolean }) {
     .join("")
     .toUpperCase();
 
+  // `profile` can be null right after sign-up while /api/me is still
+  // backfilling the Prisma row. Treat "no profile yet" as "onboarding
+  // incomplete" so the CTA is visible rather than hidden.
+  const onboardingCompleted = profile?.onboardingCompleted ?? false;
+  const theme = profile?.role ? roleTheme[profile.role] : null;
+
+  // When collapsed the role chip and email are hidden, so surface the
+  // identity via the native `title` attribute — avoids the fragile
+  // composition of a Radix Tooltip around the DropdownMenu trigger.
+  const collapsedTitle = collapsed
+    ? [name, theme?.label, !onboardingCompleted && "Completa il tuo profilo"]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
+
   const card = (
     <span
+      title={collapsedTitle}
       className={cn(
-        "flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted",
+        "flex items-center gap-3 rounded-md p-2 ring-1 ring-transparent transition-colors hover:bg-muted/80 hover:ring-border/80",
         collapsed && "justify-center p-1",
       )}
     >
-      <Avatar className="h-8 w-8">
-        {profile?.avatarUrl && <AvatarImage src={profile.avatarUrl} />}
-        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+      <span className="relative">
+        <Avatar className={cn(collapsed ? "h-8 w-8" : "h-10 w-10")}>
+          {profile?.avatarUrl && <AvatarImage src={profile.avatarUrl} />}
+          <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        {!onboardingCompleted && (
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning ring-2 ring-card"
+          />
+        )}
+      </span>
       {!collapsed && (
-        <span className="flex min-w-0 flex-1 flex-col text-left">
-          <span className="truncate text-sm font-medium">{name}</span>
-          <span className="truncate text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+          <span className="truncate text-sm font-semibold leading-tight">
+            {name}
+          </span>
+          <span
+            className={cn(
+              "truncate text-[11px] leading-tight",
+              onboardingCompleted
+                ? "text-muted-foreground"
+                : "text-muted-foreground/70",
+            )}
+          >
             {user.email}
           </span>
+          {theme && (
+            <span
+              className={cn(
+                "mt-0.5 inline-flex w-fit items-center gap-1 rounded-full border px-1.5 py-[1px] text-[10px] font-medium",
+                theme.bg,
+                theme.fg,
+                theme.border,
+              )}
+            >
+              <span className={cn("h-1 w-1 rounded-full", theme.dot)} />
+              {theme.label}
+            </span>
+          )}
         </span>
       )}
     </span>
   );
 
   return (
-    <UserMenu
-      trigger={card}
-      contentSide={collapsed ? "right" : "top"}
-      contentAlign={collapsed ? "end" : "start"}
-      contentSideOffset={collapsed ? 10 : 8}
-    />
+    <div className="flex flex-col gap-1.5">
+      {!onboardingCompleted && (
+        <OnboardingPrompt collapsed={collapsed} />
+      )}
+      <UserMenu
+        trigger={card}
+        contentSide={collapsed ? "right" : "top"}
+        contentAlign={collapsed ? "end" : "start"}
+        contentSideOffset={collapsed ? 10 : 8}
+      />
+    </div>
+  );
+}
+
+function OnboardingPrompt({ collapsed }: { collapsed: boolean }) {
+  const link = (
+    <Link
+      href="/dashboard/profile"
+      className={cn(
+        "focus-ring group flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-warning transition-colors hover:bg-warning/15",
+        collapsed && "justify-center px-0 py-1.5",
+      )}
+    >
+      <CircleAlert className="h-4 w-4 shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-[11px] font-medium leading-tight">
+            Completa il tuo profilo
+          </span>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
+        </>
+      )}
+    </Link>
+  );
+
+  if (!collapsed) return link;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={link} />
+      <TooltipContent side="right" sideOffset={10}>
+        Completa il tuo profilo
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
