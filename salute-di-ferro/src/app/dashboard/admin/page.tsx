@@ -4,6 +4,7 @@ import {
   Activity,
   Building2,
   ScrollText,
+  Settings2,
   TicketCheck,
   UserPlus,
   Users,
@@ -155,6 +156,12 @@ export default async function AdminDashboardPage() {
             icon={Activity}
             title="Stato piattaforma"
             description="Servizi esterni e cron."
+          />
+          <QuickLinkCard
+            href="/dashboard/admin/settings"
+            icon={Settings2}
+            title="Impostazioni"
+            description="Flag operativi (2FA...)"
           />
           <QuickLinkCard
             href="/dashboard/admin/organizations"
