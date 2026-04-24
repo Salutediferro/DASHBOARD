@@ -2,10 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   CalendarClock,
+  CheckCircle2,
   ClipboardList,
   HeartPulse,
   NotebookPen,
   Pill,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
@@ -15,15 +18,14 @@ import {
   getPatientActivity,
   getPatientKpis,
 } from "@/lib/queries/dashboard";
-import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
 import StatCard from "@/components/brand/stat-card";
-import EmptyState from "@/components/brand/empty-state";
 import { AppointmentsEmptyState } from "@/components/empty-states";
 import RecentActivity from "@/components/dashboard/recent-activity";
 import QuickLinkCard, {
   formatItalianDate,
 } from "@/components/dashboard/quick-link-card";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Dashboard — Salute di Ferro" };
 export const dynamic = "force-dynamic";
@@ -50,13 +52,8 @@ export default async function PatientDashboardPage() {
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-8 pb-6">
-      <PageHeader
-        title={`${greeting()}, ${firstName}`}
-        description={formatItalianDate()}
-        sticky={false}
-        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
-      />
+    <div className="flex flex-col gap-6 pb-6 md:gap-8">
+      <PatientHero firstName={firstName} kpis={kpis} />
 
       <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <StatCard
@@ -183,4 +180,111 @@ export default async function PatientDashboardPage() {
       </section>
     </div>
   );
+}
+
+/**
+ * Greeting hero specific to the patient home. Replaces the bland
+ * PageHeader "Buongiorno, X / 23 aprile" with a motivational block
+ * that surfaces one live signal from the user's own data — the weight
+ * delta if we have it, otherwise the weekly check-in streak, otherwise
+ * the next appointment distance. That way every patient landing here
+ * sees "you" in the hero, not a generic date line.
+ *
+ * Built inline rather than a separate component: it's tied to
+ * `PatientKpis` and lives nowhere else.
+ */
+function PatientHero({
+  firstName,
+  kpis,
+}: {
+  firstName: string;
+  kpis: Awaited<ReturnType<typeof getPatientKpis>>;
+}) {
+  const signal = pickHeroSignal(kpis);
+  return (
+    <section
+      className={cn(
+        "page-header-glass relative -mx-4 -mt-4 overflow-hidden border-b border-border/60 px-6 py-6 md:-mx-8 md:-mt-8 md:py-8",
+      )}
+    >
+      {/* Soft brand-red radial bloom from the left — visual anchor without
+          screaming. Sits behind the text via z-order. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse 80% 60% at 0% 0%, color-mix(in oklab, var(--primary-500) 12%, transparent), transparent 60%)",
+        }}
+      />
+      <div className="relative flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs uppercase tracking-wide">
+          {formatItalianDate()}
+        </p>
+        <h1 className="text-display text-2xl leading-tight md:text-3xl">
+          {greeting()}, <span className="text-primary-500">{firstName}</span>
+        </h1>
+        {signal && (
+          <div className="mt-2 inline-flex max-w-max items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3 py-1.5 text-sm">
+            <signal.Icon
+              className={cn("h-4 w-4 shrink-0", signal.tone)}
+              aria-hidden
+            />
+            <span className="text-foreground">{signal.text}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+type HeroSignal = {
+  Icon: typeof CheckCircle2;
+  tone: string;
+  text: string;
+};
+
+function pickHeroSignal(
+  kpis: Awaited<ReturnType<typeof getPatientKpis>>,
+): HeroSignal | null {
+  // Priority order — pick the first that yields something meaningful.
+  // Weight delta wins when it's significant (non-trivial motion) because
+  // that's what a long-term patient cares about most.
+  if (
+    kpis.currentWeightKg != null &&
+    kpis.weightDelta14d != null &&
+    Math.abs(kpis.weightDelta14d) >= 0.2
+  ) {
+    const delta = kpis.weightDelta14d;
+    const down = delta < 0;
+    return {
+      Icon: down ? TrendingDown : TrendingUp,
+      tone: down
+        ? "text-emerald-500 dark:text-emerald-400"
+        : "text-amber-500 dark:text-amber-400",
+      text: `${down ? "−" : "+"}${Math.abs(delta).toFixed(1)} kg in 14 giorni · sei a ${kpis.currentWeightKg.toFixed(1)} kg`,
+    };
+  }
+  if (kpis.nextAppointment) {
+    const days = kpis.nextAppointment.daysAway;
+    const when =
+      days === 0
+        ? "oggi"
+        : days === 1
+          ? "domani"
+          : `fra ${days} giorni`;
+    return {
+      Icon: CalendarClock,
+      tone: "text-primary-500",
+      text: `Prossimo appuntamento ${when}`,
+    };
+  }
+  if (kpis.checkInsThisWeek > 0) {
+    return {
+      Icon: CheckCircle2,
+      tone: "text-emerald-500 dark:text-emerald-400",
+      text: `${kpis.checkInsThisWeek} check-in questa settimana — continua così`,
+    };
+  }
+  return null;
 }
