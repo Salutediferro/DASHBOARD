@@ -23,7 +23,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
