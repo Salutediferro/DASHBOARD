@@ -357,7 +357,7 @@ function PatientView({ data }: { data: PatientPayload }) {
               <span className="text-sm font-medium">
                 {rel.professional.fullName}
               </span>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 {rel.professionalRole === "DOCTOR" ? "Medico" : "Coach"}
               </Badge>
               <span className="text-muted-foreground text-xs">
@@ -382,10 +382,10 @@ function PatientView({ data }: { data: PatientPayload }) {
               <span className="text-sm font-medium tabular-nums">
                 {formatDateTime(a.startTime)}
               </span>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 {a.type}
               </Badge>
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 {a.status}
               </Badge>
               {a.professional && (
@@ -448,7 +448,7 @@ function PatientView({ data }: { data: PatientPayload }) {
             <li key={t.id} className="flex flex-col gap-1 px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{t.name}</span>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {t.kind === "PRESCRIBED" ? "Prescritto" : "Self"}
                 </Badge>
                 {t.prescribedBy && (
@@ -513,7 +513,7 @@ function PatientView({ data }: { data: PatientPayload }) {
             <li key={r.id} className="flex flex-col gap-1 px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{r.title}</span>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {r.category}
                 </Badge>
               </div>
@@ -551,7 +551,7 @@ function ProView({ data }: { data: ProPayload }) {
                 {rel.patient.email}
               </span>
               {rel.patient.deletedAt && (
-                <Badge variant="secondary" className="gap-1 bg-red-500/15 text-red-700 dark:text-red-300 text-[10px]">
+                <Badge variant="secondary" className="gap-1 bg-red-500/15 text-red-700 dark:text-red-300 text-xs">
                   Disabilitato
                 </Badge>
               )}
@@ -574,10 +574,10 @@ function ProView({ data }: { data: ProPayload }) {
               <span className="text-sm font-medium tabular-nums">
                 {formatDateTime(a.startTime)}
               </span>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 {a.type}
               </Badge>
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 {a.status}
               </Badge>
               {a.patient && (
@@ -599,11 +599,11 @@ function ProView({ data }: { data: ProPayload }) {
           {data.availabilitySlots.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               {s.isRecurring && s.dayOfWeek != null ? (
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {DAY_LABEL[s.dayOfWeek] ?? "—"} ricorrente
                 </Badge>
               ) : s.date ? (
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {formatDate(s.date)}
                 </Badge>
               ) : null}
@@ -625,7 +625,7 @@ function ProView({ data }: { data: ProPayload }) {
             <li key={r.id} className="flex flex-col gap-1 px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{r.title}</span>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {r.category}
                 </Badge>
               </div>

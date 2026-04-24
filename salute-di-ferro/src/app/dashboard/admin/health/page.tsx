@@ -202,7 +202,7 @@ export default function AdminHealthPage() {
                       </div>
                       <Badge
                         variant="secondary"
-                        className={cn("gap-1 text-[10px]", vis.tone)}
+                        className={cn("gap-1 text-xs", vis.tone)}
                       >
                         {vis.icon}
                         {vis.label}
@@ -214,7 +214,7 @@ export default function AdminHealthPage() {
                         {formatLatency(check.latencyMs)}
                       </span>
                       {meta.critical && (
-                        <span className="text-[10px] uppercase tracking-wider">
+                        <span className="text-xs uppercase tracking-wider">
                           critico
                         </span>
                       )}
@@ -287,7 +287,7 @@ export default function AdminHealthPage() {
                         <code className="text-xs font-semibold">
                           {cron.path}
                         </code>
-                        <Badge variant="outline" className="font-mono text-[10px]">
+                        <Badge variant="outline" className="font-mono text-xs">
                           {cron.schedule}
                         </Badge>
                       </div>
@@ -298,7 +298,7 @@ export default function AdminHealthPage() {
                     <Badge
                       variant="secondary"
                       className={cn(
-                        "gap-1 text-[10px]",
+                        "gap-1 text-xs",
                         cron.secretConfigured
                           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                           : "bg-amber-500/15 text-amber-700 dark:text-amber-300",

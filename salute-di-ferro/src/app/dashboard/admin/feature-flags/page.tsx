@@ -132,7 +132,7 @@ export default function AdminFeatureFlagsPage() {
                       <Badge
                         variant="secondary"
                         className={cn(
-                          "gap-1 text-[10px]",
+                          "gap-1 text-xs",
                           f.value
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-slate-500/15 text-slate-700 dark:text-slate-300",
@@ -147,14 +147,14 @@ export default function AdminFeatureFlagsPage() {
                       </Badge>
                       <Badge
                         variant="secondary"
-                        className={cn("gap-1 text-[10px]", source.tone)}
+                        className={cn("gap-1 text-xs", source.tone)}
                       >
                         {source.label}
                       </Badge>
-                      <code className="text-muted-foreground font-mono text-[10px]">
+                      <code className="text-muted-foreground font-mono text-xs">
                         {f.key}
                       </code>
-                      <code className="text-muted-foreground font-mono text-[10px]">
+                      <code className="text-muted-foreground font-mono text-xs">
                         {f.envFallback}={f.envValue ?? "∅"}
                       </code>
                     </div>

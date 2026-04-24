@@ -313,7 +313,7 @@ export default function AdminUserDetailPage() {
               </Badge>
             )}
             {!user.onboardingCompleted && user.role !== "ADMIN" && (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 Onboarding in corso
               </Badge>
             )}

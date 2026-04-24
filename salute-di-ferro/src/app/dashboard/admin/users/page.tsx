@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
                         {!u.deletedAt &&
                           !u.onboardingCompleted &&
                           u.role !== "ADMIN" && (
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge variant="outline" className="text-xs">
                               Onboarding in corso
                             </Badge>
                           )}

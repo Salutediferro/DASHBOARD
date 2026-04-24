@@ -294,7 +294,7 @@ export default function AdminAuditPage() {
                       <Badge
                         variant="secondary"
                         className={cn(
-                          "font-mono text-[10px]",
+                          "font-mono text-xs",
                           ACTION_TONE[row.action] ?? "bg-muted",
                         )}
                       >
@@ -339,7 +339,7 @@ export default function AdminAuditPage() {
                             Metadata ▾
                           </span>
                         </summary>
-                        <pre className="bg-muted/40 mt-1 overflow-x-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">
+                        <pre className="bg-muted/40 mt-1 overflow-x-auto rounded-md p-2 font-mono text-xs leading-relaxed">
                           {metaStr}
                         </pre>
                       </details>
