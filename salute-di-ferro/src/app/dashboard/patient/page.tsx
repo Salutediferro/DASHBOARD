@@ -19,6 +19,7 @@ import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
 import StatCard from "@/components/brand/stat-card";
 import EmptyState from "@/components/brand/empty-state";
+import { AppointmentsEmptyState } from "@/components/empty-states";
 import RecentActivity from "@/components/dashboard/recent-activity";
 import QuickLinkCard, {
   formatItalianDate,
@@ -119,11 +120,7 @@ export default async function PatientDashboardPage() {
             </span>
           </Link>
         ) : (
-          <EmptyState
-            icon={CalendarClock}
-            title="Nessun appuntamento in programma"
-            description="Quando un professionista pubblica la sua disponibilità, lo vedrai qui."
-          />
+          <AppointmentsEmptyState />
         )}
       </section>
 

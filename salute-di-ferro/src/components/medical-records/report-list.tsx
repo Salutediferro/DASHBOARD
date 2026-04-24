@@ -42,6 +42,7 @@ import {
   MEDICAL_REPORT_CATEGORY_LABELS,
 } from "@/lib/validators/medical-report";
 import EmptyState from "@/components/brand/empty-state";
+import { ReportsEmptyState } from "@/components/empty-states";
 import { cn } from "@/lib/utils";
 import { ReportViewer } from "./report-viewer";
 import { PermissionManager } from "./permission-manager";
@@ -148,11 +149,7 @@ export function ReportList({
       {isLoading ? (
         <GridSkeleton />
       ) : reports.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Ancora nessun referto"
-          description="Carica il tuo primo referto: solo tu potrai vederlo finché non decidi di condividerlo con un professionista."
-        />
+        <ReportsEmptyState />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Search}
