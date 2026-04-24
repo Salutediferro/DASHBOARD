@@ -51,7 +51,7 @@ export default async function AdminDashboardPage() {
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-8 pb-6">
+    <div className="page-in-stagger flex flex-col gap-6 pb-6 md:gap-8">
       <PageHeader
         title={`${greeting()}, ${firstName}`}
         description={formatItalianDate()}

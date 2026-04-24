@@ -52,7 +52,7 @@ export default async function PatientDashboardPage() {
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-6 pb-6 md:gap-8">
+    <div className="page-in-stagger flex flex-col gap-6 pb-6 md:gap-8">
       <PatientHero firstName={firstName} kpis={kpis} />
 
       <section className="grid gap-4 grid-cols-2 md:grid-cols-4">

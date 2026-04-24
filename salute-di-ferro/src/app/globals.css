@@ -294,7 +294,7 @@
 @keyframes sdf-fade-slide {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -407,11 +407,31 @@
     pointer-events: none;
   }
 
-  /* Page entrance: fade-in + slide-up 8px. Apply to the outermost
-     wrapper in a route segment for a premium feel. */
+  /* Page entrance: fade-in + slide-up 12px. Apply to the outermost
+     wrapper in a route segment for a premium feel. The previous 8px/200ms
+     was sub-perceptible on phones; 12px/280ms reads as "the page
+     just animated in" without feeling slow. */
   .page-in {
-    animation: sdf-fade-slide 200ms ease-out;
+    animation: sdf-fade-slide 280ms ease-out;
   }
+
+  /* Same entrance, cascaded across direct children so each section
+     fades in ~50ms after the previous one. Use on a dashboard wrapper
+     that has section-like children (KPI grid → next-event → activity →
+     quick links). The last child lands at ~580ms total (dashboard with
+     7+ sections) which is still "snappy, not slow".
+     `animation-fill-mode: both` so each child stays invisible until its
+     delay elapses — otherwise we'd see everything at once, then stagger. */
+  .page-in-stagger > * {
+    animation: sdf-fade-slide 360ms ease-out both;
+  }
+  .page-in-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .page-in-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  .page-in-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  .page-in-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  .page-in-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  .page-in-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  .page-in-stagger > *:nth-child(n + 7) { animation-delay: 300ms; }
 
   /* Interactive polish — hover lift + tap scale.
      `.hover-lift` goes on card-style clickable surfaces; the global
