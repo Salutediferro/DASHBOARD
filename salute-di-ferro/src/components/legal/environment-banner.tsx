@@ -22,7 +22,10 @@ export function EnvironmentBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="sticky top-0 z-50 w-full bg-amber-500 text-center text-xs font-semibold text-black"
+      // Safe-area-top so on iPhone with notch the text doesn't vanish
+      // under the Dynamic Island. Applies only on preview/staging so
+      // production sees zero impact.
+      className="sticky top-0 z-50 w-full bg-amber-500 pt-[env(safe-area-inset-top)] text-center text-xs font-semibold text-black"
       style={{ paddingBlock: "4px" }}
     >
       {label} — i dati qui dentro non sono reali. Non inserire

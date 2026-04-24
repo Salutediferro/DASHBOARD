@@ -33,28 +33,35 @@ type Props = {
 
 export function Topbar({ items, quickActions = [] }: Props) {
   return (
-    <header
+    // Outer wrapper carries the sticky positioning + notch safe-area so
+    // the topbar sits below the iPhone Dynamic Island / status bar
+    // instead of under it. Inner `<header>` keeps its clean h-16
+    // geometry — the safe-area becomes additional chrome above.
+    <div
       className={cn(
-        // `.page-header-glass` gives the translucent look without the
-        // rounded-card silhouette: keeping `surface-glass` here stacked
-        // a floating card over the sticky page headers below, which
-        // read as overlap on high-density pages (calendar, messages).
-        "page-header-glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/50 px-4 md:gap-4 md:px-6",
+        "page-header-glass sticky top-0 z-30 border-b border-border/50",
+        "pt-[env(safe-area-inset-top)]",
       )}
     >
-      <Breadcrumb items={items} />
+      <header
+        className={cn(
+          "flex h-16 items-center gap-3 px-4 md:gap-4 md:px-6",
+        )}
+      >
+        <Breadcrumb items={items} />
 
-      <div className="hidden flex-1 justify-center md:flex">
-        <SearchCommand items={items} variant="full" />
-      </div>
+        <div className="hidden flex-1 justify-center md:flex">
+          <SearchCommand items={items} variant="full" />
+        </div>
 
-      <div className="ml-auto flex items-center gap-1 md:gap-2">
-        <SearchCommand items={items} variant="icon" className="md:hidden" />
-        <QuickActions actions={quickActions} />
-        <NotificationBell />
-        <TopbarUserMenu />
-      </div>
-    </header>
+        <div className="ml-auto flex items-center gap-1 md:gap-2">
+          <SearchCommand items={items} variant="icon" className="md:hidden" />
+          <QuickActions actions={quickActions} />
+          <NotificationBell />
+          <TopbarUserMenu />
+        </div>
+      </header>
+    </div>
   );
 }
 
