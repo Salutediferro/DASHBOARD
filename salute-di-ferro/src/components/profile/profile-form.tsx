@@ -279,7 +279,12 @@ export function ProfileForm({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="firstName">Nome</Label>
-                <Input id="firstName" {...form.register("firstName")} />
+                <Input
+                  id="firstName"
+                  autoComplete="given-name"
+                  autoCapitalize="words"
+                  {...form.register("firstName")}
+                />
                 {form.formState.errors.firstName && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.firstName.message}
@@ -288,7 +293,12 @@ export function ProfileForm({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="lastName">Cognome</Label>
-                <Input id="lastName" {...form.register("lastName")} />
+                <Input
+                  id="lastName"
+                  autoComplete="family-name"
+                  autoCapitalize="words"
+                  {...form.register("lastName")}
+                />
                 {form.formState.errors.lastName && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.lastName.message}
@@ -368,6 +378,7 @@ export function ProfileForm({
                   id="phone"
                   type="tel"
                   inputMode="tel"
+                  autoComplete="tel"
                   {...form.register("phone")}
                 />
                 {form.formState.errors.phone && (
@@ -380,6 +391,10 @@ export function ProfileForm({
                 <Label htmlFor="taxCode">Codice fiscale</Label>
                 <Input
                   id="taxCode"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={16}
                   {...form.register("taxCode")}
                   className="uppercase"
                 />
@@ -395,6 +410,7 @@ export function ProfileForm({
               <Label htmlFor="emergencyContact">Contatto di emergenza</Label>
               <Input
                 id="emergencyContact"
+                autoCapitalize="sentences"
                 placeholder="Nome e telefono (es. Mario Rossi +39 333 1234567)"
                 {...form.register("emergencyContact")}
               />
