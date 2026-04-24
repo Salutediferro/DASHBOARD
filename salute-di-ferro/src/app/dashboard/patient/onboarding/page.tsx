@@ -125,7 +125,7 @@ export default function PatientOnboardingPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl flex-col gap-8 pb-28">
+    <div className="page-in-stagger mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl flex-col gap-6 pb-28 md:gap-8">
       <header className="flex flex-col gap-2 pt-4">
         <h1 className="text-display text-3xl">Benvenuto</h1>
         <p className="text-sm text-muted-foreground">
@@ -135,18 +135,23 @@ export default function PatientOnboardingPage() {
 
       <Stepper steps={stepLabels} current={step} />
 
-      <div className="grid gap-8 lg:grid-cols-[2fr_3fr]">
+      <div className="grid gap-6 lg:grid-cols-[2fr_3fr] lg:gap-8">
         <aside className="flex flex-col gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Passaggio {step}
+          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-[0.14em]">
+            Passaggio {step} di {STEPS.length}
           </p>
           <h2 className="text-display text-2xl">{current.title}</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             {current.copy}
           </p>
         </aside>
+        {/* `key={step}` re-keys the node so `.page-in` fires fresh on
+            every step change — the form fades + slides up each time the
+            user hits Next/Back, giving tactile forward motion across a
+            5-step flow. */}
         <section
-          className="surface-1 rounded-xl p-5"
+          key={step}
+          className="surface-1 page-in rounded-xl p-5"
           aria-labelledby="step-form"
         >
           <h3 id="step-form" className="sr-only">
@@ -193,7 +198,7 @@ function BottomBar({
   pending: boolean;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/90 px-4 py-3 backdrop-blur md:px-8">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:px-8">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
         <Button
           type="button"
