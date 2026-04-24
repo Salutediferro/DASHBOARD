@@ -230,7 +230,12 @@ export default function AdminCreateUserPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="firstName">Nome</Label>
-                <Input id="firstName" {...form.register("firstName")} />
+                <Input
+                  id="firstName"
+                  autoCapitalize="words"
+                  autoComplete="off"
+                  {...form.register("firstName")}
+                />
                 {form.formState.errors.firstName && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.firstName.message}
@@ -239,7 +244,12 @@ export default function AdminCreateUserPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="lastName">Cognome</Label>
-                <Input id="lastName" {...form.register("lastName")} />
+                <Input
+                  id="lastName"
+                  autoCapitalize="words"
+                  autoComplete="off"
+                  {...form.register("lastName")}
+                />
                 {form.formState.errors.lastName && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.lastName.message}
@@ -253,7 +263,10 @@ export default function AdminCreateUserPage() {
               <Input
                 id="email"
                 type="email"
-                autoComplete="email"
+                inputMode="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 {...form.register("email")}
               />
               {form.formState.errors.email && (

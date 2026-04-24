@@ -144,8 +144,11 @@ export function InvitePatientDialog({
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="cliente@example.com"
+                  inputMode="email"
                   autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="cliente@example.com"
                 />
                 <p className="text-muted-foreground text-xs">
                   Se indicata, verrà pre-compilata in fase di registrazione.
@@ -154,11 +157,21 @@ export function InvitePatientDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2">
                   <Label htmlFor="firstName">Nome (opzionale)</Label>
-                  <Input id="firstName" name="firstName" autoComplete="off" />
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    autoComplete="off"
+                    autoCapitalize="words"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="lastName">Cognome (opzionale)</Label>
-                  <Input id="lastName" name="lastName" autoComplete="off" />
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    autoComplete="off"
+                    autoCapitalize="words"
+                  />
                 </div>
               </div>
               <div className="grid gap-2">
