@@ -213,7 +213,7 @@ export default function AdminBroadcastPage() {
                 <Badge
                   variant="secondary"
                   className={cn(
-                    "gap-1 text-[10px]",
+                    "gap-1 text-xs",
                     SEVERITY_META[existing.severity].tone,
                   )}
                 >

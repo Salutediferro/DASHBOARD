@@ -267,7 +267,7 @@ function SignupTrend({
               style={{ height: `${h}%` }}
               title={`${formatShortDate(row.date)}: ${row.count}`}
             >
-              <span className="bg-foreground text-background pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] opacity-0 group-hover:opacity-100">
+              <span className="bg-foreground text-background pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 text-xs opacity-0 group-hover:opacity-100">
                 {formatShortDate(row.date)}: {row.count}
               </span>
             </div>
@@ -318,7 +318,7 @@ function Funnel({
             {idx === stages.length - 1 && stage.value > 0 && (
               <Badge
                 variant="secondary"
-                className="gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]"
+                className="gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs"
               >
                 <CheckCircle2 className="h-3 w-3" />
                 attivati
@@ -344,7 +344,7 @@ function InviteStat({
     <div className="flex flex-col gap-1">
       <Badge
         variant="secondary"
-        className={cn("w-fit gap-1 text-[10px]", tone)}
+        className={cn("w-fit gap-1 text-xs", tone)}
       >
         {label}
       </Badge>

@@ -320,7 +320,7 @@ export default function AdminInvitationsPage() {
                           {STATUS_META[row.status].icon}
                           {STATUS_META[row.status].label}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-xs">
                           {row.professionalRole === "DOCTOR"
                             ? "Medico"
                             : "Coach"}
