@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { AdminListSkeleton } from "@/components/admin/admin-skeletons";
 
 type Row = {
   id: string;
@@ -272,9 +273,7 @@ export default function AdminInvitationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminListSkeleton rows={6} />
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">

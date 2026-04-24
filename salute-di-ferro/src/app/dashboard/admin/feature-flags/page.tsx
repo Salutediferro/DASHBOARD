@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AdminCardsSkeleton } from "@/components/admin/admin-skeletons";
 
 type Flag = {
   key: string;
@@ -103,9 +104,7 @@ export default function AdminFeatureFlagsPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminCardsSkeleton count={3} />
       ) : isError ? (
         <Card>
           <CardContent className="p-6 text-sm text-red-600">

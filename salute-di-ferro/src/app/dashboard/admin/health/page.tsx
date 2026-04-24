@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AdminTilesSkeleton } from "@/components/admin/admin-skeletons";
 
 type Check = {
   ok: boolean;
@@ -174,9 +175,7 @@ export default function AdminHealthPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminTilesSkeleton count={6} />
       ) : error ? (
         <Card>
           <CardContent className="p-6 text-sm text-red-600">

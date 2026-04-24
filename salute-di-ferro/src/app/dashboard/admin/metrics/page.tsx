@@ -8,7 +8,6 @@ import {
   Calendar,
   CheckCircle2,
   HeartPulse,
-  Loader2,
   Mail,
   TrendingUp,
   UserCheck,
@@ -23,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { AdminCardsSkeleton } from "@/components/admin/admin-skeletons";
 
 type MetricsResponse = {
   windowDays: number;
@@ -94,9 +94,7 @@ export default function AdminMetricsPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminCardsSkeleton count={4} />
       ) : isError || !data ? (
         <Card>
           <CardContent className="p-6 text-sm text-red-600">

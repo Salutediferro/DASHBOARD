@@ -42,6 +42,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AdminCardsSkeleton } from "@/components/admin/admin-skeletons";
 
 type UserDetail = {
   id: string;
@@ -243,8 +245,16 @@ export default function AdminUserDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-5 w-36" />
+        <div className="flex flex-wrap items-center gap-4">
+          <Skeleton className="h-16 w-16 rounded-full" />
+          <div className="flex-1 flex flex-col gap-2">
+            <Skeleton className="h-6 w-64" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+        <AdminCardsSkeleton count={4} />
       </div>
     );
   }

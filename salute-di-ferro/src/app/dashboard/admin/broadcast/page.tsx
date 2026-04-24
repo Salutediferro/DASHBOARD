@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { AdminCardsSkeleton } from "@/components/admin/admin-skeletons";
 
 type Severity = "info" | "warning" | "critical";
 
@@ -195,9 +196,7 @@ export default function AdminBroadcastPage() {
       </header>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminCardsSkeleton count={2} />
       ) : (
         <>
           {existing && (
