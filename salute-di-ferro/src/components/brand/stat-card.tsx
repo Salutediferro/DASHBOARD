@@ -34,11 +34,11 @@ export default function StatCard({
         role="status"
         aria-busy="true"
         aria-label={`Loading ${label}`}
-        className={cn("surface-1 p-4", className)}
+        className={cn("surface-1 p-3 md:p-4", className)}
       >
         <div className="relative h-3 w-24 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
         <div className="relative mt-3 h-8 w-28 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
-        <div className="relative mt-4 h-10 w-full overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
+        <div className="relative mt-4 h-7 w-full overflow-hidden rounded bg-muted/60 skeleton-shimmer md:h-10" />
       </div>
     );
   }
@@ -53,12 +53,13 @@ export default function StatCard({
   const data = trend?.map((v, i) => ({ i, v })) ?? [];
 
   return (
-    <div className={cn("surface-1 p-4", className)}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
+    <div className={cn("surface-1 p-3 md:p-4", className)}>
+      {/* Label: was text-[11px] uppercase tracking-wide — barely legible on
+          360px. Bumped to text-xs (12px) normal-case; still compact on
+          desktop, breathes on mobile. */}
+      <p className="text-muted-foreground text-xs font-medium">{label}</p>
       <div className="mt-1 flex items-baseline justify-between gap-2">
-        <span className="text-display text-3xl tabular-nums">
+        <span className="text-display text-2xl tabular-nums md:text-3xl">
           {value}
           {unit && (
             <span className="ml-1 text-sm font-normal text-muted-foreground">
@@ -82,7 +83,9 @@ export default function StatCard({
         )}
       </div>
       {trend && trend.length > 1 && (
-        <div className="mt-3 h-10 w-full">
+        // Sparkline: was h-10 (40px) on mobile — disproportionate vs the
+        // 2-line header. Shrunk to h-7 on mobile, unchanged on desktop.
+        <div className="mt-2 h-7 w-full md:mt-3 md:h-10">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
