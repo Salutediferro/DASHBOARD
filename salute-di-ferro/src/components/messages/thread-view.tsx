@@ -44,7 +44,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import Divider from "@/components/brand/divider";
 import { cn } from "@/lib/utils";
 import {
   useMarkConversationRead,
@@ -296,11 +295,20 @@ function MessageList({
     const prev = i > 0 ? messages[i - 1] : null;
     const prevT = prev ? new Date(prev.createdAt) : null;
 
-    // Day separator
+    // Day separator — modern chat convention: centered pill, no lines.
+    // The old full-width "line · LABEL · line" divider (brand `Divider`)
+    // read as a formal section break inside a messaging thread.
     if (!lastDate || !isSameDay(lastDate, t)) {
       nodes.push(
-        <div key={`sep-${m.id}`} className="my-4">
-          <Divider label={dayLabel(t)} />
+        <div
+          key={`sep-${m.id}`}
+          role="separator"
+          aria-label={dayLabel(t)}
+          className="my-4 flex items-center justify-center"
+        >
+          <span className="bg-muted/70 text-muted-foreground rounded-full px-3 py-1 text-xs font-medium">
+            {dayLabel(t)}
+          </span>
         </div>,
       );
       lastDate = t;
@@ -371,11 +379,11 @@ function MessageBubble({
       )}
     >
       {!mine && (
-        <div className="w-7 shrink-0">
+        <div className="w-8 shrink-0">
           {showSenderMeta && (
-            <Avatar className="h-7 w-7">
+            <Avatar className="h-8 w-8">
               {otherAvatar && <AvatarImage src={otherAvatar} />}
-              <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+              <AvatarFallback className="bg-primary/20 text-primary text-[11px] font-semibold">
                 {initials(otherName)}
               </AvatarFallback>
             </Avatar>
@@ -384,36 +392,37 @@ function MessageBubble({
       )}
       <div
         className={cn(
-          "flex max-w-[78%] flex-col gap-0.5",
+          "flex max-w-[80%] flex-col gap-1",
           mine ? "items-end" : "items-start",
         )}
       >
         {showSenderMeta && !mine && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="text-muted-foreground px-1 text-xs font-medium">
             {otherName}
           </span>
         )}
         <div
           className={cn(
-            "px-3.5 py-2 text-sm leading-snug",
+            "px-3.5 py-2 text-sm leading-snug shadow-sm",
             mine
-              ? "bg-primary text-primary-foreground rounded-[16px_16px_4px_16px]"
-              : "surface-2 rounded-[16px_16px_16px_4px]",
+              ? "bg-primary text-primary-foreground rounded-[18px_18px_4px_18px]"
+              : "bg-card text-foreground border border-border/60 rounded-[18px_18px_18px_4px]",
           )}
         >
           <p className="whitespace-pre-wrap break-words">{message.body}</p>
         </div>
         <span
           className={cn(
-            "inline-flex items-center gap-1 text-[10px] opacity-0 transition-opacity duration-150 group-hover/msg:opacity-60",
-            mine ? "text-muted-foreground" : "text-muted-foreground",
-            isLast && mine && "opacity-60",
+            "text-muted-foreground inline-flex items-center gap-1 px-1 text-[11px] tabular-nums",
+            // Last mine bubble always shows time + receipt so the user
+            // sees delivery status at a glance. Others fade in on hover.
+            isLast && mine
+              ? "opacity-70"
+              : "opacity-0 transition-opacity duration-150 group-hover/msg:opacity-70",
           )}
         >
           {time}
-          {mine && (
-            <ReadReceipt read={readByOther} />
-          )}
+          {mine && <ReadReceipt read={readByOther} />}
         </span>
       </div>
     </div>
