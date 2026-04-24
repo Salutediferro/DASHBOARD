@@ -10,6 +10,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { AdminListSkeleton } from "@/components/admin/admin-skeletons";
+
 import { AUDIT_ACTIONS } from "@/lib/audit-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -259,9 +261,7 @@ export default function AdminAuditPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-        </div>
+        <AdminListSkeleton rows={8} />
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
