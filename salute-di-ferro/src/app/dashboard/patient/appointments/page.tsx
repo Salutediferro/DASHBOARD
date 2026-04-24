@@ -7,7 +7,7 @@ import { it } from "date-fns/locale";
 
 import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
-import EmptyState from "@/components/brand/empty-state";
+import { AppointmentsEmptyState } from "@/components/empty-states";
 import {
   useAppointments,
   type AppointmentDTO,
@@ -76,11 +76,7 @@ export default function PatientAppointmentsPage() {
         {isLoading ? (
           <div className="surface-1 h-24 animate-pulse rounded-xl" />
         ) : upcoming.length === 0 ? (
-          <EmptyState
-            icon={CalendarPlus}
-            title="Nessun appuntamento in programma"
-            description="Prenota il primo appuntamento — vedrai qui data, orario e link al meeting."
-          />
+          <AppointmentsEmptyState />
         ) : (
           <ul className="flex flex-col gap-2">
             {upcoming.map((a) => (

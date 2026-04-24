@@ -19,14 +19,25 @@ function EmptyFrame({
   description: string;
   action?: ReactNode;
 }) {
+  // Solid border (dashed was invisible on OLED blacks) + a soft radial
+  // backdrop that fades the brand accent into the card fill. The result
+  // reads as "featured area" instead of "placeholder hole".
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-primary-500/15 bg-card/40 px-6 py-10 text-center">
-      {illustration}
-      <div className="flex max-w-sm flex-col gap-1.5">
+    <div className="relative flex flex-col items-center gap-4 overflow-hidden rounded-xl border border-border/70 bg-card/60 px-6 py-12 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-32"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse at top, color-mix(in oklab, var(--primary-500) 10%, transparent), transparent 70%)",
+        }}
+      />
+      <div className="relative">{illustration}</div>
+      <div className="relative flex max-w-sm flex-col gap-1.5">
         <h3 className="text-display text-lg">{title}</h3>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      {action}
+      {action && <div className="relative">{action}</div>}
     </div>
   );
 }
