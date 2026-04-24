@@ -32,10 +32,24 @@ export function useNotifications() {
   });
 
   // Supabase Realtime: subscribe to the user's notifications.
+  //
+  // Channel name MUST be unique per hook instance. When two components
+  // mount `useNotifications` at the same time (after PR #D2 that's
+  // `<NotificationBell>` in Topbar + `<MobileNav>`), the Supabase client
+  // de-duplicates channels by name and returns the same instance to the
+  // second caller — whose `.on()` then throws:
+  //
+  //   cannot add `postgres_changes` callbacks for realtime:
+  //   notifications-stream after `subscribe()`
+  //
+  // A per-instance suffix gives each subscriber its own channel.
+  // Multiple Realtime subscriptions are fine — each is a cheap ws event
+  // handler, React Query dedupes the data layer anyway via `queryKey`.
+  const channelId = React.useId();
   React.useEffect(() => {
     const supabase = createSupabaseClient();
     const channel = supabase
-      .channel("notifications-stream")
+      .channel(`notifications-stream-${channelId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "Notification" },
@@ -54,7 +68,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, channelId]);
 
   return query;
 }

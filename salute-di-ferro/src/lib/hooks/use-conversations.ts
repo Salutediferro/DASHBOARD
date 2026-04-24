@@ -69,10 +69,15 @@ export function useConversations() {
     refetchInterval: 60_000,
   });
 
+  // Per-instance channel name — same reasoning as in `useNotifications`.
+  // Without this, two components mounting `useConversations` (after
+  // PR #D2: ConversationSidebar + MobileNav) race on the same shared
+  // channel and the second `.on()` call throws.
+  const channelId = React.useId();
   React.useEffect(() => {
     const supabase = createSupabaseClient();
     const channel = supabase
-      .channel("conversations-stream")
+      .channel(`conversations-stream-${channelId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "Message" },
@@ -87,7 +92,7 @@ export function useConversations() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, channelId]);
 
   return query;
 }
