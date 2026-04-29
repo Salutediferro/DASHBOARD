@@ -191,7 +191,7 @@ export default function PatientTimelinePage() {
                     <div className="flex items-start gap-3">
                       <div
                         className={cn(
-                          "-ml-9 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-background",
+                          "-ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-background",
                           meta.tone,
                         )}
                       >
