@@ -98,7 +98,7 @@ export function ProfileHero({ profile, stats }: Props) {
         </div>
 
         {stats.length > 0 && (
-          <dl className="grid grid-cols-3 gap-2 rounded-xl surface-1 p-3 md:p-4">
+          <dl className="-mx-2 grid grid-cols-3 gap-2 rounded-xl surface-1 p-3 md:p-4">
             {stats.map((s, i) => (
               <div
                 key={i}
@@ -129,7 +129,7 @@ export function ProfileHero({ profile, stats }: Props) {
 
 function RoleChip({ role }: { role: UserRole }) {
   const map: Record<UserRole, { label: string; cls: string }> = {
-    PATIENT: { label: "Cliente", cls: "bg-info/15 text-info border-info/30" },
+    PATIENT: { label: "Utente", cls: "bg-info/15 text-info border-info/30" },
     COACH: {
       label: "Coach",
       cls: "bg-accent-500/15 text-accent-500 border-accent-500/30",

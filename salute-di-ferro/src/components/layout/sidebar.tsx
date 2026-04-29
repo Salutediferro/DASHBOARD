@@ -153,7 +153,7 @@ const roleTheme: Record<
   { label: string; bg: string; fg: string; border: string; dot: string }
 > = {
   PATIENT: {
-    label: "Cliente",
+    label: "Utente",
     bg: "bg-info/10",
     fg: "text-info",
     border: "border-info/30",
