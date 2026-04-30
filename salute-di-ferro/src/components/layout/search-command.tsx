@@ -4,12 +4,14 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import type { NavItem } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";
@@ -84,29 +86,32 @@ export function SearchCommand({
           <Search className="h-4 w-4" aria-hidden />
         </button>
       )}
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Cerca pagine, clienti, esercizi..." />
-        <CommandList>
-          <CommandEmpty>Nessun risultato.</CommandEmpty>
-          <CommandGroup heading="Navigazione">
-            {items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <CommandItem
-                  key={item.href}
-                  onSelect={() => {
-                    setOpen(false);
-                    router.push(item.href);
-                  }}
-                >
-                  <Icon className="mr-2 h-4 w-4" />
-                  <span>{item.label}</span>
-                </CommandItem>
-              );
-            })}
+
+    <CommandDialog open={open} onOpenChange={setOpen}>
+        <Command className="max-w-sm">
+            <CommandInput placeholder="Cerca pagine, clienti, esercizi..." />
+            
+            <CommandList>
+                <CommandEmpty>Nessun risultato.</CommandEmpty>
+
+                <CommandGroup heading="Navigazione">
+                    {items.map((item) => (
+                            <CommandItem
+                            key={item.href}
+                            onSelect={() => {
+                                setOpen(false);
+                                router.push(item.href);
+                            }}
+                            >
+                            <item.icon className="mr-2 h-4 w-4" />
+                            <span>{item.label}</span>
+                            </CommandItem>
+                        )
+                    )}
           </CommandGroup>
-        </CommandList>
-      </CommandDialog>
+            </CommandList>
+        </Command>
+    </CommandDialog>
     </>
   );
 }

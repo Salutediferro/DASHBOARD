@@ -719,7 +719,7 @@ function LeadingIconField({
           inputMode={inputMode}
           autoCapitalize="none"
           spellCheck={false}
-          className="focus-ring pl-9"
+          className="focus-ring pl-9!"
           aria-invalid={error ? true : undefined}
           {...registerProps}
         />
@@ -779,7 +779,7 @@ function PasswordField({
           onKeyDown={onKeyEvent}
           onBlur={onBlur}
           aria-invalid={error ? true : undefined}
-          className="focus-ring pl-9 pr-11"
+          className="focus-ring pl-9! pr-11"
           {...rest}
         />
         <button

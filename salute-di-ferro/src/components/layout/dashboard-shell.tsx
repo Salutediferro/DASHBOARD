@@ -11,14 +11,16 @@ type Props = {
 
 export function DashboardShell({ items, quickActions, children }: Props) {
   return (
-    <div className="bg-background text-foreground flex min-h-screen">
+    <div className="bg-background text-foreground flex h-dvh">
       <Sidebar items={items} />
+
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar items={items} quickActions={quickActions} />
         <main className="page-in flex flex-1 flex-col overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
           {children}
         </main>
       </div>
+
       <MobileNav items={items} quickActions={quickActions} />
     </div>
   );

@@ -72,13 +72,14 @@ export function Sidebar({ items }: Props) {
     <TooltipProvider delay={150}>
       <aside
         className={cn(
-          "bg-card/30 border-border hidden shrink-0 flex-col border-r transition-[width] duration-200 md:flex",
+          "bg-card/30 h-dvh border-border hidden shrink-0 flex-col border-r transition-[width] duration-200 md:flex",
           collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
         )}
         data-collapsed={collapsed}
         aria-label="Navigazione principale"
       >
-        <SidebarHeader collapsed={collapsed} />
+        <SidebarHeader collapsed={collapsed} mounted={mounted} onToggle={toggleCollapsed} />
+
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 py-4">
           {sections.map((section, i) => (
             <SidebarSection
@@ -89,10 +90,9 @@ export function Sidebar({ items }: Props) {
             />
           ))}
         </nav>
+
         <SidebarFooter
           collapsed={collapsed}
-          onToggle={toggleCollapsed}
-          mounted={mounted}
         />
       </aside>
     </TooltipProvider>
@@ -101,7 +101,7 @@ export function Sidebar({ items }: Props) {
 
 // ---------- Header (logo + role badge) ---------- //
 
-function SidebarHeader({ collapsed }: { collapsed: boolean }) {
+function SidebarHeader({ collapsed, mounted, onToggle }: { collapsed: boolean, mounted: boolean, onToggle: () => void }) {
   const { role } = useUser();
   return (
     <div
@@ -110,15 +110,17 @@ function SidebarHeader({ collapsed }: { collapsed: boolean }) {
         collapsed && "items-center px-2",
       )}
     >
+        <div className={`flex items-center justify-between gap-2 space-y-2 ${collapsed ? "flex-col" : "flex-row"}`}>
+
       <Link
         href="/dashboard"
         className="focus-ring inline-flex items-center gap-2 rounded-md"
         aria-label="Salute di Ferro — vai alla dashboard"
-      >
+        >
         {collapsed ? (
-          <Logo variant="mark" size="md" src="/logo-sdf.svg" />
+            <Logo variant="mark" size="md" src="/logo-sdf.svg" />
         ) : (
-          <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2">
             <Logo variant="mark" size="md" src="/logo-sdf.svg" />
             <span className="text-sm font-semibold tracking-tight">
               Salute di Ferro
@@ -126,6 +128,14 @@ function SidebarHeader({ collapsed }: { collapsed: boolean }) {
           </span>
         )}
       </Link>
+
+      <CollapseButton
+        collapsed={collapsed}
+        onToggle={onToggle}
+        disabled={!mounted}
+      />
+        </div>
+
       {!collapsed && role && <RoleBadge role={role} />}
     </div>
   );
@@ -259,12 +269,12 @@ function SidebarItem({
       {active && (
         <span
           aria-hidden
-          className="absolute left-0 top-1/2 h-6 w-[2px] -translate-y-1/2 rounded-r-full bg-primary-500"
+          className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r-full bg-primary-500"
         />
       )}
       <Icon
         className={cn(
-          "h-[18px] w-[18px] shrink-0 transition-colors",
+          "size-4.5 shrink-0 transition-colors",
           active ? "text-primary-500" : "",
         )}
       />
@@ -343,7 +353,7 @@ function BadgeCounter({
   return (
     <span
       className={cn(
-        "ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+        "ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
         urgent
           ? "bg-destructive text-destructive-foreground"
           : "bg-muted text-muted-foreground",
@@ -391,21 +401,12 @@ async function resolveBadge(source: NavBadgeSource): Promise<number> {
 
 function SidebarFooter({
   collapsed,
-  onToggle,
-  mounted,
 }: {
   collapsed: boolean;
-  onToggle: () => void;
-  mounted: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2 border-t border-border p-3">
       <UserCardTrigger collapsed={collapsed} />
-      <CollapseButton
-        collapsed={collapsed}
-        onToggle={onToggle}
-        disabled={!mounted}
-      />
     </div>
   );
 }
@@ -492,7 +493,7 @@ function CollapseButton({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        "focus-ring inline-flex h-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50",
+        "focus-ring flex flex-0 h-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50",
         collapsed ? "w-full" : "w-full gap-2 px-2 text-xs",
       )}
     >
