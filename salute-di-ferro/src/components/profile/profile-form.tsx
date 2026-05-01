@@ -533,7 +533,7 @@ export function ProfileForm({
           </Card>
         )}
 
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-border bg-background/80 py-3 backdrop-blur">
+        <div className="sticky -bottom-8 pr-2.5 -mx-px flex flex-wrap items-center justify-end gap-3 border-t border-border bg-background/80 py-3 backdrop-blur">
           <button
             type="button"
             onClick={logout}

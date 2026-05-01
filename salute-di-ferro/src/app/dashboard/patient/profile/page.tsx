@@ -56,7 +56,7 @@ export default function PatientProfilePage() {
           <DangerZone />
         </div>
         <aside className="order-first lg:order-last">
-          <div className="lg:sticky lg:top-20">
+          <div className="lg:sticky lg:-top-1">
             <CompletenessCard
               completeness={completeness}
               ctaLabel="Vai ai campi"

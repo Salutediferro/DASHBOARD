@@ -110,6 +110,40 @@ function fmtTime(iso: string) {
   });
 }
 
+function getBiometricInputs(event: TimelineEvent) {
+    if (!event.description) return null;
+    const data = JSON.parse(event.description);
+
+    const corporei: string[] = []
+
+    if ("weight" in data) corporei.push(`Peso: ${data["weight"]} kg`)
+    if ("bodyFatPercentage" in data) corporei.push(`% Grasso: ${data["bodyFatPercentage"]}%`);
+    if ("muscleMassKg" in data) corporei.push(`Massa muscolare: ${data["muscleMassKg"]} kg`);
+    if ("bodyWaterPct" in data) corporei.push(`Acqua corporea: ${data["bodyWaterPct"]}%`);
+
+    const cardiovascolare: string[] = [];
+    
+    if ("systolicBP" in data) cardiovascolare.push(`PA sistolica: ${data["systolicBP"]} mmHg`);
+    if ("diastolicBP" in data) cardiovascolare.push(`PA diastolica: ${data["diastolicBP"]} mmHg`);
+
+    const misurazioni: string[] = [];
+
+    if ("waistCm" in data) misurazioni.push(`Vita: ${data["waistCm"]} cm`);
+    if ("hipsCm" in data) misurazioni.push(`Fianchi: ${data["hipsCm"]} cm`);
+    if ("chestCm" in data) misurazioni.push(`Petto: ${data["chestCm"]} cm`);
+    if ("armsCm" in data) misurazioni.push(`Braccia: ${data["armsCm"]} cm`);
+    if ("thighCm" in data) misurazioni.push(`Coscia: ${data["thighCm"]} cm`);
+    if ("calvesCm" in data) misurazioni.push(`Polpaccio: ${data["calvesCm"]} cm`);
+
+    return <>
+        <span>{corporei.join(" • ")}</span>
+
+        {"notes" in data && <><br /><span>Note: {data["notes"]}</span></>}
+        {cardiovascolare.length !== 0 && <><br />{cardiovascolare.join(" • ")}</>}
+        {misurazioni.length !== 0 && <><br />{misurazioni.join(" • ")}</>}
+    </>
+}
+
 export default function PatientTimelinePage() {
   const [filter, setFilter] =
     React.useState<"ALL" | TimelineEvent["kind"]>("ALL");
@@ -209,7 +243,7 @@ export default function PatientTimelinePage() {
                         </div>
                         {e.description && (
                           <p className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap">
-                            {e.description}
+                            {e.kind === "BIOMETRIC" ? getBiometricInputs(e) : e.description}
                           </p>
                         )}
                       </div>

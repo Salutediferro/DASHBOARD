@@ -70,6 +70,16 @@ export async function GET() {
         weight: true,
         systolicBP: true,
         diastolicBP: true,
+        bodyFatPercentage: true,
+        muscleMassKg: true,
+        bodyWaterPct: true,
+        notes: true,
+        waistCm: true,
+        hipsCm: true,
+        chestCm: true,
+        armsCm: true,
+        thighCm: true,
+        calvesCm: true,
       },
     }),
     prisma.appointment.findMany({
@@ -157,18 +167,17 @@ export async function GET() {
     }
   }
 
-  for (const b of biometrics) {
-    const parts: string[] = [];
-    if (b.weight != null) parts.push(`${b.weight.toFixed(1)} kg`);
-    if (b.systolicBP != null && b.diastolicBP != null) {
-      parts.push(`${b.systolicBP}/${b.diastolicBP} mmHg`);
-    }
+  for (const { id, date, ...data } of biometrics) {
+    const changed = Object.entries(data).filter(([_, value]) => (value !== null)) as [string, number][];
+
+    console.log(changed)
+
     events.push({
-      id: `biometric:${b.id}`,
+      id: `biometric:${id}`,
       kind: "BIOMETRIC",
-      date: b.date.toISOString(),
+      date: date.toISOString(),
       title: "Misurazione registrata",
-      description: parts.join(" · ") || null,
+      description: JSON.stringify(Object.fromEntries(changed)),
       href: "/dashboard/patient/health",
       meta: null,
     });
