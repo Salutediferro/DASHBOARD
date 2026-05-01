@@ -100,9 +100,7 @@ export function AuthForm({ variant }: Props) {
     if (isLogin || !inviteToken) return;
     let cancelled = false;
     setInviteChecking(true);
-    fetch(
-      `/api/invitations/verify?token=${encodeURIComponent(inviteToken)}`,
-    )
+    fetch(`/api/invitations/verify?token=${encodeURIComponent(inviteToken)}`)
       .then(async (res) => {
         if (cancelled) return;
         if (res.ok) {
@@ -110,22 +108,16 @@ export function AuthForm({ variant }: Props) {
           setInvite(data);
           setInviteError(null);
           if (data.email) registerForm.setValue("email", data.email);
-          if (data.firstName)
-            registerForm.setValue("firstName", data.firstName);
+          if (data.firstName) registerForm.setValue("firstName", data.firstName);
           if (data.lastName) registerForm.setValue("lastName", data.lastName);
         } else {
           const body = await res.json().catch(() => ({}));
           setInvite(null);
-          setInviteError(
-            typeof body?.error === "string"
-              ? body.error
-              : "Invito non valido",
-          );
+          setInviteError(typeof body?.error === "string" ? body.error : "Invito non valido");
         }
       })
       .catch(() => {
-        if (!cancelled)
-          setInviteError("Verifica dell'invito non riuscita, riprova.");
+        if (!cancelled) setInviteError("Verifica dell'invito non riuscita, riprova.");
       })
       .finally(() => {
         if (!cancelled) setInviteChecking(false);
@@ -163,23 +155,17 @@ export function AuthForm({ variant }: Props) {
     }
 
     // MFA step-up if enrolled
-    const { data: aalData } =
-      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (
-      aalData &&
-      aalData.currentLevel === "aal1" &&
-      aalData.nextLevel === "aal2"
-    ) {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.currentLevel === "aal1" && aalData.nextLevel === "aal2") {
       const { data: factorsData } = await supabase.auth.mfa.listFactors();
       const totp = factorsData?.totp?.find((f) => f.status === "verified");
       if (totp) {
-        const { data: chal, error: chalErr } =
-          await supabase.auth.mfa.challenge({ factorId: totp.id });
+        const { data: chal, error: chalErr } = await supabase.auth.mfa.challenge({
+          factorId: totp.id,
+        });
         if (chalErr || !chal) {
           setLoading(false);
-          rejectSubmit(
-            chalErr?.message ?? "Impossibile avviare la verifica 2FA.",
-          );
+          rejectSubmit(chalErr?.message ?? "Impossibile avviare la verifica 2FA.");
           return;
         }
         setMfaStep({ factorId: totp.id, challengeId: chal.id });
@@ -241,9 +227,7 @@ export function AuthForm({ variant }: Props) {
       setLoading(false);
       const body = await res.json().catch(() => ({}));
       rejectSubmit(
-        typeof body.error === "string"
-          ? body.error
-          : "Registrazione fallita. Riprova più tardi.",
+        typeof body.error === "string" ? body.error : "Registrazione fallita. Riprova più tardi.",
       );
       return;
     }
@@ -268,9 +252,7 @@ export function AuthForm({ variant }: Props) {
       } else {
         toast.success("Ti abbiamo inviato una email di conferma");
       }
-      router.replace(
-        `/register/check-email?email=${encodeURIComponent(values.email)}`,
-      );
+      router.replace(`/register/check-email?email=${encodeURIComponent(values.email)}`);
       return;
     }
 
@@ -299,11 +281,7 @@ export function AuthForm({ variant }: Props) {
           subtitle="Inserisci il codice a 6 cifre dall'app di autenticazione (es. Google Authenticator, Authy)."
         />
         {errorBanner && (
-          <ErrorBanner
-            key={shakeKey}
-            message={errorBanner}
-            onClose={() => setErrorBanner(null)}
-          />
+          <ErrorBanner key={shakeKey} message={errorBanner} onClose={() => setErrorBanner(null)} />
         )}
         <form
           onSubmit={onMfaVerify}
@@ -321,9 +299,7 @@ export function AuthForm({ variant }: Props) {
               pattern="[0-9]{6}"
               maxLength={6}
               value={mfaCode}
-              onChange={(e) =>
-                setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
+              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               className="focus-ring h-14 text-center text-2xl tracking-[0.3em] tabular-nums"
               autoFocus
             />
@@ -343,7 +319,7 @@ export function AuthForm({ variant }: Props) {
               setMfaStep(null);
               setMfaCode("");
             }}
-            className="focus-ring rounded text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            className="focus-ring text-muted-foreground hover:text-foreground rounded text-center text-xs underline underline-offset-4"
           >
             Annulla
           </button>
@@ -365,19 +341,11 @@ export function AuthForm({ variant }: Props) {
       />
 
       {errorBanner && (
-        <ErrorBanner
-          key={shakeKey}
-          message={errorBanner}
-          onClose={() => setErrorBanner(null)}
-        />
+        <ErrorBanner key={shakeKey} message={errorBanner} onClose={() => setErrorBanner(null)} />
       )}
 
       {!isLogin && inviteToken && (
-        <InviteStatus
-          checking={inviteChecking}
-          invite={invite}
-          error={inviteError}
-        />
+        <InviteStatus checking={inviteChecking} invite={invite} error={inviteError} />
       )}
 
       {isLogin ? (
@@ -410,7 +378,7 @@ export function AuthForm({ variant }: Props) {
             extraLabel={
               <Link
                 href="/forgot-password"
-                className="focus-ring rounded text-[11px] text-muted-foreground underline-offset-4 hover:text-primary-500 hover:underline"
+                className="focus-ring text-muted-foreground hover:text-primary-500 rounded text-[11px] underline-offset-4 hover:underline"
               >
                 Password dimenticata?
               </Link>
@@ -420,12 +388,8 @@ export function AuthForm({ variant }: Props) {
           />
 
           {/* Ricordami */}
-          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-            <BrandCheckbox
-              checked={rememberMe}
-              onChange={setRememberMe}
-              ariaLabel="Ricordami"
-            />
+          <label className="text-muted-foreground inline-flex cursor-pointer items-center gap-2 text-xs">
+            <BrandCheckbox checked={rememberMe} onChange={setRememberMe} ariaLabel="Ricordami" />
             <span>Ricordami su questo dispositivo</span>
           </label>
 
@@ -507,7 +471,7 @@ export function AuthForm({ variant }: Props) {
                 <Link
                   href="/privacy"
                   target="_blank"
-                  className="text-primary-500 underline underline-offset-4 hover:text-primary-500/80"
+                  className="text-primary-500 hover:text-primary-500/80 underline underline-offset-4"
                 >
                   informativa privacy
                 </Link>{" "}
@@ -515,7 +479,7 @@ export function AuthForm({ variant }: Props) {
                 <Link
                   href="/terms"
                   target="_blank"
-                  className="text-primary-500 underline underline-offset-4 hover:text-primary-500/80"
+                  className="text-primary-500 hover:text-primary-500/80 underline underline-offset-4"
                 >
                   termini d&apos;uso
                 </Link>
@@ -525,20 +489,18 @@ export function AuthForm({ variant }: Props) {
             <label className="flex items-start gap-2.5 text-xs leading-snug">
               <BrandCheckbox
                 checked={!!registerForm.watch("acceptHealthDataProcessing")}
-                onChange={(v) =>
-                  registerForm.setValue("acceptHealthDataProcessing", v)
-                }
+                onChange={(v) => registerForm.setValue("acceptHealthDataProcessing", v)}
                 ariaLabel="Consento al trattamento dei dati sanitari"
               />
               <span>
                 Presto consenso esplicito al trattamento dei miei{" "}
-                <strong>dati relativi alla salute</strong> (art. 9 GDPR) per le
-                finalità di coordinamento sanitario descritte
-                nell&apos;informativa. Posso revocarlo in qualsiasi momento.
+                <strong>dati relativi alla salute</strong> (art. 9 GDPR) per le finalità di
+                coordinamento sanitario descritte nell&apos;informativa. Posso revocarlo in
+                qualsiasi momento.
               </span>
             </label>
             {registerForm.formState.errors.acceptTerms && (
-              <p className="text-[11px] text-destructive">
+              <p className="text-destructive text-[11px]">
                 {registerForm.formState.errors.acceptTerms.message}
               </p>
             )}
@@ -551,13 +513,13 @@ export function AuthForm({ variant }: Props) {
         </form>
       )}
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-center text-sm">
         {isLogin ? (
           <>
             Non hai un account?{" "}
             <Link
               href="/register"
-              className="focus-ring rounded text-primary-500 underline-offset-4 hover:underline"
+              className="focus-ring text-primary-500 rounded underline-offset-4 hover:underline"
             >
               Registrati
             </Link>
@@ -567,7 +529,7 @@ export function AuthForm({ variant }: Props) {
             Hai già un account?{" "}
             <Link
               href="/login"
-              className="focus-ring rounded text-primary-500 underline-offset-4 hover:underline"
+              className="focus-ring text-primary-500 rounded underline-offset-4 hover:underline"
             >
               Accedi
             </Link>
@@ -584,33 +546,24 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <header className="flex flex-col gap-1.5">
       <h1 className="text-display text-2xl md:text-3xl">{title}</h1>
-      <p className="text-sm text-muted-foreground">{subtitle}</p>
+      <p className="text-muted-foreground text-sm">{subtitle}</p>
     </header>
   );
 }
 
-function ErrorBanner({
-  message,
-  onClose,
-}: {
-  message: string;
-  onClose: () => void;
-}) {
+function ErrorBanner({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5"
+      className="border-destructive/30 bg-destructive/10 flex items-start gap-3 rounded-xl border px-3 py-2.5"
     >
-      <AlertCircle
-        className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-        aria-hidden
-      />
-      <p className="flex-1 text-sm text-destructive">{message}</p>
+      <AlertCircle className="text-destructive mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <p className="text-destructive flex-1 text-sm">{message}</p>
       <button
         type="button"
         onClick={onClose}
         aria-label="Chiudi avviso"
-        className="focus-ring rounded text-destructive/70 hover:text-destructive"
+        className="focus-ring text-destructive/70 hover:text-destructive rounded"
       >
         <span aria-hidden>×</span>
       </button>
@@ -629,7 +582,7 @@ function InviteStatus({
 }) {
   if (checking) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+      <div className="border-border bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-md border p-3 text-sm">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         Verifica invito in corso…
       </div>
@@ -637,18 +590,13 @@ function InviteStatus({
   }
   if (invite) {
     return (
-      <div className="flex items-start gap-3 rounded-md border border-primary-500/30 bg-primary-500/5 p-3 text-sm">
-        <UserCheck
-          className="mt-0.5 h-4 w-4 shrink-0 text-primary-500"
-          aria-hidden
-        />
+      <div className="border-primary-500/30 bg-primary-500/5 flex items-start gap-3 rounded-md border p-3 text-sm">
+        <UserCheck className="text-primary-500 mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="flex-1">
-          <p className="font-medium">
-            Sei stato invitato da {invite.professionalName}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {invite.professionalRole === "DOCTOR" ? "Medico" : "Coach"} · Al
-            termine della registrazione sarai assegnato automaticamente.
+          <p className="font-medium">Sei stato invitato da {invite.professionalName}</p>
+          <p className="text-muted-foreground text-xs">
+            {invite.professionalRole === "DOCTOR" ? "Medico" : "Coach"} · Al termine della
+            registrazione sarai assegnato automaticamente.
           </p>
         </div>
       </div>
@@ -656,16 +604,13 @@ function InviteStatus({
   }
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-        <AlertCircle
-          className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-          aria-hidden
-        />
+      <div className="border-destructive/30 bg-destructive/5 flex items-start gap-3 rounded-md border p-3 text-sm">
+        <AlertCircle className="text-destructive mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="flex-1">
           <p className="font-medium">Invito non valido</p>
-          <p className="text-xs text-muted-foreground">
-            {error}. Puoi comunque registrarti come cliente, ma non verrai
-            collegato automaticamente a un professionista.
+          <p className="text-muted-foreground text-xs">
+            {error}. Puoi comunque registrarti come cliente, ma non verrai collegato automaticamente
+            a un professionista.
           </p>
         </div>
       </div>
@@ -679,9 +624,7 @@ function InviteStatus({
 // `string` form so sub-components work across both login and register
 // forms without paying for a generic — the consumer passes the narrow
 // result through spread, the type widens safely.
-type FieldRegister = ReturnType<
-  ReturnType<typeof useForm<LoginInput & RegisterInput>>["register"]
->;
+type FieldRegister = ReturnType<ReturnType<typeof useForm<LoginInput & RegisterInput>>["register"]>;
 
 function LeadingIconField({
   id,
@@ -709,7 +652,7 @@ function LeadingIconField({
       </Label>
       <div className="relative">
         <Icon
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
           aria-hidden
         />
         <Input
@@ -724,7 +667,7 @@ function LeadingIconField({
           {...registerProps}
         />
       </div>
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {error && <p className="text-destructive text-[11px]">{error}</p>}
     </div>
   );
 }
@@ -767,7 +710,7 @@ function PasswordField({
       </div>
       <div className="relative">
         <Lock
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
           aria-hidden
         />
         <Input
@@ -779,7 +722,7 @@ function PasswordField({
           onKeyDown={onKeyEvent}
           onBlur={onBlur}
           aria-invalid={error ? true : undefined}
-          className="focus-ring pl-9! pr-11"
+          className="focus-ring pr-11 pl-9!"
           {...rest}
         />
         <button
@@ -787,18 +730,18 @@ function PasswordField({
           onClick={onToggle}
           aria-label={show ? "Nascondi password" : "Mostra password"}
           tabIndex={-1}
-          className="focus-ring absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+          className="focus-ring text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
       {capsLockOn && (
-        <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        <p className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
           <AlertTriangle className="h-3 w-3" aria-hidden />
           BLOC MAIUSC attivo
         </p>
       )}
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {error && <p className="text-destructive text-[11px]">{error}</p>}
       {children}
     </div>
   );
@@ -852,9 +795,7 @@ function PasswordStrengthMeter({ value }: { value: string }) {
           />
         ))}
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        {STRENGTH_LABELS[score]}
-      </p>
+      <p className="text-muted-foreground text-[11px]">{STRENGTH_LABELS[score]}</p>
     </div>
   );
 }
@@ -885,11 +826,7 @@ function BrandCheckbox({
       )}
     >
       {checked && (
-        <svg
-          viewBox="0 0 16 16"
-          className="h-3 w-3 text-primary-foreground"
-          aria-hidden
-        >
+        <svg viewBox="0 0 16 16" className="text-primary-foreground h-3 w-3" aria-hidden>
           <path
             d="M3.5 8.5 L6.5 11.5 L12.5 5.5"
             fill="none"

@@ -5,12 +5,7 @@ import { Loader2, Plus, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Sex } from "@prisma/client";
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +34,10 @@ import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import HealthEmptyState from "@/components/health/health-empty-state";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
+import { HealthRingRow } from "./health-ring-row";
+import type { RingMetric } from "./metric-ring-card";
 
-type PatientProfile = {
+export type PatientProfile = {
   targetWeightKg: number | null;
   heightCm: number | null;
   sex: Sex | null;
@@ -82,7 +79,15 @@ type CategoryKey = (typeof CATEGORIES)[number]["key"];
 // browser reject absurd values up front.
 const FIELDS: Record<CategoryKey, MetricField[]> = {
   body: [
-    { name: "weight", label: "Peso", unit: "kg", step: "0.1", placeholder: "75.0", min: 20, max: 300 },
+    {
+      name: "weight",
+      label: "Peso",
+      unit: "kg",
+      step: "0.1",
+      placeholder: "75.0",
+      min: 20,
+      max: 300,
+    },
     { name: "bodyFatPercentage", label: "% grasso", unit: "%", step: "0.1", min: 3, max: 60 },
     { name: "muscleMassKg", label: "Massa muscolare", unit: "kg", step: "0.1", min: 10, max: 120 },
     { name: "bodyWaterPct", label: "Acqua corporea", unit: "%", step: "0.1", min: 20, max: 80 },
@@ -103,8 +108,22 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
     { name: "hrv", label: "HRV", unit: "ms", step: "1", min: 0, max: 300 },
   ],
   metabolic: [
-    { name: "glucoseFasting", label: "Glicemia digiuno", unit: "mg/dL", step: "1", min: 30, max: 500 },
-    { name: "glucosePostMeal", label: "Glicemia post-pasto", unit: "mg/dL", step: "1", min: 30, max: 600 },
+    {
+      name: "glucoseFasting",
+      label: "Glicemia digiuno",
+      unit: "mg/dL",
+      step: "1",
+      min: 30,
+      max: 500,
+    },
+    {
+      name: "glucosePostMeal",
+      label: "Glicemia post-pasto",
+      unit: "mg/dL",
+      step: "1",
+      min: 30,
+      max: 600,
+    },
     { name: "ketones", label: "Chetoni", unit: "mmol/L", step: "0.1", min: 0, max: 10 },
     { name: "bodyTempC", label: "Temperatura", unit: "°C", step: "0.1", min: 30, max: 45 },
   ],
@@ -131,7 +150,7 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
   ],
 };
 
-type PrimaryKey = keyof BiometricLogDTO;
+export type PrimaryKey = keyof BiometricLogDTO;
 
 const PRIMARY: Record<
   CategoryKey,
@@ -159,17 +178,12 @@ type PeriodKey = (typeof PERIODS)[number]["key"];
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function HealthTabs({
-  profile = EMPTY_PROFILE,
-  patientId,
-  readOnly,
-}: Props) {
+export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Props) {
   const [category, setCategory] = React.useState<CategoryKey>("body");
   const [period, setPeriod] = React.useState<PeriodKey>(30);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [formCategory, setFormCategory] =
-    React.useState<CategoryKey>("body");
+  const [formCategory, setFormCategory] = React.useState<CategoryKey>("body");
 
   const { hidden, hydrated, toggle } = useHealthCategoryPrefs();
   const visibleCategories = React.useMemo(
@@ -209,11 +223,6 @@ export function HealthTabs({
     return items.filter((r) => new Date(r.date).getTime() >= cutoff);
   }, [items, period]);
 
-  const ringMetrics = React.useMemo(
-    () => computeRingMetrics(items, profile),
-    [items, profile],
-  );
-
   const openDialogFor = (c: CategoryKey) => {
     setFormCategory(c);
     setDialogOpen(true);
@@ -230,7 +239,7 @@ export function HealthTabs({
             <div className="flex items-center gap-2">
               <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                 <DialogTrigger
-                  className="focus-ring inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted"
+                  className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors"
                   aria-label="Scegli quali parametri mostrare"
                   title="Scegli quali parametri mostrare"
                 >
@@ -240,9 +249,8 @@ export function HealthTabs({
                   <DialogHeader>
                     <DialogTitle>Parametri da tracciare</DialogTitle>
                     <DialogDescription>
-                      Scegli quali categorie vuoi vedere nelle tue schermate di
-                      Dati Salute. Quelle nascoste restano disponibili ma non
-                      occupano spazio.
+                      Scegli quali categorie vuoi vedere nelle tue schermate di Dati Salute. Quelle
+                      nascoste restano disponibili ma non occupano spazio.
                     </DialogDescription>
                   </DialogHeader>
                   <CategoryPrefsList
@@ -253,9 +261,7 @@ export function HealthTabs({
               </Dialog>
 
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger
-                  className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                >
+                <DialogTrigger className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors">
                   <Plus className="h-4 w-4" aria-hidden />
                   Aggiungi rilevazione
                 </DialogTrigger>
@@ -263,11 +269,10 @@ export function HealthTabs({
                   <DialogHeader>
                     <DialogTitle>Nuova rilevazione</DialogTitle>
                     <DialogDescription>
-                      Inserisci uno o più valori. I campi vuoti vengono
-                      ignorati.
+                      Inserisci uno o più valori. I campi vuoti vengono ignorati.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="flex flex-wrap gap-1 border-b border-border/60 pb-3">
+                  <div className="border-border/60 flex flex-wrap gap-1 border-b pb-3">
                     {effectiveCategories.map((c) => (
                       <button
                         key={c.key}
@@ -306,11 +311,7 @@ export function HealthTabs({
         <HealthEmptyState
           action={
             !readOnly && (
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => openDialogFor("body")}
-              >
+              <Button type="button" size="lg" onClick={() => openDialogFor("body")}>
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden />
                 Registra la prima rilevazione
               </Button>
@@ -320,24 +321,11 @@ export function HealthTabs({
       ) : (
         <>
           {/* Ring row ────────────────────────────── */}
-          <section className="flex flex-col gap-3">
-            <SectionHeader
-              title="Panoramica"
-              subtitle="Le tue 4 metriche chiave rispetto al target."
-            />
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              {ringMetrics.map((m) => (
-                <MetricRingCard key={m.name} metric={m} />
-              ))}
-            </div>
-          </section>
+          <HealthRingRow items={items} profile={profile} />
 
           {/* Category tabs ───────────────────────── */}
           <section className="flex flex-col gap-3">
-            <Tabs
-              value={category}
-              onValueChange={(v) => setCategory(v as CategoryKey)}
-            >
+            <Tabs value={category} onValueChange={(v) => setCategory(v as CategoryKey)}>
               <TabsList>
                 {effectiveCategories.map((c) => (
                   <TabsTrigger key={c.key} value={c.key}>
@@ -347,11 +335,7 @@ export function HealthTabs({
               </TabsList>
 
               {effectiveCategories.map((c) => (
-                <TabsContent
-                  key={c.key}
-                  value={c.key}
-                  className="mt-4 flex flex-col gap-4"
-                >
+                <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-4">
                   <CategoryPanel
                     category={c.key}
                     items={periodItems}
@@ -367,112 +351,6 @@ export function HealthTabs({
           </section>
         </>
       )}
-    </div>
-  );
-}
-
-// ── Ring metrics computation ────────────────────────────────────────────────
-
-type RingMetric = {
-  name: string;
-  label: string;
-  unit: string;
-  value: number | null;
-  target: number | null;
-  progress: number; // 0..1
-};
-
-function computeRingMetrics(
-  items: BiometricLogDTO[],
-  profile: PatientProfile,
-): RingMetric[] {
-  const latest = {
-    weight: latestOf(items, "weight"),
-    bmi: latestOf(items, "bmi"),
-    waistCm: latestOf(items, "waistCm"),
-    bodyFatPercentage: latestOf(items, "bodyFatPercentage"),
-  };
-
-  const isFemale = profile.sex === "FEMALE";
-  const weightTarget = profile.targetWeightKg ?? null;
-  const bmiTarget = 22;
-  const waistTarget = isFemale ? 80 : 94; // OMS cut-off
-  const bodyFatTarget = isFemale ? 22 : 15; // ACSM general reference
-
-  return [
-    {
-      name: "weight",
-      label: "Peso",
-      unit: "kg",
-      value: latest.weight,
-      target: weightTarget,
-      progress: progressLowerBetter(latest.weight, weightTarget),
-    },
-    {
-      name: "bmi",
-      label: "BMI",
-      unit: "",
-      value: latest.bmi,
-      target: bmiTarget,
-      progress: progressLowerBetter(latest.bmi, bmiTarget),
-    },
-    {
-      name: "waist",
-      label: "Vita",
-      unit: "cm",
-      value: latest.waistCm,
-      target: waistTarget,
-      progress: progressLowerBetter(latest.waistCm, waistTarget),
-    },
-    {
-      name: "bodyFat",
-      label: "Body fat",
-      unit: "%",
-      value: latest.bodyFatPercentage,
-      target: bodyFatTarget,
-      progress: progressLowerBetter(latest.bodyFatPercentage, bodyFatTarget),
-    },
-  ];
-}
-
-function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
-  for (const r of items) {
-    const v = r[key];
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-  }
-  return null;
-}
-
-function progressLowerBetter(
-  current: number | null,
-  target: number | null,
-): number {
-  if (current == null || target == null || target === 0) return 0;
-  if (current <= target) return 1;
-  return Math.max(0, Math.min(1, target / current));
-}
-
-function MetricRingCard({ metric }: { metric: RingMetric }) {
-  const pct = Math.round(metric.progress * 100);
-  const hasValue = metric.value != null;
-  const label = hasValue
-    ? `${metric.value!.toFixed(metric.unit === "%" ? 1 : metric.unit === "cm" ? 1 : 1)}${metric.unit ? ` ${metric.unit}` : ""}`
-    : "—";
-  const sublabel = metric.target != null ? `→ ${metric.target}${metric.unit ? ` ${metric.unit}` : ""}` : "no target";
-
-  return (
-    <div className="surface-1 flex flex-col items-center gap-2 rounded-xl p-4">
-      <MetricRing
-        value={metric.progress}
-        size={110}
-        strokeWidth={10}
-        label={label}
-        sublabel={sublabel}
-        ariaLabel={`${metric.label}: ${label}${metric.target != null ? `, target ${metric.target}${metric.unit}, ${pct}% avvicinamento` : ""}`}
-      />
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {metric.label}
-      </p>
     </div>
   );
 }
@@ -508,10 +386,7 @@ function CategoryPanel({
         .reverse()
         .map((r) => ({
           date: r.date,
-          value:
-            typeof r[primary.key] === "number"
-              ? (r[primary.key] as number)
-              : null,
+          value: typeof r[primary.key] === "number" ? (r[primary.key] as number) : null,
         })),
     [items, primary.key],
   );
@@ -542,7 +417,7 @@ function CategoryPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PeriodPills value={period} onChange={onPeriodChange} />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {items.length} rilevazioni nel periodo
         </span>
       </div>
@@ -571,19 +446,9 @@ function CategoryPanel({
   );
 }
 
-function PeriodPills({
-  value,
-  onChange,
-}: {
-  value: PeriodKey;
-  onChange: (p: PeriodKey) => void;
-}) {
+function PeriodPills({ value, onChange }: { value: PeriodKey; onChange: (p: PeriodKey) => void }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="Periodo"
-      className="inline-flex flex-wrap gap-1.5"
-    >
+    <div role="radiogroup" aria-label="Periodo" className="inline-flex flex-wrap gap-1.5">
       {PERIODS.map((p) => {
         const active = value === p.key;
         return (
@@ -661,9 +526,7 @@ function StatsGrid({
   decimals: number;
 }) {
   const delta =
-    firstLast.first != null && firstLast.last != null
-      ? firstLast.last - firstLast.first
-      : null;
+    firstLast.first != null && firstLast.last != null ? firstLast.last - firstLast.first : null;
   const items = [
     { label: "Min", value: stats.min },
     { label: "Max", value: stats.max },
@@ -674,7 +537,7 @@ function StatsGrid({
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {items.map((it) => (
         <div key={it.label} className="surface-1 rounded-xl p-3">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-[10px] tracking-wide uppercase">
             {it.label}
           </div>
           <div className="mt-1 text-lg font-semibold tabular-nums">
@@ -719,8 +582,8 @@ function RecentTable({
 
   return (
     <div className="surface-1 overflow-hidden rounded-xl">
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide">
+      <div className="border-border/60 flex items-center justify-between border-b px-4 py-2">
+        <h3 className="text-xs font-semibold tracking-wide uppercase">
           Ultime {Math.min(10, items.length)} rilevazioni
         </h3>
         {!readOnly && (
@@ -731,33 +594,31 @@ function RecentTable({
         )}
       </div>
       {items.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="text-muted-foreground px-4 py-6 text-center text-sm">
           Nessuna rilevazione ancora.
         </p>
       ) : (
         <table className="w-full text-sm" aria-label="Ultime rilevazioni">
           <thead>
-            <tr className="border-b border-border/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <tr className="border-border/60 text-muted-foreground border-b text-[10px] tracking-wide uppercase">
               <th className="px-4 py-2 text-left font-medium">Data</th>
               <th className="px-4 py-2 text-left font-medium">Valore</th>
               <th className="px-4 py-2 text-left font-medium">Note</th>
               {!readOnly && <th className="px-4 py-2" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/60">
+          <tbody className="divide-border/60 divide-y">
             {items.map((r) => (
               <tr key={r.id}>
-                <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
+                <td className="text-muted-foreground px-4 py-2 whitespace-nowrap">
                   {new Date(r.date).toLocaleDateString("it-IT", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
                   })}
                 </td>
-                <td className="px-4 py-2 tabular-nums">
-                  {rowLabelFor(category, r) ?? "—"}
-                </td>
-                <td className="px-4 py-2 max-w-[240px] truncate text-muted-foreground">
+                <td className="px-4 py-2 tabular-nums">{rowLabelFor(category, r) ?? "—"}</td>
+                <td className="text-muted-foreground max-w-[240px] truncate px-4 py-2">
                   {r.notes ?? ""}
                 </td>
                 {!readOnly && (
@@ -767,7 +628,7 @@ function RecentTable({
                       onClick={() => remove(r.id)}
                       disabled={pendingId === r.id}
                       aria-label={`Elimina rilevazione del ${new Date(r.date).toLocaleDateString("it-IT")}`}
-                      className="focus-ring inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                      className="focus-ring text-muted-foreground hover:bg-destructive/10 hover:text-destructive inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
                     >
                       {pendingId === r.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -786,10 +647,7 @@ function RecentTable({
   );
 }
 
-function rowLabelFor(
-  category: CategoryKey,
-  r: BiometricLogDTO,
-): string | null {
+function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
   const parts: string[] = [];
   switch (category) {
     case "body":
@@ -826,10 +684,7 @@ function rowLabelFor(
 function LoadingState() {
   return (
     <div className="flex h-[40vh] items-center justify-center">
-      <Loader2
-        className="h-6 w-6 animate-spin text-muted-foreground"
-        aria-label="Caricamento"
-      />
+      <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" aria-label="Caricamento" />
     </div>
   );
 }
@@ -848,31 +703,26 @@ function CategoryPrefsList({
   const visibleCount = CATEGORIES.length - hidden.size;
 
   return (
-    <ul className="flex flex-col divide-y divide-border/60">
+    <ul className="divide-border/60 flex flex-col divide-y">
       {CATEGORIES.map((c) => {
         const isHidden = hidden.has(c.key as HealthCategoryKey);
         const isOnlyVisible = !isHidden && visibleCount <= 1;
         return (
-          <li
-            key={c.key}
-            className="flex items-center justify-between gap-3 py-3"
-          >
+          <li key={c.key} className="flex items-center justify-between gap-3 py-3">
             <div>
               <p className="text-sm font-medium">{c.label}</p>
-              <p className="text-xs text-muted-foreground">
-                {CATEGORY_DESCRIPTIONS[c.key]}
-              </p>
+              <p className="text-muted-foreground text-xs">{CATEGORY_DESCRIPTIONS[c.key]}</p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                className="focus-ring h-4 w-4 cursor-pointer rounded border-input accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring border-input accent-primary h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
                 checked={!isHidden}
                 disabled={isOnlyVisible}
                 onChange={() => onToggle(c.key as HealthCategoryKey)}
                 aria-label={`Mostra ${c.label}`}
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-muted-foreground text-xs">
                 {isHidden ? "Nascosto" : "Visibile"}
               </span>
             </label>

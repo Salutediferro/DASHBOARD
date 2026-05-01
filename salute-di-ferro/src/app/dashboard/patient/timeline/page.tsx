@@ -20,14 +20,7 @@ import { cn } from "@/lib/utils";
 
 type TimelineEvent = {
   id: string;
-  kind:
-    | "CHECK_IN"
-    | "BIOMETRIC"
-    | "APPOINTMENT"
-    | "REPORT"
-    | "FEEDBACK"
-    | "MEDICATION"
-    | "SYMPTOM";
+  kind: "CHECK_IN" | "BIOMETRIC" | "APPOINTMENT" | "REPORT" | "FEEDBACK" | "MEDICATION" | "SYMPTOM";
   date: string;
   title: string;
   description: string | null;
@@ -77,8 +70,7 @@ const KIND_META: Record<
 };
 
 const FILTER_OPTIONS: Array<
-  | { v: "ALL"; label: string }
-  | { v: TimelineEvent["kind"]; label: string }
+  { v: "ALL"; label: string } | { v: TimelineEvent["kind"]; label: string }
 > = [
   { v: "ALL", label: "Tutto" },
   { v: "CHECK_IN", label: "Check-in" },
@@ -111,42 +103,60 @@ function fmtTime(iso: string) {
 }
 
 function getBiometricInputs(event: TimelineEvent) {
-    if (!event.description) return null;
-    const data = JSON.parse(event.description);
+  if (!event.description) return "Misurazione vuota";
 
-    const corporei: string[] = []
+  const data = JSON.parse(event.description);
+  if (Object.entries(data).length === 0) return "Misurazione avanzata";
 
-    if ("weight" in data) corporei.push(`Peso: ${data["weight"]} kg`)
-    if ("bodyFatPercentage" in data) corporei.push(`% Grasso: ${data["bodyFatPercentage"]}%`);
-    if ("muscleMassKg" in data) corporei.push(`Massa muscolare: ${data["muscleMassKg"]} kg`);
-    if ("bodyWaterPct" in data) corporei.push(`Acqua corporea: ${data["bodyWaterPct"]}%`);
+  const corporei: string[] = [];
 
-    const cardiovascolare: string[] = [];
-    
-    if ("systolicBP" in data) cardiovascolare.push(`PA sistolica: ${data["systolicBP"]} mmHg`);
-    if ("diastolicBP" in data) cardiovascolare.push(`PA diastolica: ${data["diastolicBP"]} mmHg`);
+  if ("weight" in data) corporei.push(`Peso: ${data["weight"]} kg`);
+  if ("bodyFatPercentage" in data) corporei.push(`% Grasso: ${data["bodyFatPercentage"]}%`);
+  if ("muscleMassKg" in data) corporei.push(`Massa muscolare: ${data["muscleMassKg"]} kg`);
+  if ("bodyWaterPct" in data) corporei.push(`Acqua corporea: ${data["bodyWaterPct"]}%`);
 
-    const misurazioni: string[] = [];
+  const cardiovascolare: string[] = [];
 
-    if ("waistCm" in data) misurazioni.push(`Vita: ${data["waistCm"]} cm`);
-    if ("hipsCm" in data) misurazioni.push(`Fianchi: ${data["hipsCm"]} cm`);
-    if ("chestCm" in data) misurazioni.push(`Petto: ${data["chestCm"]} cm`);
-    if ("armsCm" in data) misurazioni.push(`Braccia: ${data["armsCm"]} cm`);
-    if ("thighCm" in data) misurazioni.push(`Coscia: ${data["thighCm"]} cm`);
-    if ("calvesCm" in data) misurazioni.push(`Polpaccio: ${data["calvesCm"]} cm`);
+  if ("systolicBP" in data) cardiovascolare.push(`PA sistolica: ${data["systolicBP"]} mmHg`);
+  if ("diastolicBP" in data) cardiovascolare.push(`PA diastolica: ${data["diastolicBP"]} mmHg`);
 
-    return <>
-        <span>{corporei.join(" • ")}</span>
+  const misurazioni: string[] = [];
 
-        {"notes" in data && <><br /><span>Note: {data["notes"]}</span></>}
-        {cardiovascolare.length !== 0 && <><br />{cardiovascolare.join(" • ")}</>}
-        {misurazioni.length !== 0 && <><br />{misurazioni.join(" • ")}</>}
+  if ("waistCm" in data) misurazioni.push(`Vita: ${data["waistCm"]} cm`);
+  if ("hipsCm" in data) misurazioni.push(`Fianchi: ${data["hipsCm"]} cm`);
+  if ("chestCm" in data) misurazioni.push(`Petto: ${data["chestCm"]} cm`);
+  if ("armsCm" in data) misurazioni.push(`Braccia: ${data["armsCm"]} cm`);
+  if ("thighCm" in data) misurazioni.push(`Coscia: ${data["thighCm"]} cm`);
+  if ("calvesCm" in data) misurazioni.push(`Polpaccio: ${data["calvesCm"]} cm`);
+
+  return (
+    <>
+      <span>{corporei.join(" • ")}</span>
+
+      {"notes" in data && (
+        <>
+          <br />
+          <span>Note: {data["notes"]}</span>
+        </>
+      )}
+      {cardiovascolare.length !== 0 && (
+        <>
+          <br />
+          {cardiovascolare.join(" • ")}
+        </>
+      )}
+      {misurazioni.length !== 0 && (
+        <>
+          <br />
+          {misurazioni.join(" • ")}
+        </>
+      )}
     </>
+  );
 }
 
 export default function PatientTimelinePage() {
-  const [filter, setFilter] =
-    React.useState<"ALL" | TimelineEvent["kind"]>("ALL");
+  const [filter, setFilter] = React.useState<"ALL" | TimelineEvent["kind"]>("ALL");
 
   const { data, isLoading } = useQuery<{ events: TimelineEvent[] }>({
     queryKey: ["patient-timeline"],
@@ -158,8 +168,7 @@ export default function PatientTimelinePage() {
   });
 
   const events = data?.events ?? [];
-  const filtered =
-    filter === "ALL" ? events : events.filter((e) => e.kind === filter);
+  const filtered = filter === "ALL" ? events : events.filter((e) => e.kind === filter);
 
   const grouped = React.useMemo(() => {
     const map = new Map<string, TimelineEvent[]>();
@@ -174,12 +183,9 @@ export default function PatientTimelinePage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          La tua timeline
-        </h1>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">La tua timeline</h1>
         <p className="text-muted-foreground text-sm">
-          Check-in, misurazioni, appuntamenti, referti e feedback in un
-          unico flusso.
+          Check-in, misurazioni, appuntamenti, referti e feedback in un unico flusso.
         </p>
       </header>
 
@@ -206,16 +212,14 @@ export default function PatientTimelinePage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground text-sm">
-              Nessun evento in questa categoria.
-            </p>
+            <p className="text-muted-foreground text-sm">Nessun evento in questa categoria.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
           {grouped.map(([day, items]) => (
             <section key={day} className="flex flex-col gap-2">
-              <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+              <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                 {fmtDay(day)}
               </p>
               <ul className="border-border relative flex flex-col gap-3 border-l-2 pl-4">
@@ -225,7 +229,7 @@ export default function PatientTimelinePage() {
                     <div className="flex items-start gap-3">
                       <div
                         className={cn(
-                          "-ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-background",
+                          "ring-background -ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4",
                           meta.tone,
                         )}
                       >
@@ -237,15 +241,15 @@ export default function PatientTimelinePage() {
                           <Badge variant="outline" className="text-[10px]">
                             {meta.label}
                           </Badge>
-                          <span className="text-muted-foreground text-xs">
-                            {fmtTime(e.date)}
-                          </span>
+                          <span className="text-muted-foreground text-xs">{fmtTime(e.date)}</span>
                         </div>
-                        {e.description && (
-                          <p className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap">
-                            {e.kind === "BIOMETRIC" ? getBiometricInputs(e) : e.description}
-                          </p>
-                        )}
+
+                        <p
+                          className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap data-[hidden='true']:hidden"
+                          data-hidden={e.kind !== "BIOMETRIC" && !e.description}
+                        >
+                          {e.kind === "BIOMETRIC" ? getBiometricInputs(e) : e.description}
+                        </p>
                       </div>
                     </div>
                   );

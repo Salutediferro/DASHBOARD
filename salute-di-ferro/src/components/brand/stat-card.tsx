@@ -34,11 +34,11 @@ export default function StatCard({
         role="status"
         aria-busy="true"
         aria-label={`Loading ${label}`}
-        className={cn("surface-1 p-3 md:p-4", className)}
+        className={cn("surface-1 size-full p-3 md:p-4", className)}
       >
-        <div className="relative h-3 w-24 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
-        <div className="relative mt-3 h-8 w-28 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
-        <div className="relative mt-4 h-7 w-full overflow-hidden rounded bg-muted/60 skeleton-shimmer md:h-10" />
+        <div className="bg-muted/60 skeleton-shimmer relative h-3 w-24 overflow-hidden rounded" />
+        <div className="bg-muted/60 skeleton-shimmer relative mt-3 h-8 w-28 overflow-hidden rounded" />
+        <div className="bg-muted/60 skeleton-shimmer relative mt-4 h-7 w-full overflow-hidden rounded md:h-10" />
       </div>
     );
   }
@@ -53,7 +53,7 @@ export default function StatCard({
   const data = trend?.map((v, i) => ({ i, v })) ?? [];
 
   return (
-    <div className={cn("surface-1 p-3 md:p-4", className)}>
+    <div className={cn("surface-1 flex size-full flex-col p-3 md:p-4", className)}>
       {/* Label: was text-[11px] uppercase tracking-wide — barely legible on
           360px. Bumped to text-xs (12px) normal-case; still compact on
           desktop, breathes on mobile. */}
@@ -61,11 +61,7 @@ export default function StatCard({
       <div className="mt-1 flex items-baseline justify-between gap-2">
         <span className="text-display text-2xl tabular-nums md:text-3xl">
           {value}
-          {unit && (
-            <span className="ml-1 text-sm font-normal text-muted-foreground">
-              {unit}
-            </span>
-          )}
+          {unit && <span className="text-muted-foreground ml-1 text-sm font-normal">{unit}</span>}
         </span>
         {hasDelta && (
           <span
@@ -85,12 +81,9 @@ export default function StatCard({
       {trend && trend.length > 1 && (
         // Sparkline: was h-10 (40px) on mobile — disproportionate vs the
         // 2-line header. Shrunk to h-7 on mobile, unchanged on desktop.
-        <div className="mt-2 h-7 w-full md:mt-3 md:h-10">
+        <div className="mt-2 w-full grow md:mt-3">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={data}
-              margin={{ top: 2, right: 0, bottom: 0, left: 0 }}
-            >
+            <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#b22222" stopOpacity={0.4} />
