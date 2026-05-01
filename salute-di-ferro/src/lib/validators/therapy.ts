@@ -9,54 +9,25 @@ const daysOfWeekSchema = z.preprocess(
   z.array(z.nativeEnum(DayOfWeek)).max(7).optional(),
 );
 
-const nullableDate = z.preprocess(
-  (v) => {
-    if (v == null) return null;
-    if (typeof v !== "string") return v;
-    return v === "" ? null : v;
-  },
-  z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD richiesto")
-    .nullable()
-    .optional(),
-);
-
-const nullableTime = z.preprocess(
-  (v) => {
-    if (v == null) return null;
-    if (typeof v !== "string") return v;
-    return v === "" ? null : v;
-  },
-  z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "Formato HH:MM richiesto")
-    .nullable()
-    .optional(),
-);
-
 const nullableString = (max: number) =>
-  z.preprocess(
-    (v) => {
-      if (v == null) return null;
-      if (typeof v !== "string") return v;
-      const t = v.trim();
-      return t === "" ? null : t;
-    },
-    z.string().max(max).nullable().optional(),
-  );
+  z.preprocess((v) => {
+    if (v == null) return null;
+    if (typeof v !== "string") return v;
+    const t = v.trim();
+    return t === "" ? null : t;
+  }, z.string().max(max).nullable().optional());
 
 export const createTherapySchema = z.object({
   patientId: z.string().uuid().optional(),
-  kind: z.nativeEnum(TherapyKind),
+  kind: z.enum(TherapyKind),
   name: z.string().trim().min(1).max(120),
   dose: nullableString(80),
   frequency: nullableString(120),
   notes: nullableString(500),
-  startDate: nullableDate,
-  endDate: nullableDate,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().nullable(),
   active: z.boolean().optional(),
-  reminderTime: nullableTime,
+  reminderTime: z.iso.time().nullable(),
   reminderEnabled: z.boolean().optional(),
   // Empty/omitted = every day. Only honoured for SELF items in the service.
   daysOfWeek: daysOfWeekSchema,
@@ -70,10 +41,10 @@ export const updateTherapySchema = z.object({
   dose: nullableString(80),
   frequency: nullableString(120),
   notes: nullableString(500),
-  startDate: nullableDate,
-  endDate: nullableDate,
+  startDate: z.iso.date(),
+  endDate: z.iso.date().nullable(),
   active: z.boolean().optional(),
-  reminderTime: nullableTime,
+  reminderTime: z.iso.time().nullable(),
   reminderEnabled: z.boolean().optional(),
   daysOfWeek: daysOfWeekSchema,
 });

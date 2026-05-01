@@ -20,12 +20,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -139,6 +134,16 @@ function fmtTime(iso: string | null): string | null {
   const hh = String(d.getUTCHours()).padStart(2, "0");
   const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
+}
+
+function toIsoDate(date: string | null) {
+  if (!date) return null;
+  return new Date(date).toISOString().split("T")[0];
+}
+
+function toIsoTime(time: string | null) {
+  if (!time) return null;
+  return new Date(time).toISOString().slice(11, 16);
 }
 
 export default function PatientSupplementiPage() {
@@ -297,19 +302,18 @@ export default function PatientSupplementiPage() {
   });
 
   const reminderMutation = useMutation({
-    mutationFn: async (args: {
-      id: string;
-      reminderEnabled: boolean;
-      reminderTime: string | null;
-    }) => {
-      const res = await fetch(`/api/therapy/${args.id}`, {
+    mutationFn: async (item: TherapySelfItem) => {
+      const res = await fetch(`/api/therapy/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reminderEnabled: args.reminderEnabled,
-          reminderTime: args.reminderTime,
+          ...item,
+          startDate: item.startDate ? toIsoDate(item.startDate) : null,
+          endDate: item.endDate ? toIsoDate(item.endDate) : null,
+          reminderTime: item.reminderTime ? toIsoTime(item.reminderTime) : null,
         }),
       });
+
       if (!res.ok) throw new Error("Errore");
       return res.json();
     },
@@ -436,9 +440,7 @@ export default function PatientSupplementiPage() {
           meds={dueToday}
           intakeByItem={intakeByItem}
           loading={intakeToday.isLoading}
-          onMark={(itemId, taken) =>
-            intakeMutation.mutate({ itemId, taken })
-          }
+          onMark={(itemId, taken) => intakeMutation.mutate({ itemId, taken })}
         />
       )}
 
@@ -475,9 +477,7 @@ export default function PatientSupplementiPage() {
                   id="frequency"
                   placeholder="Es. 1 volta al giorno la sera"
                   value={form.frequency}
-                  onChange={(e) =>
-                    setForm({ ...form, frequency: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
                 />
               </div>
 
@@ -488,8 +488,8 @@ export default function PatientSupplementiPage() {
                   onChange={(next) => setForm({ ...form, daysOfWeek: next })}
                 />
                 <p className="text-muted-foreground mt-1.5 text-xs">
-                  Se non selezioni nessun giorno il supplemento vale per ogni
-                  giorno della settimana.
+                  Se non selezioni nessun giorno il supplemento vale per ogni giorno della
+                  settimana.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -498,9 +498,7 @@ export default function PatientSupplementiPage() {
                   id="startDate"
                   type="date"
                   value={form.startDate}
-                  onChange={(e) =>
-                    setForm({ ...form, startDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -509,9 +507,7 @@ export default function PatientSupplementiPage() {
                   id="endDate"
                   type="date"
                   value={form.endDate}
-                  onChange={(e) =>
-                    setForm({ ...form, endDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-1.5 md:col-span-2">
@@ -532,16 +528,14 @@ export default function PatientSupplementiPage() {
                     <div>
                       <p className="text-sm font-medium">Promemoria giornaliero</p>
                       <p className="text-muted-foreground text-xs">
-                        Riceverai una notifica all&apos;orario impostato ogni
-                        giorno mentre la pagina è aperta.
+                        Riceverai una notifica all&apos;orario impostato ogni giorno mentre la
+                        pagina è aperta.
                       </p>
                     </div>
                   </div>
                   <Switch
                     checked={form.reminderEnabled}
-                    onCheckedChange={(checked) =>
-                      setForm({ ...form, reminderEnabled: checked })
-                    }
+                    onCheckedChange={(checked) => setForm({ ...form, reminderEnabled: checked })}
                   />
                 </div>
                 {form.reminderEnabled && (
@@ -553,9 +547,7 @@ export default function PatientSupplementiPage() {
                       id="reminderTime"
                       type="time"
                       value={form.reminderTime}
-                      onChange={(e) =>
-                        setForm({ ...form, reminderTime: e.target.value })
-                      }
+                      onChange={(e) => setForm({ ...form, reminderTime: e.target.value })}
                       className="w-36"
                     />
                   </div>
@@ -563,12 +555,7 @@ export default function PatientSupplementiPage() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                disabled={saving}
-              >
+              <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
                 Annulla
               </Button>
               <Button type="button" onClick={submit} disabled={saving}>
@@ -588,9 +575,7 @@ export default function PatientSupplementiPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Pill className="text-muted-foreground h-10 w-10" />
-            <p className="text-muted-foreground text-sm">
-              Nessun supplemento registrato.
-            </p>
+            <p className="text-muted-foreground text-sm">Nessun supplemento registrato.</p>
             <Button type="button" onClick={() => setShowForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Aggiungi il primo
@@ -604,22 +589,15 @@ export default function PatientSupplementiPage() {
             empty="Nessun supplemento attivo."
             meds={active}
             onEdit={startEdit}
-            onToggleActive={(id, a) =>
-              toggleMutation.mutate({ id, active: a })
-            }
+            onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
             onToggleReminder={async (item, enabled) => {
               if (enabled && !item.reminderTime) {
-                toast.error(
-                  "Imposta prima l'orario modificando il supplemento",
-                );
+                toast.error("Imposta prima l'orario modificando il supplemento");
                 return;
               }
+
               if (enabled) await ensureNotificationPermission();
-              reminderMutation.mutate({
-                id: item.id,
-                reminderEnabled: enabled,
-                reminderTime: item.reminderTime,
-              });
+              reminderMutation.mutate({ ...item, reminderEnabled: enabled });
             }}
             onDelete={(id) => {
               if (confirm("Rimuovere definitivamente questo supplemento?")) {
@@ -633,9 +611,7 @@ export default function PatientSupplementiPage() {
               empty=""
               meds={archived}
               onEdit={startEdit}
-              onToggleActive={(id, a) =>
-                toggleMutation.mutate({ id, active: a })
-              }
+              onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
               onToggleReminder={() => {
                 /* archived items cannot ring */
               }}
@@ -708,8 +684,7 @@ function TodayCheckCard({
       <CardHeader>
         <CardTitle className="text-base">Oggi</CardTitle>
         <p className="text-muted-foreground text-xs">
-          Segna i supplementi che hai assunto oggi. Lo storico resta nel tuo
-          diario.
+          Segna i supplementi che hai assunto oggi. Lo storico resta nel tuo diario.
         </p>
       </CardHeader>
       <CardContent className="p-0">
@@ -727,20 +702,13 @@ function TodayCheckCard({
                   : "skipped"
                 : "pending";
               return (
-                <li
-                  key={m.id}
-                  className="flex flex-wrap items-center gap-3 px-4 py-3"
-                >
+                <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
                     <Pill className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{m.name}</p>
-                    {m.dose && (
-                      <p className="text-muted-foreground text-xs">
-                        {m.dose}
-                      </p>
-                    )}
+                    {m.dose && <p className="text-muted-foreground text-xs">{m.dose}</p>}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -843,9 +811,7 @@ function MedSection({
                       )}
                     </div>
                     {m.frequency && (
-                      <p className="text-muted-foreground mt-0.5 text-xs">
-                        {m.frequency}
-                      </p>
+                      <p className="text-muted-foreground mt-0.5 text-xs">{m.frequency}</p>
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       {(m.daysOfWeek?.length ?? 0) === 0 ? (
@@ -853,14 +819,8 @@ function MedSection({
                           Ogni giorno
                         </Badge>
                       ) : (
-                        WEEKDAYS.filter((w) =>
-                          m.daysOfWeek.includes(w.day),
-                        ).map((w) => (
-                          <Badge
-                            key={w.day}
-                            variant="outline"
-                            className="text-[10px]"
-                          >
+                        WEEKDAYS.filter((w) => m.daysOfWeek.includes(w.day)).map((w) => (
+                          <Badge key={w.day} variant="outline" className="text-[10px]">
                             {w.short}
                           </Badge>
                         ))
@@ -870,11 +830,7 @@ function MedSection({
                       Dal {fmtDate(m.startDate)}
                       {m.endDate && ` al ${fmtDate(m.endDate)}`}
                     </p>
-                    {m.notes && (
-                      <p className="mt-1 text-xs whitespace-pre-wrap">
-                        {m.notes}
-                      </p>
-                    )}
+                    {m.notes && <p className="mt-1 text-xs whitespace-pre-wrap">{m.notes}</p>}
                   </div>
                   <div className="flex items-center gap-1">
                     {m.active && time && (
@@ -883,15 +839,9 @@ function MedSection({
                         onClick={() => onToggleReminder(m, !m.reminderEnabled)}
                         className="hover:bg-muted text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs"
                         aria-label={
-                          m.reminderEnabled
-                            ? "Disattiva promemoria"
-                            : "Attiva promemoria"
+                          m.reminderEnabled ? "Disattiva promemoria" : "Attiva promemoria"
                         }
-                        title={
-                          m.reminderEnabled
-                            ? "Disattiva promemoria"
-                            : "Attiva promemoria"
-                        }
+                        title={m.reminderEnabled ? "Disattiva promemoria" : "Attiva promemoria"}
                       >
                         {m.reminderEnabled ? (
                           <Bell className="h-3.5 w-3.5" />

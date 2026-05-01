@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { updateTherapySchema } from "@/lib/validators/therapy";
-import {
-  TherapyError,
-  deleteTherapy,
-  updateTherapy,
-} from "@/lib/services/therapy";
+import { TherapyError, deleteTherapy, updateTherapy } from "@/lib/services/therapy";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,6 +22,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const { id } = await params;
   const body = await req.json();
   const parsed = updateTherapySchema.safeParse(body);
+
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
@@ -81,9 +78,6 @@ function therapyErrorResponse(e: unknown) {
   // Unknown error: return a JSON 500 so the UI can surface the real
   // message. See `src/app/api/therapy/route.ts` for the why.
   console.error("[therapy/id] unexpected error", e);
-  const msg =
-    e instanceof Error && e.message
-      ? e.message
-      : "Errore interno nel salvataggio";
+  const msg = e instanceof Error && e.message ? e.message : "Errore interno nel salvataggio";
   return NextResponse.json({ error: msg }, { status: 500 });
 }
