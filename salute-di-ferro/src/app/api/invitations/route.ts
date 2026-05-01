@@ -65,10 +65,7 @@ export async function POST(req: Request) {
   const json = await req.json().catch(() => ({}));
   const parsed = createInvitationSchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   }
 
   const { email, firstName, lastName, note, expiresInDays } = parsed.data;
@@ -76,8 +73,7 @@ export async function POST(req: Request) {
   // Map caller role (DOCTOR|COACH|...) to the invite's professionalRole.
   // requireProfessional() already narrowed role to DOCTOR|COACH, but keep
   // an explicit guard so the cast is obviously safe.
-  const professionalRole: ProfessionalRole =
-    pro.role === "DOCTOR" ? "DOCTOR" : "COACH";
+  const professionalRole: ProfessionalRole = pro.role === "DOCTOR" ? "DOCTOR" : "COACH";
 
   const days = expiresInDays ?? 14;
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -147,16 +143,11 @@ export async function POST(req: Request) {
     } else {
       emailStatus = "failed";
       emailError = result.error;
-      console.error(
-        `[invitations] email send failed for invite ${invite.id}: ${result.error}`,
-      );
+      console.error(`[invitations] email send failed for invite ${invite.id}: ${result.error}`);
     }
   }
 
-  return NextResponse.json(
-    { ...invite, emailStatus, emailError },
-    { status: 201 },
-  );
+  return NextResponse.json({ ...invite, emailStatus, emailError }, { status: 201 });
 }
 
 /**

@@ -6,22 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import {
-  Loader2,
-  LogOut,
-  Save,
-  Trash2,
-  Upload,
-  User as UserIcon,
-} from "lucide-react";
-
+import { Loader2, LogOut, Save, Trash2, Upload, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useWatch } from "react-hook-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,10 +22,7 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/hooks/use-user";
-import {
-  profileFormSchema,
-  type ProfileFormInput,
-} from "@/lib/validators/profile";
+import { profileFormSchema, type ProfileFormInput } from "@/lib/validators/profile";
 
 type Props = {
   /** Whether to show the clinical section (patient-only fields). */
@@ -102,6 +87,15 @@ export function ProfileForm({
     },
   });
 
+  const firstName = useWatch({ control: form.control, name: "firstName" });
+  const lastName = useWatch({ control: form.control, name: "lastName" });
+  const birthDate = useWatch({ control: form.control, name: "birthDate" });
+
+  const sex = useWatch({
+    control: form.control,
+    name: "sex",
+  });
+
   // Hydrate the form once the profile fetch resolves.
   React.useEffect(() => {
     if (!profile) return;
@@ -138,9 +132,7 @@ export function ProfileForm({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof body.error === "string" ? body.error : "Errore salvataggio",
-        );
+        throw new Error(typeof body.error === "string" ? body.error : "Errore salvataggio");
       }
       return res.json();
     },
@@ -158,9 +150,7 @@ export function ProfileForm({
       const res = await fetch("/api/me/avatar", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof body.error === "string" ? body.error : "Upload fallito",
-        );
+        throw new Error(typeof body.error === "string" ? body.error : "Upload fallito");
       }
       return res.json() as Promise<{ avatarUrl: string | null }>;
     },
@@ -198,71 +188,65 @@ export function ProfileForm({
     );
   }
 
-  const watched = form.watch();
-  const displayName =
-    [watched.firstName, watched.lastName].filter(Boolean).join(" ") ||
-    profile.fullName ||
-    "";
-  const age = computeAge(watched.birthDate ?? null);
+  const displayName = [firstName, lastName].filter(Boolean).join(" ") || profile.fullName || "";
+  const age = computeAge(birthDate ?? null);
 
   return (
     <div className="flex flex-col gap-6 pb-10">
       {!hideHeader && (
-      <header className="flex items-center gap-4">
-        <Avatar className="size-20">
-          {profile.avatarUrl && (
-            <AvatarImage src={profile.avatarUrl} alt={displayName} />
-          )}
-          <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
-            {initials(displayName, profile.email)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="font-heading truncate text-2xl font-semibold tracking-tight">
-            {displayName || "Profilo"}
-          </h1>
-          <p className="text-muted-foreground truncate text-xs">
-            {profile.email} · {profile.role}
-          </p>
-          <div className="mt-2 flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/heic"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) avatarMutation.mutate(f);
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={avatarMutation.isPending}
-              className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
-            >
-              {avatarMutation.isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Upload className="h-3 w-3" />
-              )}
-              Carica avatar
-            </button>
-            {profile.avatarUrl && (
+        <header className="flex items-center gap-4">
+          <Avatar className="size-20">
+            {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} alt={displayName} />}
+            <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+              {initials(displayName, profile.email)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h1 className="font-heading truncate text-2xl font-semibold tracking-tight">
+              {displayName || "Profilo"}
+            </h1>
+            <p className="text-muted-foreground truncate text-xs">
+              {profile.email} · {profile.role}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) avatarMutation.mutate(f);
+                  e.target.value = "";
+                }}
+              />
               <button
                 type="button"
-                onClick={() => removeAvatarMutation.mutate()}
-                disabled={removeAvatarMutation.isPending}
-                className="text-destructive hover:bg-destructive/10 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarMutation.isPending}
+                className="border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
               >
-                <Trash2 className="h-3 w-3" />
-                Rimuovi
+                {avatarMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Upload className="h-3 w-3" />
+                )}
+                Carica avatar
               </button>
-            )}
+              {profile.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => removeAvatarMutation.mutate()}
+                  disabled={removeAvatarMutation.isPending}
+                  className="text-destructive hover:bg-destructive/10 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Rimuovi
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
       )}
 
       <form
@@ -311,12 +295,9 @@ export function ProfileForm({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sex">Sesso</Label>
                 <Select
-                  value={form.watch("sex") ?? ""}
+                  value={sex ?? ""}
                   onValueChange={(v) =>
-                    form.setValue(
-                      "sex",
-                      (v as "MALE" | "FEMALE" | "OTHER") || null,
-                    )
+                    form.setValue("sex", (v as "MALE" | "FEMALE" | "OTHER") || null)
                   }
                 >
                   <SelectTrigger id="sex">
@@ -331,11 +312,7 @@ export function ProfileForm({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="birthDate">Data di nascita</Label>
-                <Input
-                  id="birthDate"
-                  type="date"
-                  {...form.register("birthDate")}
-                />
+                <Input id="birthDate" type="date" {...form.register("birthDate")} />
                 {form.formState.errors.birthDate && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.birthDate.message}
@@ -382,9 +359,7 @@ export function ProfileForm({
                   {...form.register("phone")}
                 />
                 {form.formState.errors.phone && (
-                  <p className="text-destructive text-sm">
-                    {form.formState.errors.phone.message}
-                  </p>
+                  <p className="text-destructive text-sm">{form.formState.errors.phone.message}</p>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
@@ -434,9 +409,7 @@ export function ProfileForm({
         {showProfessional && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Profilo pubblico
-              </CardTitle>
+              <CardTitle className="text-base">Profilo pubblico</CardTitle>
               <p className="text-muted-foreground text-xs">
                 Visibile ai clienti collegati. Aiuta a costruire fiducia.
               </p>
@@ -469,15 +442,11 @@ export function ProfileForm({
         {showClinical && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Informazioni cliniche
-              </CardTitle>
+              <CardTitle className="text-base">Informazioni cliniche</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="medicalConditions">
-                  Patologie / condizioni
-                </Label>
+                <Label htmlFor="medicalConditions">Patologie / condizioni</Label>
                 <Textarea
                   id="medicalConditions"
                   rows={3}
@@ -511,13 +480,11 @@ export function ProfileForm({
                   step="0.1"
                   placeholder="Es. 72.0"
                   {...form.register("targetWeightKg", {
-                    setValueAs: (v) =>
-                      v === "" || v == null ? null : Number(v),
+                    setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
                   })}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Opzionale. Sarà mostrato come barra di progresso rispetto
-                  al peso più recente.
+                  Opzionale. Sarà mostrato come barra di progresso rispetto al peso più recente.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -533,7 +500,7 @@ export function ProfileForm({
           </Card>
         )}
 
-        <div className="sticky -bottom-8 pr-2.5 -mx-px flex flex-wrap items-center justify-end gap-3 border-t border-border bg-background/80 py-3 backdrop-blur">
+        <div className="border-border bg-background/80 sticky -bottom-8 -mx-px flex flex-wrap items-center justify-end gap-3 border-t py-3 pr-2.5 backdrop-blur">
           <button
             type="button"
             onClick={logout}

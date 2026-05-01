@@ -141,11 +141,14 @@ export function HealthRingRow({ items, profile }: HealthRingRowProps) {
   );
 
   const onToggle = useCallback(
-    (key: PrimaryKey) => {
-      if (metrics.includes(key)) setMetrics(metrics.filter((k) => k !== key));
-      else setMetrics([...metrics, key]);
-    },
-    [metrics],
+    (key: PrimaryKey) =>
+      setMetrics((m) => {
+        if (typeof m === "undefined") return [];
+
+        if (m.includes(key)) return m.filter((k) => k !== key);
+        return [...m, key];
+      }),
+    [setMetrics],
   );
 
   return (
