@@ -4,14 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 type TimelineEvent = {
   id: string;
-  kind:
-    | "CHECK_IN"
-    | "BIOMETRIC"
-    | "APPOINTMENT"
-    | "REPORT"
-    | "FEEDBACK"
-    | "MEDICATION"
-    | "SYMPTOM";
+  kind: "CHECK_IN" | "BIOMETRIC" | "APPOINTMENT" | "REPORT" | "FEEDBACK" | "MEDICATION" | "SYMPTOM";
   date: string;
   title: string;
   description: string | null;
@@ -44,8 +37,7 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [checkIns, biometrics, appointments, reports, medications, symptoms] =
-    await Promise.all([
+  const [checkIns, biometrics, appointments, reports, medications, symptoms] = await Promise.all([
     prisma.checkIn.findMany({
       where: { patientId: me.id },
       orderBy: { date: "desc" },
@@ -64,23 +56,6 @@ export async function GET() {
       where: { patientId: me.id },
       orderBy: { date: "desc" },
       take: 30,
-      select: {
-        id: true,
-        date: true,
-        weight: true,
-        systolicBP: true,
-        diastolicBP: true,
-        bodyFatPercentage: true,
-        muscleMassKg: true,
-        bodyWaterPct: true,
-        notes: true,
-        waistCm: true,
-        hipsCm: true,
-        chestCm: true,
-        armsCm: true,
-        thighCm: true,
-        calvesCm: true,
-      },
     }),
     prisma.appointment.findMany({
       where: { patientId: me.id },
@@ -144,13 +119,14 @@ export async function GET() {
       kind: "CHECK_IN",
       date: c.date.toISOString(),
       title: "Check-in settimanale",
-      description: [
-        c.weight != null ? `${c.weight.toFixed(1)} kg` : null,
-        c.rating != null ? `rating ${c.rating}/5` : null,
-        c.notes ? `"${c.notes.slice(0, 80)}${c.notes.length > 80 ? "…" : ""}"` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ") || null,
+      description:
+        [
+          c.weight != null ? `${c.weight.toFixed(1)} kg` : null,
+          c.rating != null ? `rating ${c.rating}/5` : null,
+          c.notes ? `"${c.notes.slice(0, 80)}${c.notes.length > 80 ? "…" : ""}"` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
       href: "/dashboard/patient",
       meta: { status: c.status },
     });
@@ -168,9 +144,10 @@ export async function GET() {
   }
 
   for (const { id, date, ...data } of biometrics) {
-    const changed = Object.entries(data).filter(([_, value]) => (value !== null)) as [string, number][];
-
-    console.log(changed)
+    const changed = Object.entries(data).filter(([_, value]) => value !== null) as [
+      string,
+      number,
+    ][];
 
     events.push({
       id: `biometric:${id}`,
@@ -196,7 +173,7 @@ export async function GET() {
             : a.status === "CANCELED"
               ? "Appuntamento annullato"
               : "Appuntamento",
-      description: `${a.type} · ${a.professional?.fullName ?? "—"}`,
+      description: `${a.type.replaceAll("_", " ")} · ${a.professional?.fullName ?? "—"}`,
       href: "/dashboard/patient/appointments",
       meta: { status: a.status },
     });
@@ -219,9 +196,7 @@ export async function GET() {
       id: `med:${m.id}`,
       kind: "MEDICATION",
       date: (m.startDate ?? m.createdAt).toISOString(),
-      title: m.active
-        ? `Supplemento avviato: ${m.name}`
-        : `Supplemento archiviato: ${m.name}`,
+      title: m.active ? `Supplemento avviato: ${m.name}` : `Supplemento archiviato: ${m.name}`,
       description: [m.dose, m.frequency].filter(Boolean).join(" · ") || null,
       href: "/dashboard/patient/supplementi",
       meta: { active: m.active },

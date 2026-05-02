@@ -30,7 +30,7 @@ function progressLowerBetter(current: number | null, target: number | null): num
   return Math.max(0, Math.min(1, target / current));
 }
 
-function getMapping(key: PrimaryKey) {
+export function getMapping(key: PrimaryKey): MetricConfig | undefined {
   const values = Object.values(METRICS)
     .map((o) => Object.entries(o))
     .flat();
@@ -85,9 +85,9 @@ interface HealthRingRowProps {
   profile: PatientProfile;
 }
 
-type MetricConfig = { label: string; unit?: string };
+export type MetricConfig = { label: string; unit?: string };
 
-const METRICS: Record<string, Partial<Record<PrimaryKey, MetricConfig>>> = {
+export const METRICS: Record<string, Partial<Record<PrimaryKey, MetricConfig>>> = {
   Corporei: {
     weight: { label: "Peso", unit: "kg" },
     bmi: { label: "BMI" },

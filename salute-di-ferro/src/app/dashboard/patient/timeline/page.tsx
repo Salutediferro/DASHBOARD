@@ -17,6 +17,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { PrimaryKey } from "@/components/health/health-tabs";
+import { getMapping, METRICS, type MetricConfig } from "@/components/health/health-ring-row";
 
 type TimelineEvent = {
   id: string;
@@ -105,54 +107,26 @@ function fmtTime(iso: string) {
 function getBiometricInputs(event: TimelineEvent) {
   if (!event.description) return "Misurazione vuota";
 
-  const data = JSON.parse(event.description);
+  const data = JSON.parse(event.description) as Record<PrimaryKey, number>;
   if (Object.entries(data).length === 0) return "Misurazione avanzata";
 
-  const corporei: string[] = [];
+  const modified = Object.entries(data)
+    .map(
+      ([key, value]) =>
+        [value, getMapping(key as PrimaryKey)] as [number, MetricConfig | undefined],
+    )
+    .filter((e) => typeof e[1] !== "undefined");
 
-  if ("weight" in data) corporei.push(`Peso: ${data["weight"]} kg`);
-  if ("bodyFatPercentage" in data) corporei.push(`% Grasso: ${data["bodyFatPercentage"]}%`);
-  if ("muscleMassKg" in data) corporei.push(`Massa muscolare: ${data["muscleMassKg"]} kg`);
-  if ("bodyWaterPct" in data) corporei.push(`Acqua corporea: ${data["bodyWaterPct"]}%`);
+  return modified.map(([value, mapping], index) => (
+    <React.Fragment key={index}>
+      <span>
+        {mapping?.label}: {value.toFixed(2)}
+        {mapping?.unit && ` ${mapping.unit}`}
+      </span>
 
-  const cardiovascolare: string[] = [];
-
-  if ("systolicBP" in data) cardiovascolare.push(`PA sistolica: ${data["systolicBP"]} mmHg`);
-  if ("diastolicBP" in data) cardiovascolare.push(`PA diastolica: ${data["diastolicBP"]} mmHg`);
-
-  const misurazioni: string[] = [];
-
-  if ("waistCm" in data) misurazioni.push(`Vita: ${data["waistCm"]} cm`);
-  if ("hipsCm" in data) misurazioni.push(`Fianchi: ${data["hipsCm"]} cm`);
-  if ("chestCm" in data) misurazioni.push(`Petto: ${data["chestCm"]} cm`);
-  if ("armsCm" in data) misurazioni.push(`Braccia: ${data["armsCm"]} cm`);
-  if ("thighCm" in data) misurazioni.push(`Coscia: ${data["thighCm"]} cm`);
-  if ("calvesCm" in data) misurazioni.push(`Polpaccio: ${data["calvesCm"]} cm`);
-
-  return (
-    <>
-      <span>{corporei.join(" • ")}</span>
-
-      {"notes" in data && (
-        <>
-          <br />
-          <span>Note: {data["notes"]}</span>
-        </>
-      )}
-      {cardiovascolare.length !== 0 && (
-        <>
-          <br />
-          {cardiovascolare.join(" • ")}
-        </>
-      )}
-      {misurazioni.length !== 0 && (
-        <>
-          <br />
-          {misurazioni.join(" • ")}
-        </>
-      )}
-    </>
-  );
+      {index !== modified.length - 1 && <span>{" • "}</span>}
+    </React.Fragment>
+  ));
 }
 
 export default function PatientTimelinePage() {
@@ -245,7 +219,7 @@ export default function PatientTimelinePage() {
                         </div>
 
                         <p
-                          className="text-muted-foreground mt-0.5 text-xs whitespace-pre-wrap data-[hidden='true']:hidden"
+                          className="text-muted-foreground mt-0.5 max-w-xl text-xs whitespace-pre-wrap data-[hidden='true']:hidden"
                           data-hidden={e.kind !== "BIOMETRIC" && !e.description}
                         >
                           {e.kind === "BIOMETRIC" ? getBiometricInputs(e) : e.description}
