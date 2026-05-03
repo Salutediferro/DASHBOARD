@@ -2,6 +2,7 @@
 
 import type { BiometricLogDTO } from "@/lib/hooks/use-biometrics";
 import { SectionHeader } from "../brand";
+import { SortableCard } from "../sortable-card";
 import { MetricRingCard, type RingMetric } from "./metric-ring-card";
 import type { PatientProfile, PrimaryKey } from "./health-tabs";
 import { useCallback, useMemo, useState } from "react";
@@ -15,6 +16,15 @@ import {
 } from "../ui/dialog";
 import { Edit } from "lucide-react";
 import { useLocalStorageState } from "ahooks";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 
 function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
   for (const r of items) {
@@ -151,6 +161,25 @@ export function HealthRingRow({ items, profile }: HealthRingRowProps) {
     [setMetrics],
   );
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDragEnd = useCallback(
+    (e: DragEndEvent) => {
+      const { active, over } = e;
+      if (!over || active.id === over.id) return;
+      setMetrics((m) => {
+        const arr = m ?? [];
+        const from = arr.indexOf(active.id as PrimaryKey);
+        const to = arr.indexOf(over.id as PrimaryKey);
+        if (from < 0 || to < 0) return arr;
+        return arrayMove(arr, from, to);
+      });
+    },
+    [setMetrics],
+  );
+
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-row items-center justify-between">
@@ -202,11 +231,17 @@ export function HealthRingRow({ items, profile }: HealthRingRowProps) {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {rings.map((r) => (
-          <MetricRingCard key={r.name} metric={r} />
-        ))}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={rings.map((r) => r.name)} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {rings.map((r) => (
+              <SortableCard key={r.name} id={r.name}>
+                <MetricRingCard metric={r} />
+              </SortableCard>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </section>
   );
 }

@@ -289,11 +289,12 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
             <div className="flex items-center gap-2">
               <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                 <DialogTrigger
-                  className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors"
-                  aria-label="Scegli quali parametri mostrare"
-                  title="Scegli quali parametri mostrare"
+                  className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
+                  aria-label="Personalizza parametri"
+                  title="Personalizza parametri"
                 >
                   <Settings className="h-4 w-4" aria-hidden />
+                  Personalizza
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
