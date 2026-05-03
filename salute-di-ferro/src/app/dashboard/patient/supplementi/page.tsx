@@ -10,6 +10,7 @@ import {
   BellOff,
   Check,
   CheckCircle2,
+  Flame,
   Loader2,
   Pencil,
   Pill,
@@ -82,6 +83,8 @@ const EMPTY_FORM: FormState = {
 
 const QUERY_KEY = ["therapy", "SELF"] as const;
 export const INTAKE_KEY = ["therapy", "intake", "today"] as const;
+export const INTAKE_WEEK_KEY = ["therapy", "intake", "week"] as const;
+export const INTAKE_WEEK_DAYS = 7;
 export const intakesKey = (medId: string) => ["therapy", "intake", "singular", medId] as const;
 
 const WEEKDAYS: { day: DayOfWeek; label: string; short: string }[] = [
@@ -149,6 +152,52 @@ function toIsoTime(time: string | null) {
   return new Date(time).toISOString().slice(11, 16);
 }
 
+/**
+ * Replace any existing entry for (itemId, date) in an intake list with
+ * the given values. Preserves the prior `notes` when the caller didn't
+ * pass one (so toggling Assunto/Non assunto from a button doesn't wipe
+ * a saved note). Used by every mutation cache mirror so today / dialog /
+ * week caches stay in sync.
+ */
+export function upsertIntakeInItems(
+  items: TherapyIntakeItem[],
+  payload: { itemId: string; date: string; taken: boolean; notes?: string | null },
+): TherapyIntakeItem[] {
+  const previous = items.find(
+    (i) => i.itemId === payload.itemId && toIsoDate(i.date as unknown as string) === payload.date,
+  );
+  const others = items.filter(
+    (i) =>
+      !(i.itemId === payload.itemId && toIsoDate(i.date as unknown as string) === payload.date),
+  );
+  return [
+    ...others,
+    {
+      id: previous?.id ?? `optimistic-${payload.itemId}-${payload.date}`,
+      itemId: payload.itemId,
+      date: payload.date,
+      taken: payload.taken,
+      notes: payload.notes !== undefined ? payload.notes : (previous?.notes ?? null),
+    },
+  ];
+}
+
+/** Inclusive last-N calendar days, oldest first. */
+export function lastNDays(n: number): { iso: string; weekday: DayOfWeek; date: Date }[] {
+  const today = new Date();
+  const out: { iso: string; weekday: DayOfWeek; date: Date }[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    out.push({
+      iso: toIsoDate(d.toISOString())!,
+      weekday: WEEKDAY_AT[d.getDay()],
+      date: d,
+    });
+  }
+  return out;
+}
+
 export default function PatientSupplementiPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = React.useState(false);
@@ -169,6 +218,19 @@ export default function PatientSupplementiPage() {
     queryFn: async () => {
       const d = todayIsoDate();
       const res = await fetch(`/api/therapy/intake?from=${d}&to=${d}`);
+      if (!res.ok) throw new Error("Errore caricamento");
+      return res.json();
+    },
+  });
+
+  const intakeWeek = useQuery<{ items: TherapyIntakeItem[] }>({
+    queryKey: INTAKE_WEEK_KEY,
+    queryFn: async () => {
+      const to = todayIsoDate();
+      const fromD = new Date();
+      fromD.setDate(fromD.getDate() - (INTAKE_WEEK_DAYS - 1));
+      const from = toIsoDate(fromD.toISOString())!;
+      const res = await fetch(`/api/therapy/intake?from=${from}&to=${to}`);
       if (!res.ok) throw new Error("Errore caricamento");
       return res.json();
     },
@@ -253,62 +315,36 @@ export default function PatientSupplementiPage() {
 
       await qc.cancelQueries({ queryKey: INTAKE_KEY });
       await qc.cancelQueries({ queryKey: dialogKey });
+      await qc.cancelQueries({ queryKey: INTAKE_WEEK_KEY });
 
       const prev = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY);
       const prevDialog = qc.getQueryData<{ items: TherapyIntakeItem[] }>(dialogKey);
+      const prevWeek = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY);
 
-      qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => {
-        const existing = old?.items ?? [];
-        const previous = existing.find((i) => i.itemId === itemId);
-        const others = existing.filter((i) => i.itemId !== itemId);
-        return {
-          items: [
-            ...others,
-            {
-              id: previous?.id ?? `optimistic-${itemId}`,
-              itemId,
-              date: today,
-              taken,
-              notes: notes !== undefined ? notes : (previous?.notes ?? null),
-            },
-          ],
-        };
-      });
+      const payload = { itemId, date: today, taken, notes };
 
-      // Mirror into the per-supplement cache (used by AssumptionDialog) so
-      // an open dialog reflects the change without waiting for a refetch.
-      qc.setQueryData<{ items: TherapyIntakeItem[] }>(dialogKey, (old) => {
-        const existing = old?.items ?? [];
-        const previous = existing.find(
-          (i) => i.itemId === itemId && toIsoDate(i.date as unknown as string) === today,
-        );
-        const others = existing.filter(
-          (i) => !(i.itemId === itemId && toIsoDate(i.date as unknown as string) === today),
-        );
-        return {
-          items: [
-            ...others,
-            {
-              id: previous?.id ?? `optimistic-${itemId}-${today}`,
-              itemId,
-              date: today,
-              taken,
-              notes: notes !== undefined ? notes : (previous?.notes ?? null),
-            },
-          ],
-        };
-      });
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(dialogKey, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
 
-      return { prev, prevDialog };
+      return { prev, prevDialog, prevWeek };
     },
     onError: (e: Error, vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(INTAKE_KEY, ctx.prev);
       if (ctx?.prevDialog) qc.setQueryData(intakesKey(vars.itemId), ctx.prevDialog);
+      if (ctx?.prevWeek) qc.setQueryData(INTAKE_WEEK_KEY, ctx.prevWeek);
       toast.error(e.message);
     },
     onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: INTAKE_KEY, refetchType: "none" });
       qc.invalidateQueries({ queryKey: intakesKey(vars.itemId), refetchType: "none" });
+      qc.invalidateQueries({ queryKey: INTAKE_WEEK_KEY, refetchType: "none" });
     },
   });
 
@@ -399,6 +435,25 @@ export default function PatientSupplementiPage() {
     return map;
   }, [intakeToday.data?.items]);
 
+  const intakeByItemByDay = React.useMemo(() => {
+    const outer = new Map<string, Map<string, TherapyIntakeItem>>();
+    for (const i of intakeWeek.data?.items ?? []) {
+      const day = toIsoDate(i.date as unknown as string);
+      if (!day) continue;
+      let inner = outer.get(i.itemId);
+      if (!inner) {
+        inner = new Map();
+        outer.set(i.itemId, inner);
+      }
+      inner.set(day, i);
+    }
+    return outer;
+  }, [intakeWeek.data?.items]);
+
+  // Build the 7-day window once per render. Date-of-render dependency is
+  // intentional — opening the page next day naturally rolls the window.
+  const last7 = React.useMemo(() => lastNDays(INTAKE_WEEK_DAYS), []);
+
   function resetForm() {
     setForm(EMPTY_FORM);
     setShowForm(false);
@@ -412,7 +467,8 @@ export default function PatientSupplementiPage() {
 
   const onSaveNotes = React.useCallback(
     (id: string, notes: string | null) => {
-      const intake = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY)
+      const intake = qc
+        .getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY)
         ?.items.find((i) => i.itemId === id);
       if (!intake) return;
       intakeMutation.mutate({ itemId: id, taken: intake.taken, notes });
@@ -645,6 +701,8 @@ export default function PatientSupplementiPage() {
             title="In corso"
             empty="Nessun supplemento attivo."
             meds={active}
+            last7={last7}
+            intakeByItemByDay={intakeByItemByDay}
             onEdit={startEdit}
             onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
             onToggleReminder={async (item, enabled) => {
@@ -667,6 +725,8 @@ export default function PatientSupplementiPage() {
               title="Archivio"
               empty=""
               meds={archived}
+              last7={last7}
+              intakeByItemByDay={intakeByItemByDay}
               onEdit={startEdit}
               onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
               onToggleReminder={() => {
@@ -699,6 +759,7 @@ function DaySelector({
     else next.add(d);
     onChange(WEEKDAYS.map((w) => w.day).filter((d) => next.has(d)));
   };
+
   return (
     <div className="flex flex-wrap gap-1.5">
       {WEEKDAYS.map((w) => {
@@ -808,7 +869,9 @@ export function IntakeNotesField({
       <Textarea
         value={draft}
         disabled={disabled}
-        placeholder={disabled ? "Segna prima l'assunzione per aggiungere una nota" : "Note (opzionale)"}
+        placeholder={
+          disabled ? "Segna prima l'assunzione per aggiungere una nota" : "Note (opzionale)"
+        }
         rows={2}
         onChange={(e) => setDraft(e.target.value)}
       />
@@ -831,6 +894,8 @@ function MedSection({
   title,
   empty,
   meds,
+  last7,
+  intakeByItemByDay,
   onEdit,
   onToggleActive,
   onToggleReminder,
@@ -839,6 +904,8 @@ function MedSection({
   title: string;
   empty: string;
   meds: TherapySelfItem[];
+  last7: { iso: string; weekday: DayOfWeek; date: Date }[];
+  intakeByItemByDay: Map<string, Map<string, TherapyIntakeItem>>;
   onEdit: (item: TherapySelfItem) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onToggleReminder: (item: TherapySelfItem, enabled: boolean) => void;
@@ -890,19 +957,7 @@ function MedSection({
                     {m.frequency && (
                       <p className="text-muted-foreground mt-0.5 text-xs">{m.frequency}</p>
                     )}
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {(m.daysOfWeek?.length ?? 0) === 0 ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          Ogni giorno
-                        </Badge>
-                      ) : (
-                        WEEKDAYS.filter((w) => m.daysOfWeek.includes(w.day)).map((w) => (
-                          <Badge key={w.day} variant="outline" className="text-[10px]">
-                            {w.short}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
+                    <IntakeStrip med={m} days={last7} intakesByDay={intakeByItemByDay.get(m.id)} />
                     <p className="text-muted-foreground mt-1 text-[11px]">
                       Dal {fmtDate(m.startDate)}
                       {m.endDate && ` al ${fmtDate(m.endDate)}`}
@@ -973,6 +1028,90 @@ function MedSection({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type IntakeDayStatus = "taken" | "missed" | "pending" | "off";
+
+const STATUS_TONE: Record<IntakeDayStatus, string> = {
+  taken: "bg-emerald-500/25 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  missed: "bg-rose-600 text-white",
+  pending: "border-2 border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  // Non-scheduled days render as empty placeholders (dashed outline, no fill) so
+  // they read as "not part of the rhythm" rather than "missed".
+  off: "border border-muted-foreground/30 bg-transparent text-muted-foreground/40",
+};
+
+const STATUS_LABEL: Record<IntakeDayStatus, string> = {
+  taken: "assunto",
+  missed: "non registrato",
+  pending: "da segnare",
+  off: "non programmato",
+};
+
+function IntakeStrip({
+  med,
+  days,
+  intakesByDay,
+}: {
+  med: TherapySelfItem;
+  days: { iso: string; weekday: DayOfWeek; date: Date }[];
+  intakesByDay: Map<string, TherapyIntakeItem> | undefined;
+}) {
+  const todayWeekdayKey = todayWeekday();
+
+  // Pivot the chronological 7-day window into a fixed weekday lookup so
+  // each Mon..Sun cell maps to the date that fell on that weekday.
+  const dayByWeekday = new Map<DayOfWeek, (typeof days)[number]>();
+  for (const d of days) dayByWeekday.set(d.weekday, d);
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {WEEKDAYS.map((w) => {
+          const d = dayByWeekday.get(w.day);
+          // Empty `daysOfWeek` means "every day" (matches the convention in
+          // isScheduledToday + the form's "Ogni giorno" hint).
+          const shouldTakeOnThisDay = !med.daysOfWeek.length || med.daysOfWeek.includes(w.day);
+          const intake = d ? intakesByDay?.get(d.iso) : undefined;
+          const isToday = w.day === todayWeekdayKey;
+
+          let status: IntakeDayStatus;
+          if (!shouldTakeOnThisDay) status = "off";
+          else if (isToday)
+            status = "pending"; // day's not over yet
+          else if (intake?.taken) status = "taken";
+          else status = "missed"; // past day with no intake, or intake.taken === false
+
+          const dateLabel = d
+            ? d.date.toLocaleDateString("it-IT", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+              })
+            : w.label;
+
+          return (
+            <div
+              key={w.day}
+              aria-disabled={!shouldTakeOnThisDay}
+              title={`${dateLabel} — ${STATUS_LABEL[status]}`}
+              className={cn(
+                "inline-flex h-7 w-8 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums aria-disabled:opacity-50",
+                STATUS_TONE[status],
+                isToday && status !== "pending" && "ring-foreground/30 ring-1",
+              )}
+            >
+              {status === "missed" ? (
+                <Flame className="h-3.5 w-3.5" aria-label="Non assunto" />
+              ) : (
+                w.short.slice(0, 2)
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

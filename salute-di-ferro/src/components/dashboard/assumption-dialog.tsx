@@ -12,11 +12,14 @@ import {
 import { BookCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   INTAKE_KEY,
+  INTAKE_WEEK_DAYS,
+  INTAKE_WEEK_KEY,
   IntakeModifiers,
   IntakeNotesField,
   intakesKey,
   toIsoDate,
   todayIsoDate,
+  upsertIntakeInItems,
   type TherapyIntakeItem,
   type TherapySelfItem,
 } from "@/app/dashboard/patient/supplementi/page";
@@ -81,68 +84,61 @@ export function AssumptionDialog({ med }: AssumptionDialogProps) {
       return res.json();
     },
     onMutate: async ({ itemId, taken, notes }) => {
+      const today = todayIsoDate();
+      const wasToday = isoDay === today;
+      // Within the supplementi-page 7-day strip window?
+      const isInWeekWindow = (() => {
+        if (wasToday) return true;
+        const target = new Date(`${isoDay}T00:00:00.000Z`).getTime();
+        const oldest = Date.now() - (INTAKE_WEEK_DAYS - 1) * 24 * 60 * 60 * 1000;
+        return target >= oldest - 24 * 60 * 60 * 1000;
+      })();
+
       await qc.cancelQueries({ queryKey });
+      if (wasToday) await qc.cancelQueries({ queryKey: INTAKE_KEY });
+      if (isInWeekWindow) await qc.cancelQueries({ queryKey: INTAKE_WEEK_KEY });
+
       const prev = qc.getQueryData<{ items: TherapyIntakeItem[] }>(queryKey);
+      const prevToday = wasToday
+        ? qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY)
+        : undefined;
+      const prevWeek = isInWeekWindow
+        ? qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY)
+        : undefined;
 
-      qc.setQueryData<{ items: TherapyIntakeItem[] }>(queryKey, (old) => {
-        const existing = old?.items ?? [];
-        const previous = existing.find(
-          (i) => i.itemId === itemId && toIsoDate(i.date as unknown as string) === isoDay,
-        );
-        const others = existing.filter(
-          (i) => !(i.itemId === itemId && toIsoDate(i.date as unknown as string) === isoDay),
-        );
+      const payload = { itemId, date: isoDay, taken, notes };
 
-        return {
-          items: [
-            ...others,
-            {
-              id: previous?.id ?? `optimistic-${itemId}-${isoDay}`,
-              itemId,
-              date: isoDay,
-              taken,
-              notes: notes !== undefined ? notes : (previous?.notes ?? null),
-            },
-          ],
-        };
-      });
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(queryKey, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
 
-      // Keep the page's TodayCheckCard cache in sync when the selected day is today.
-      const wasToday = isoDay === todayIsoDate();
-      let prevToday: { items: TherapyIntakeItem[] } | undefined;
       if (wasToday) {
-        await qc.cancelQueries({ queryKey: INTAKE_KEY });
-        prevToday = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY);
-        qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => {
-          const existing = old?.items ?? [];
-          const previous = existing.find((i) => i.itemId === itemId);
-          const others = existing.filter((i) => i.itemId !== itemId);
-          return {
-            items: [
-              ...others,
-              {
-                id: previous?.id ?? `optimistic-${itemId}`,
-                itemId,
-                date: isoDay,
-                taken,
-                notes: notes !== undefined ? notes : (previous?.notes ?? null),
-              },
-            ],
-          };
-        });
+        qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => ({
+          items: upsertIntakeInItems(old?.items ?? [], payload),
+        }));
       }
 
-      return { prev, prevToday, wasToday };
+      if (isInWeekWindow) {
+        qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY, (old) => ({
+          items: upsertIntakeInItems(old?.items ?? [], payload),
+        }));
+      }
+
+      return { prev, prevToday, prevWeek, wasToday, isInWeekWindow };
     },
     onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
       if (ctx?.prevToday) qc.setQueryData(INTAKE_KEY, ctx.prevToday);
+      if (ctx?.prevWeek) qc.setQueryData(INTAKE_WEEK_KEY, ctx.prevWeek);
       toast.error(e.message);
     },
     onSettled: (_d, _e, _v, ctx) => {
       qc.invalidateQueries({ queryKey, refetchType: "none" });
       if (ctx?.wasToday) {
         qc.invalidateQueries({ queryKey: INTAKE_KEY, refetchType: "none" });
+      }
+      if (ctx?.isInWeekWindow) {
+        qc.invalidateQueries({ queryKey: INTAKE_WEEK_KEY, refetchType: "none" });
       }
     },
   });
