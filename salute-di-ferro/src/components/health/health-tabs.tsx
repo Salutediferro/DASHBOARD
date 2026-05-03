@@ -36,11 +36,16 @@ import { summarizeSleep } from "@/lib/health/sleep-score";
 import {
   SKINFOLD_SITES,
   SKINFOLD_LABELS,
-  SKINFOLD_GRADE_LABELS,
   gradeSkinfold,
-  type SkinfoldSite,
-  type SkinfoldGrade,
 } from "@/lib/health/skinfold-thresholds";
+import {
+  METRIC_GRADE_LABELS,
+  findLatestNumeric,
+  findPreviousNumeric,
+  gradeMetric,
+  type MetricContext,
+  type MetricGrade,
+} from "@/lib/health/metric-thresholds";
 import { HealthRingRow } from "./health-ring-row";
 
 export type PatientProfile = {
@@ -255,6 +260,19 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
     return items.filter((r) => new Date(r.date).getTime() >= cutoff);
   }, [items, period]);
 
+  // Context for traffic-light grading. Weight needs the current and prior
+  // readings so its grade reflects trend direction, not just distance.
+  const latestWeight = findLatestNumeric(items, "weight");
+  const prevWeight = latestWeight
+    ? findPreviousNumeric(items, "weight", latestWeight.date)
+    : null;
+  const metricCtx: MetricContext = {
+    sex: profile.sex,
+    targetWeightKg: profile.targetWeightKg,
+    currentWeightKg: latestWeight?.value ?? null,
+    previousWeightKg: prevWeight?.value ?? null,
+  };
+
   const openDialogFor = (c: CategoryKey) => {
     setFormCategory(c);
     setDialogOpen(true);
@@ -368,7 +386,11 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
 
               {effectiveCategories.map((c) => (
                 <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-4">
-                  {c.key === "skinfolds" && <SkinfoldsGrid items={items} sex={profile.sex} />}
+                  {c.key === "skinfolds" ? (
+                    <SkinfoldsGrid items={items} sex={profile.sex} />
+                  ) : (
+                    <MetricsGrid items={items} fields={FIELDS[c.key]} ctx={metricCtx} />
+                  )}
                   <CategoryPanel
                     category={c.key}
                     items={periodItems}
@@ -717,7 +739,76 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-// ── Skinfolds ──────────────────────────────────────────────────────────────
+// ── Traffic-light grids ────────────────────────────────────────────────────
+
+const GRADE_TONE: Record<MetricGrade, string> = {
+  green: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  yellow: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  red: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+};
+
+const GRADE_LABEL_OVERRIDE: Partial<Record<string, Record<MetricGrade, string>>> = {
+  // Weight is graded relatively against `targetWeightKg` — the generic
+  // "Buono / Attenzione / Fuori range" labels read as absolute, so swap
+  // them for goal-oriented copy.
+  weight: { green: "Vicino al target", yellow: "In progresso", red: "Fermo o lontano" },
+};
+
+function decimalsFromStep(step: string | undefined): number {
+  if (!step) return 0;
+  const idx = step.indexOf(".");
+  return idx >= 0 ? step.length - idx - 1 : 0;
+}
+
+function MetricGradeCard({
+  label,
+  unit,
+  decimals,
+  latest,
+  grade,
+  gradeKey,
+}: {
+  label: string;
+  unit?: string;
+  decimals: number;
+  latest: { value: number; date: string } | null;
+  grade: MetricGrade | null;
+  /** Optional metric key — used to look up label overrides (e.g. weight). */
+  gradeKey?: string;
+}) {
+  const override = gradeKey ? GRADE_LABEL_OVERRIDE[gradeKey] : undefined;
+  const labelMap = override ?? METRIC_GRADE_LABELS;
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1 rounded-xl border p-3 transition-colors",
+        grade ? GRADE_TONE[grade] : "border-border/60 bg-muted/30 text-foreground",
+      )}
+    >
+      <p className="text-[10px] tracking-wide uppercase opacity-80">{label}</p>
+      <p className="font-heading text-2xl font-semibold tabular-nums">
+        {latest ? latest.value.toFixed(decimals) : "—"}
+        {latest && unit && (
+          <span className="ml-1 text-sm font-normal opacity-70">{unit}</span>
+        )}
+      </p>
+      {latest && grade && (
+        <p className="text-[11px] font-medium opacity-90">{labelMap[grade]}</p>
+      )}
+      {latest && (
+        <p className="text-[10px] opacity-70">
+          {new Date(latest.date).toLocaleDateString("it-IT", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Skinfolds (specialised: shows Σ of all sites) ──────────────────────────
 
 function sumSkinfolds(r: BiometricLogDTO): number | null {
   let total = 0;
@@ -730,20 +821,6 @@ function sumSkinfolds(r: BiometricLogDTO): number | null {
     }
   }
   return any ? total : null;
-}
-
-function findLatest(
-  items: BiometricLogDTO[],
-  site: SkinfoldSite,
-): { value: number; date: string } | null {
-  // `items` arrive in DESC order — the first row carrying a numeric value wins.
-  for (const r of items) {
-    const v = r[site];
-    if (typeof v === "number" && Number.isFinite(v)) {
-      return { value: v, date: r.date };
-    }
-  }
-  return null;
 }
 
 function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | null }) {
@@ -768,9 +845,18 @@ function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | nu
       />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {SKINFOLD_SITES.map((site) => {
-          const latest = findLatest(items, site);
+          const latest = findLatestNumeric(items, site);
           const grade = latest ? gradeSkinfold(site, latest.value, sex) : null;
-          return <SkinfoldCard key={site} site={site} latest={latest} grade={grade} />;
+          return (
+            <MetricGradeCard
+              key={site}
+              label={SKINFOLD_LABELS[site]}
+              unit="mm"
+              decimals={1}
+              latest={latest}
+              grade={grade}
+            />
+          );
         })}
       </div>
       {latestSum && (
@@ -785,46 +871,44 @@ function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | nu
   );
 }
 
-const GRADE_TONE: Record<SkinfoldGrade, string> = {
-  green: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  yellow: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  red: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-};
+// ── Generic metrics grid (every other category) ────────────────────────────
 
-function SkinfoldCard({
-  site,
-  latest,
-  grade,
+function MetricsGrid({
+  items,
+  fields,
+  ctx,
 }: {
-  site: SkinfoldSite;
-  latest: { value: number; date: string } | null;
-  grade: SkinfoldGrade | null;
+  items: BiometricLogDTO[];
+  fields: MetricField[];
+  ctx: MetricContext;
 }) {
+  // Time-typed fields (e.g. sleepBedtime) have no numeric grade.
+  const numeric = fields.filter((f) => (f.type ?? "number") === "number");
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1 rounded-xl border p-3 transition-colors",
-        grade ? GRADE_TONE[grade] : "border-border/60 bg-muted/30 text-foreground",
-      )}
-    >
-      <p className="text-[10px] tracking-wide uppercase opacity-80">{SKINFOLD_LABELS[site]}</p>
-      <p className="font-heading text-2xl font-semibold tabular-nums">
-        {latest ? latest.value.toFixed(1) : "—"}
-        {latest && <span className="ml-1 text-sm font-normal opacity-70">mm</span>}
+    <section className="flex flex-col gap-2">
+      <p className="text-muted-foreground text-xs">
+        Verde = nel range · giallo = attenzione · rosso = fuori range. Le metriche senza soglia restano
+        neutre.
       </p>
-      {latest && grade && (
-        <p className="text-[11px] font-medium opacity-90">{SKINFOLD_GRADE_LABELS[grade]}</p>
-      )}
-      {latest && (
-        <p className="text-[10px] opacity-70">
-          {new Date(latest.date).toLocaleDateString("it-IT", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-        </p>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {numeric.map((f) => {
+          const key = f.name as keyof BiometricLogDTO;
+          const latest = findLatestNumeric(items, key);
+          const grade = latest ? gradeMetric(key, latest.value, ctx) : null;
+          return (
+            <MetricGradeCard
+              key={f.name}
+              label={f.label}
+              unit={f.unit}
+              decimals={decimalsFromStep(f.step)}
+              latest={latest}
+              grade={grade}
+              gradeKey={f.name}
+            />
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
