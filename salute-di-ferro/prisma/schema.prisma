@@ -279,6 +279,16 @@ model BiometricLog {
   thighCm  Float?
   calvesCm Float?
 
+  // Skinfolds (mm)
+  chestSkinfoldMm        Float?
+  abdominalSkinfoldMm    Float?
+  thighSkinfoldMm        Float?
+  suprailiacSkinfoldMm   Float?
+  subscapularSkinfoldMm  Float?
+  midaxillarySkinfoldMm  Float?
+  tricepsSkinfoldMm      Float?
+  calfSkinfoldMm         Float?
+
   // Cardiovascular
   systolicBP  Int?
   diastolicBP Int?

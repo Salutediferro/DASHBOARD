@@ -33,6 +33,14 @@ import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import HealthEmptyState from "@/components/health/health-empty-state";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
+import {
+  SKINFOLD_SITES,
+  SKINFOLD_LABELS,
+  SKINFOLD_GRADE_LABELS,
+  gradeSkinfold,
+  type SkinfoldSite,
+  type SkinfoldGrade,
+} from "@/lib/health/skinfold-thresholds";
 import { HealthRingRow } from "./health-ring-row";
 
 export type PatientProfile = {
@@ -61,6 +69,7 @@ const EMPTY_PROFILE: PatientProfile = {
 const CATEGORIES = [
   { key: "body", label: "Corporei" },
   { key: "circumferences", label: "Circonferenze" },
+  { key: "skinfolds", label: "Plicometrie" },
   { key: "cardiovascular", label: "Cardiovascolare" },
   { key: "metabolic", label: "Metabolica" },
   { key: "sleep", label: "Sonno" },
@@ -97,6 +106,30 @@ const FIELDS: Record<CategoryKey, MetricField[]> = {
     { name: "armsCm", label: "Braccia", unit: "cm", step: "0.5", min: 10, max: 80 },
     { name: "thighCm", label: "Coscia", unit: "cm", step: "0.5", min: 20, max: 120 },
     { name: "calvesCm", label: "Polpaccio", unit: "cm", step: "0.5", min: 15, max: 80 },
+  ],
+  skinfolds: [
+    { name: "chestSkinfoldMm", label: "Pettorale", unit: "mm", step: "0.5", min: 1, max: 80 },
+    { name: "abdominalSkinfoldMm", label: "Addominale", unit: "mm", step: "0.5", min: 1, max: 80 },
+    { name: "thighSkinfoldMm", label: "Coscia", unit: "mm", step: "0.5", min: 1, max: 80 },
+    {
+      name: "suprailiacSkinfoldMm",
+      label: "Soprailiaca",
+      unit: "mm",
+      step: "0.5",
+      min: 1,
+      max: 80,
+    },
+    {
+      name: "subscapularSkinfoldMm",
+      label: "Sottoscapolare",
+      unit: "mm",
+      step: "0.5",
+      min: 1,
+      max: 80,
+    },
+    { name: "midaxillarySkinfoldMm", label: "Ascellare", unit: "mm", step: "0.5", min: 1, max: 80 },
+    { name: "tricepsSkinfoldMm", label: "Tricipite", unit: "mm", step: "0.5", min: 1, max: 80 },
+    { name: "calfSkinfoldMm", label: "Polpaccio", unit: "mm", step: "0.5", min: 1, max: 80 },
   ],
   cardiovascular: [
     { name: "systolicBP", label: "PA sistolica", unit: "mmHg", step: "1", min: 60, max: 260 },
@@ -156,6 +189,7 @@ const PRIMARY: Record<
 > = {
   body: { key: "weight", label: "Peso", unit: "kg", decimals: 1 },
   circumferences: { key: "waistCm", label: "Vita", unit: "cm", decimals: 1 },
+  skinfolds: { key: "abdominalSkinfoldMm", label: "Plica addominale", unit: "mm", decimals: 1 },
   cardiovascular: { key: "systolicBP", label: "PA sistolica", unit: "mmHg", decimals: 0 },
   metabolic: { key: "glucoseFasting", label: "Glicemia digiuno", unit: "mg/dL", decimals: 0 },
   sleep: { key: "sleepHours", label: "Ore dormite", unit: "h", decimals: 1 },
@@ -334,6 +368,7 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
 
               {effectiveCategories.map((c) => (
                 <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-4">
+                  {c.key === "skinfolds" && <SkinfoldsGrid items={items} sex={profile.sex} />}
                   <CategoryPanel
                     category={c.key}
                     items={periodItems}
@@ -656,6 +691,11 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
       if (r.waistCm != null) parts.push(`vita ${r.waistCm}`);
       if (r.hipsCm != null) parts.push(`fianchi ${r.hipsCm}`);
       break;
+    case "skinfolds": {
+      const sum = sumSkinfolds(r);
+      if (sum != null) parts.push(`Σ ${sum.toFixed(1)} mm`);
+      break;
+    }
     case "cardiovascular":
       if (r.systolicBP != null && r.diastolicBP != null)
         parts.push(`${r.systolicBP}/${r.diastolicBP}`);
@@ -675,6 +715,117 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
       break;
   }
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+// ── Skinfolds ──────────────────────────────────────────────────────────────
+
+function sumSkinfolds(r: BiometricLogDTO): number | null {
+  let total = 0;
+  let any = false;
+  for (const site of SKINFOLD_SITES) {
+    const v = r[site];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      total += v;
+      any = true;
+    }
+  }
+  return any ? total : null;
+}
+
+function findLatest(
+  items: BiometricLogDTO[],
+  site: SkinfoldSite,
+): { value: number; date: string } | null {
+  // `items` arrive in DESC order — the first row carrying a numeric value wins.
+  for (const r of items) {
+    const v = r[site];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      return { value: v, date: r.date };
+    }
+  }
+  return null;
+}
+
+function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | null }) {
+  let latestSum: { value: number; date: string } | null = null;
+  for (const r of items) {
+    const s = sumSkinfolds(r);
+    if (s != null) {
+      latestSum = { value: s, date: r.date };
+      break;
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHeader
+        title="Plicometrie"
+        subtitle={
+          sex
+            ? "Verde = tirato come da competizione · giallo = nella media · rosso = sopra soglia."
+            : "Imposta il sesso nel profilo per attivare i colori a semaforo."
+        }
+      />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {SKINFOLD_SITES.map((site) => {
+          const latest = findLatest(items, site);
+          const grade = latest ? gradeSkinfold(site, latest.value, sex) : null;
+          return <SkinfoldCard key={site} site={site} latest={latest} grade={grade} />;
+        })}
+      </div>
+      {latestSum && (
+        <p className="text-muted-foreground text-xs">
+          Σ ultime pliche:{" "}
+          <span className="text-foreground font-semibold tabular-nums">
+            {latestSum.value.toFixed(1)} mm
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
+
+const GRADE_TONE: Record<SkinfoldGrade, string> = {
+  green: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  yellow: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  red: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+};
+
+function SkinfoldCard({
+  site,
+  latest,
+  grade,
+}: {
+  site: SkinfoldSite;
+  latest: { value: number; date: string } | null;
+  grade: SkinfoldGrade | null;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1 rounded-xl border p-3 transition-colors",
+        grade ? GRADE_TONE[grade] : "border-border/60 bg-muted/30 text-foreground",
+      )}
+    >
+      <p className="text-[10px] tracking-wide uppercase opacity-80">{SKINFOLD_LABELS[site]}</p>
+      <p className="font-heading text-2xl font-semibold tabular-nums">
+        {latest ? latest.value.toFixed(1) : "—"}
+        {latest && <span className="ml-1 text-sm font-normal opacity-70">mm</span>}
+      </p>
+      {latest && grade && (
+        <p className="text-[11px] font-medium opacity-90">{SKINFOLD_GRADE_LABELS[grade]}</p>
+      )}
+      {latest && (
+        <p className="text-[10px] opacity-70">
+          {new Date(latest.date).toLocaleDateString("it-IT", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ── Loading state ──────────────────────────────────────────────────────────
@@ -734,6 +885,7 @@ function CategoryPrefsList({
 const CATEGORY_DESCRIPTIONS: Record<CategoryKey, string> = {
   body: "Peso, massa grassa, massa muscolare, acqua.",
   circumferences: "Vita, fianchi, petto, braccia, coscia, polpaccio.",
+  skinfolds: "Pliche cutanee — pettorale, addominale, coscia, soprailiaca, ecc.",
   cardiovascular: "Pressione, frequenza cardiaca, SpO2, HRV.",
   metabolic: "Glicemia, chetoni, temperatura corporea.",
   sleep: "Ore, qualità, orari, risvegli.",

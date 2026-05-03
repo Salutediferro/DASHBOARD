@@ -15,6 +15,7 @@ import type { BiometricInput } from "@/lib/validators/biometric";
 type Category =
   | "body"
   | "circumferences"
+  | "skinfolds"
   | "cardiovascular"
   | "metabolic"
   | "sleep"

@@ -38,6 +38,19 @@ export const biometricInputSchema = z.object({
     })
     .optional(),
 
+  skinfolds: z
+    .object({
+      chestSkinfoldMm: nOpt(1, 80),
+      abdominalSkinfoldMm: nOpt(1, 80),
+      thighSkinfoldMm: nOpt(1, 80),
+      suprailiacSkinfoldMm: nOpt(1, 80),
+      subscapularSkinfoldMm: nOpt(1, 80),
+      midaxillarySkinfoldMm: nOpt(1, 80),
+      tricepsSkinfoldMm: nOpt(1, 80),
+      calfSkinfoldMm: nOpt(1, 80),
+    })
+    .optional(),
+
   cardiovascular: z
     .object({
       systolicBP: iOpt(60, 260),
@@ -100,6 +113,7 @@ export function flattenBiometric(
 
   if (input.body) Object.assign(out, input.body);
   if (input.circumferences) Object.assign(out, input.circumferences);
+  if (input.skinfolds) Object.assign(out, input.skinfolds);
   if (input.cardiovascular) Object.assign(out, input.cardiovascular);
   if (input.metabolic) Object.assign(out, input.metabolic);
   if (input.activity) Object.assign(out, input.activity);

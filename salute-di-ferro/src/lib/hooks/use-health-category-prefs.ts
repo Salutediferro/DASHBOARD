@@ -18,6 +18,7 @@ const STORAGE_KEY = "sdf.health.hiddenCategories.v1";
 export type HealthCategoryKey =
   | "body"
   | "circumferences"
+  | "skinfolds"
   | "cardiovascular"
   | "metabolic"
   | "sleep"
