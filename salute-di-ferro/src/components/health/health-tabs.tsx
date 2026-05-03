@@ -210,7 +210,7 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
   }, [hydrated, effectiveCategories, formCategory]);
 
   const list = useBiometrics({ patientId, perPage: 500 });
-  const items = useMemo(() => list.data?.items ?? [], [list.data?.items]);
+  const items = React.useMemo(() => list.data?.items ?? [], [list.data?.items]);
   const hasAnyData = items.length > 0;
 
   const periodItems = React.useMemo(() => {

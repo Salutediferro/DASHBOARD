@@ -6,18 +6,11 @@ import { useParams } from "next/navigation";
 import { Paperclip, Plus, Search, Stethoscope, UserRound } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/lib/hooks/use-user";
-import {
-  useConversations,
-  type ConversationListItem,
-} from "@/lib/hooks/use-conversations";
+import { useConversations, type ConversationListItem } from "@/lib/hooks/use-conversations";
 import { NewChatDialog } from "@/components/messages/new-chat-dialog";
 
 type Filter = "all" | "unread" | "attachments";
@@ -31,7 +24,7 @@ export function ConversationSidebar() {
   const [filter, setFilter] = React.useState<Filter>("all");
   const [newOpen, setNewOpen] = React.useState(false);
 
-  const items = useMemo(() => data?.items ?? [], [data?.items]);
+  const items = React.useMemo(() => data?.items ?? [], [data?.items]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -44,8 +37,7 @@ export function ConversationSidebar() {
       if (filter === "attachments") return false;
       if (!q) return true;
       return (
-        other.fullName.toLowerCase().includes(q) ||
-        c.lastMessage?.body.toLowerCase().includes(q)
+        other.fullName.toLowerCase().includes(q) || c.lastMessage?.body.toLowerCase().includes(q)
       );
     });
   }, [items, query, filter]);
@@ -55,17 +47,17 @@ export function ConversationSidebar() {
   return (
     <aside
       aria-label="Elenco conversazioni"
-      className="flex h-full flex-col border-r border-border/60 bg-card/20"
+      className="border-border/60 bg-card/20 flex h-full flex-col border-r"
     >
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-border/60 bg-card/80 px-4 py-3 backdrop-blur">
+      <div className="border-border/60 bg-card/80 sticky top-0 z-10 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-display text-base">Messaggi</h2>
           <button
             type="button"
             onClick={() => setNewOpen(true)}
             aria-label="Nuova chat"
-            className="focus-ring inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+            className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -73,7 +65,7 @@ export function ConversationSidebar() {
         <div className="relative">
           <Search
             aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
           />
           <Input
             type="search"
@@ -84,11 +76,7 @@ export function ConversationSidebar() {
             className="focus-ring pl-9"
           />
         </div>
-        <FilterPills
-          value={filter}
-          onChange={setFilter}
-          unreadCount={totalUnread}
-        />
+        <FilterPills value={filter} onChange={setFilter} unreadCount={totalUnread} />
       </div>
 
       {/* List */}
@@ -133,11 +121,7 @@ function FilterPills({
     { key: "attachments", label: "Allegati", icon: Paperclip },
   ];
   return (
-    <div
-      role="radiogroup"
-      aria-label="Filtra conversazioni"
-      className="flex flex-wrap gap-1"
-    >
+    <div role="radiogroup" aria-label="Filtra conversazioni" className="flex flex-wrap gap-1">
       {options.map((o) => {
         const active = value === o.key;
         const Icon = o.icon;
@@ -158,7 +142,7 @@ function FilterPills({
             {Icon && <Icon className="h-3.5 w-3.5" aria-hidden />}
             {o.label}
             {o.badge != null && (
-              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-500 px-1 text-[10px] tabular-nums text-primary-foreground">
+              <span className="bg-primary-500 text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums">
                 {o.badge}
               </span>
             )}
@@ -193,8 +177,8 @@ function ConversationRow({
         className={cn(
           "focus-ring flex items-center gap-3 px-3 py-3 transition-colors",
           active
-            ? "surface-2 border-l-2 border-primary-500 pl-[10px]"
-            : "border-l-2 border-transparent hover:bg-muted/40",
+            ? "surface-2 border-primary-500 border-l-2 pl-[10px]"
+            : "hover:bg-muted/40 border-l-2 border-transparent",
         )}
       >
         <Avatar className="h-10 w-10 shrink-0">
@@ -205,12 +189,7 @@ function ConversationRow({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p
-              className={cn(
-                "truncate text-sm",
-                unread ? "font-semibold" : "font-medium",
-              )}
-            >
+            <p className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
               {other.fullName}
             </p>
             <RoleChip role={other.role} />
@@ -227,19 +206,15 @@ function ConversationRow({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className="text-[10px] text-muted-foreground">
-            {formatRelative(
-              conversation.lastMessage?.createdAt ?? conversation.updatedAt,
-            )}
+          <span className="text-muted-foreground text-[10px]">
+            {formatRelative(conversation.lastMessage?.createdAt ?? conversation.updatedAt)}
           </span>
           {unread && (
             <span
               aria-label={`${conversation.unreadCount} non letti`}
-              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground"
+              className="bg-primary-500 text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums"
             >
-              {conversation.unreadCount > 99
-                ? "99+"
-                : conversation.unreadCount}
+              {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
             </span>
           )}
         </div>
@@ -291,7 +266,8 @@ export function formatRelative(iso: string): string {
   const day = 24 * hour;
   if (diffMs < minute) return "ora";
   if (diffMs < hour) return `${Math.floor(diffMs / minute)} min fa`;
-  if (diffMs < day) return `${Math.floor(diffMs / hour)} or${Math.floor(diffMs / hour) === 1 ? "a" : "e"} fa`;
+  if (diffMs < day)
+    return `${Math.floor(diffMs / hour)} or${Math.floor(diffMs / hour) === 1 ? "a" : "e"} fa`;
   if (diffMs < 7 * day) return `${Math.floor(diffMs / day)}g fa`;
   return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
 }
@@ -308,10 +284,10 @@ function ListSkeleton() {
     >
       {Array.from({ length: 6 }).map((_, i) => (
         <li key={i} className="flex items-center gap-3 px-3 py-3">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted/60 skeleton-shimmer" />
+          <div className="bg-muted/60 skeleton-shimmer relative h-10 w-10 shrink-0 overflow-hidden rounded-full" />
           <div className="flex-1 space-y-2">
-            <div className="relative h-3 w-1/2 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
-            <div className="relative h-2 w-4/5 overflow-hidden rounded bg-muted/60 skeleton-shimmer" />
+            <div className="bg-muted/60 skeleton-shimmer relative h-3 w-1/2 overflow-hidden rounded" />
+            <div className="bg-muted/60 skeleton-shimmer relative h-2 w-4/5 overflow-hidden rounded" />
           </div>
         </li>
       ))}
@@ -325,7 +301,7 @@ function EmptyList({ hasItems }: { hasItems: boolean }) {
       <p className="text-sm font-medium">
         {hasItems ? "Nessun risultato" : "Nessuna conversazione"}
       </p>
-      <p className="max-w-xs text-xs text-muted-foreground">
+      <p className="text-muted-foreground max-w-xs text-xs">
         {hasItems
           ? "Prova a rimuovere i filtri o la ricerca."
           : "Avvia la prima chat col tuo team usando il pulsante +."}
