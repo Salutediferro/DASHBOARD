@@ -1059,6 +1059,10 @@ function IntakeStrip({
   intakesByDay: Map<string, TherapyIntakeItem> | undefined;
 }) {
   const todayWeekdayKey = todayWeekday();
+  // Slice the first 10 chars rather than going through `new Date(...)` so the
+  // user's chosen calendar date isn't shifted by their browser timezone.
+  const startIso = med.startDate?.slice(0, 10) ?? null;
+  const endIso = med.endDate?.slice(0, 10) ?? null;
 
   // Pivot the chronological 7-day window into a fixed weekday lookup so
   // each Mon..Sun cell maps to the date that fell on that weekday.
@@ -1075,9 +1079,12 @@ function IntakeStrip({
           const shouldTakeOnThisDay = !med.daysOfWeek.length || med.daysOfWeek.includes(w.day);
           const intake = d ? intakesByDay?.get(d.iso) : undefined;
           const isToday = w.day === todayWeekdayKey;
+          const beforeStart = !!(d && startIso && d.iso < startIso);
+          const afterEnd = !!(d && endIso && d.iso > endIso);
 
           let status: IntakeDayStatus;
           if (!shouldTakeOnThisDay) status = "off";
+          else if (beforeStart || afterEnd) status = "off"; // outside med's active range
           else if (isToday)
             status = "pending"; // day's not over yet
           else if (intake?.taken) status = "taken";
