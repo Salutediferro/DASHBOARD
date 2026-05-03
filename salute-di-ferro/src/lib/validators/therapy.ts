@@ -49,10 +49,22 @@ export const updateTherapySchema = z.object({
   daysOfWeek: daysOfWeekSchema,
 });
 
+// Distinct from `nullableString`: omitted (undefined) means "don't touch",
+// explicit null means "clear". Lets the client toggle `taken` without
+// stomping any existing notes.
+const optionalIntakeNotes = z.preprocess((v) => {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== "string") return v;
+  const t = v.trim();
+  return t === "" ? null : t;
+}, z.string().max(500).nullable().optional());
+
 export const intakeSchema = z.object({
   itemId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD richiesto"),
   taken: z.boolean(),
+  notes: optionalIntakeNotes,
 });
 
 export type CreateTherapyInput = z.infer<typeof createTherapySchema>;

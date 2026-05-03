@@ -277,10 +277,14 @@ export async function upsertIntake(
       date,
       taken: input.taken,
       takenAt,
+      notes: input.notes ?? null,
     },
     update: {
       taken: input.taken,
       takenAt,
+      // Only mutate notes when the client sent the field — clicking
+      // taken/skipped must not wipe an existing note.
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
     },
   });
 }

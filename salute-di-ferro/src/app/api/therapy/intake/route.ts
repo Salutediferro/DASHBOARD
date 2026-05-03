@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { intakeSchema } from "@/lib/validators/therapy";
-import {
-  TherapyError,
-  listIntakes,
-  upsertIntake,
-} from "@/lib/services/therapy";
+import { TherapyError, listIntakes, upsertIntake } from "@/lib/services/therapy";
 
 /**
  * GET /api/therapy/intake?from=YYYY-MM-DD&to=YYYY-MM-DD&patientId=…
@@ -86,7 +82,7 @@ export async function POST(req: Request) {
   }
 }
 
-function therapyErrorResponse(e: unknown) {
+export function therapyErrorResponse(e: unknown) {
   if (e instanceof TherapyError) {
     if (e.code === "forbidden") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

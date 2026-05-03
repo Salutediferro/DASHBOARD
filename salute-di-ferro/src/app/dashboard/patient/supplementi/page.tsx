@@ -31,8 +31,9 @@ import {
   ensureNotificationPermission,
   useTherapyReminders,
 } from "@/lib/hooks/use-therapy-reminders";
+import { AssumptionDialog } from "@/components/dashboard/assumption-dialog";
 
-type TherapySelfItem = {
+export type TherapySelfItem = {
   id: string;
   name: string;
   dose: string | null;
@@ -47,11 +48,12 @@ type TherapySelfItem = {
   createdAt: string;
 };
 
-type TherapyIntakeItem = {
+export type TherapyIntakeItem = {
   id: string;
   itemId: string;
   date: string;
   taken: boolean;
+  notes: string | null;
 };
 
 type FormState = {
@@ -79,7 +81,8 @@ const EMPTY_FORM: FormState = {
 };
 
 const QUERY_KEY = ["therapy", "SELF"] as const;
-const INTAKE_KEY = ["therapy", "intake", "today"] as const;
+export const INTAKE_KEY = ["therapy", "intake", "today"] as const;
+export const intakesKey = (medId: string) => ["therapy", "intake", "singular", medId] as const;
 
 const WEEKDAYS: { day: DayOfWeek; label: string; short: string }[] = [
   { day: "MON", label: "Lunedì", short: "Lun" },
@@ -106,7 +109,7 @@ function todayWeekday(): DayOfWeek {
   return WEEKDAY_AT[new Date().getDay()];
 }
 
-function todayIsoDate(): string {
+export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -136,7 +139,7 @@ function fmtTime(iso: string | null): string | null {
   return `${hh}:${mm}`;
 }
 
-function toIsoDate(date: string | null) {
+export function toIsoDate(date: string | null) {
   if (!date) return null;
   return new Date(date).toISOString().split("T")[0];
 }
@@ -229,45 +232,83 @@ export default function PatientSupplementiPage() {
   });
 
   const intakeMutation = useMutation({
-    mutationFn: async (args: { itemId: string; taken: boolean }) => {
+    mutationFn: async (args: { itemId: string; taken: boolean; notes?: string | null }) => {
+      const body: Record<string, unknown> = {
+        itemId: args.itemId,
+        date: todayIsoDate(),
+        taken: args.taken,
+      };
+      if (args.notes !== undefined) body.notes = args.notes;
       const res = await fetch("/api/therapy/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: args.itemId,
-          date: todayIsoDate(),
-          taken: args.taken,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Errore");
       return res.json();
     },
-    onMutate: async ({ itemId, taken }) => {
+    onMutate: async ({ itemId, taken, notes }) => {
+      const today = todayIsoDate();
+      const dialogKey = intakesKey(itemId);
+
       await qc.cancelQueries({ queryKey: INTAKE_KEY });
+      await qc.cancelQueries({ queryKey: dialogKey });
+
       const prev = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY);
+      const prevDialog = qc.getQueryData<{ items: TherapyIntakeItem[] }>(dialogKey);
+
       qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => {
         const existing = old?.items ?? [];
+        const previous = existing.find((i) => i.itemId === itemId);
         const others = existing.filter((i) => i.itemId !== itemId);
         return {
           items: [
             ...others,
             {
-              id: `optimistic-${itemId}`,
+              id: previous?.id ?? `optimistic-${itemId}`,
               itemId,
-              date: todayIsoDate(),
+              date: today,
               taken,
+              notes: notes !== undefined ? notes : (previous?.notes ?? null),
             },
           ],
         };
       });
-      return { prev };
+
+      // Mirror into the per-supplement cache (used by AssumptionDialog) so
+      // an open dialog reflects the change without waiting for a refetch.
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(dialogKey, (old) => {
+        const existing = old?.items ?? [];
+        const previous = existing.find(
+          (i) => i.itemId === itemId && toIsoDate(i.date as unknown as string) === today,
+        );
+        const others = existing.filter(
+          (i) => !(i.itemId === itemId && toIsoDate(i.date as unknown as string) === today),
+        );
+        return {
+          items: [
+            ...others,
+            {
+              id: previous?.id ?? `optimistic-${itemId}-${today}`,
+              itemId,
+              date: today,
+              taken,
+              notes: notes !== undefined ? notes : (previous?.notes ?? null),
+            },
+          ],
+        };
+      });
+
+      return { prev, prevDialog };
     },
-    onError: (e: Error, _v, ctx) => {
+    onError: (e: Error, vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(INTAKE_KEY, ctx.prev);
+      if (ctx?.prevDialog) qc.setQueryData(intakesKey(vars.itemId), ctx.prevDialog);
       toast.error(e.message);
     },
-    onSettled: () => {
+    onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: INTAKE_KEY, refetchType: "none" });
+      qc.invalidateQueries({ queryKey: intakesKey(vars.itemId), refetchType: "none" });
     },
   });
 
@@ -364,6 +405,21 @@ export default function PatientSupplementiPage() {
     setEditingId(null);
   }
 
+  const onMark = React.useCallback(
+    (id: string, taken: boolean) => intakeMutation.mutate({ itemId: id, taken }),
+    [],
+  );
+
+  const onSaveNotes = React.useCallback(
+    (id: string, notes: string | null) => {
+      const intake = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY)
+        ?.items.find((i) => i.itemId === id);
+      if (!intake) return;
+      intakeMutation.mutate({ itemId: id, taken: intake.taken, notes });
+    },
+    [qc, intakeMutation],
+  );
+
   function startEdit(m: TherapySelfItem) {
     setEditingId(m.id);
     setForm({
@@ -440,7 +496,8 @@ export default function PatientSupplementiPage() {
           meds={dueToday}
           intakeByItem={intakeByItem}
           loading={intakeToday.isLoading}
-          onMark={(itemId, taken) => intakeMutation.mutate({ itemId, taken })}
+          onMark={onMark}
+          onSaveNotes={onSaveNotes}
         />
       )}
 
@@ -673,11 +730,13 @@ function TodayCheckCard({
   intakeByItem,
   loading,
   onMark,
+  onSaveNotes,
 }: {
   meds: TherapySelfItem[];
   intakeByItem: Map<string, TherapyIntakeItem>;
   loading: boolean;
   onMark: (itemId: string, taken: boolean) => void;
+  onSaveNotes: (itemId: string, notes: string | null) => void;
 }) {
   return (
     <Card>
@@ -701,6 +760,7 @@ function TodayCheckCard({
                   ? "taken"
                   : "skipped"
                 : "pending";
+
               return (
                 <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
@@ -710,36 +770,15 @@ function TodayCheckCard({
                     <p className="text-sm font-semibold">{m.name}</p>
                     {m.dose && <p className="text-muted-foreground text-xs">{m.dose}</p>}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onMark(m.id, true)}
-                      className={cn(
-                        "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
-                        state === "taken"
-                          ? "border-emerald-600 bg-emerald-600 text-white"
-                          : "border-input bg-background text-muted-foreground hover:bg-muted",
-                      )}
-                      aria-pressed={state === "taken"}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      Assunto
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onMark(m.id, false)}
-                      className={cn(
-                        "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
-                        state === "skipped"
-                          ? "border-destructive bg-destructive text-destructive-foreground"
-                          : "border-input bg-background text-muted-foreground hover:bg-muted",
-                      )}
-                      aria-pressed={state === "skipped"}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Non assunto
-                    </button>
-                  </div>
+
+                  <IntakeModifiers state={state} onMark={onMark} id={m.id} />
+
+                  <IntakeNotesField
+                    key={`${m.id}-${intake?.id ?? "none"}`}
+                    initialNotes={intake?.notes ?? null}
+                    disabled={!intake}
+                    onSave={(notes) => onSaveNotes(m.id, notes)}
+                  />
                 </li>
               );
             })}
@@ -747,6 +786,44 @@ function TodayCheckCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+export function IntakeNotesField({
+  initialNotes,
+  disabled,
+  onSave,
+}: {
+  initialNotes: string | null;
+  disabled: boolean;
+  onSave: (notes: string | null) => void;
+}) {
+  const [draft, setDraft] = React.useState(initialNotes ?? "");
+  const trimmed = draft.trim();
+  const next = trimmed === "" ? null : trimmed;
+  const dirty = next !== initialNotes;
+
+  return (
+    <div className="flex basis-full flex-col gap-2">
+      <Textarea
+        value={draft}
+        disabled={disabled}
+        placeholder={disabled ? "Segna prima l'assunzione per aggiungere una nota" : "Note (opzionale)"}
+        rows={2}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled || !dirty}
+          onClick={() => onSave(next)}
+        >
+          Salva nota
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -832,7 +909,7 @@ function MedSection({
                     </p>
                     {m.notes && <p className="mt-1 text-xs whitespace-pre-wrap">{m.notes}</p>}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-col items-center gap-1 md:flex-row">
                     {m.active && time && (
                       <button
                         type="button"
@@ -850,6 +927,9 @@ function MedSection({
                         )}
                       </button>
                     )}
+
+                    <AssumptionDialog med={m} />
+
                     <button
                       type="button"
                       onClick={() => onEdit(m)}
@@ -893,5 +973,47 @@ function MedSection({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface IntakeModifiersProps {
+  id: string;
+
+  onMark: (id: string, value: boolean) => void;
+  state: "taken" | "skipped" | "pending";
+}
+
+export function IntakeModifiers({ id, state, onMark }: IntakeModifiersProps) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onMark(id, true)}
+        className={cn(
+          "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+          state === "taken"
+            ? "border-emerald-600 bg-emerald-600 text-white"
+            : "border-input bg-background text-muted-foreground hover:bg-muted",
+        )}
+        aria-pressed={state === "taken"}
+      >
+        <Check className="h-3.5 w-3.5" />
+        Assunto
+      </button>
+      <button
+        type="button"
+        onClick={() => onMark(id, false)}
+        className={cn(
+          "focus-ring inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+          state === "skipped"
+            ? "border-destructive bg-destructive text-destructive-foreground"
+            : "border-input bg-background text-muted-foreground hover:bg-muted",
+        )}
+        aria-pressed={state === "skipped"}
+      >
+        <X className="h-3.5 w-3.5" />
+        Non assunto
+      </button>
+    </div>
   );
 }

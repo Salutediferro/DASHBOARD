@@ -18,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { PrimaryKey } from "@/components/health/health-tabs";
-import { getMapping, METRICS, type MetricConfig } from "@/components/health/health-ring-row";
+import { getMapping, type MetricConfig } from "@/components/health/health-ring-row";
 
 type TimelineEvent = {
   id: string;
