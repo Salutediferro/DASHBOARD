@@ -27,7 +27,6 @@ import {
 } from "@/lib/hooks/use-health-category-prefs";
 
 import PageHeader from "@/components/brand/page-header";
-import MetricRing from "@/components/brand/metric-ring";
 import SectionHeader from "@/components/brand/section-header";
 import { MetricChart } from "@/components/health/metric-chart";
 import { MetricForm, type MetricField } from "@/components/health/metric-form";
@@ -35,7 +34,6 @@ import HealthEmptyState from "@/components/health/health-empty-state";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
 import { HealthRingRow } from "./health-ring-row";
-import type { RingMetric } from "./metric-ring-card";
 
 export type PatientProfile = {
   targetWeightKg: number | null;
@@ -212,7 +210,7 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
   }, [hydrated, effectiveCategories, formCategory]);
 
   const list = useBiometrics({ patientId, perPage: 500 });
-  const items = list.data?.items ?? [];
+  const items = useMemo(() => list.data?.items ?? [], [list.data?.items]);
   const hasAnyData = items.length > 0;
 
   const periodItems = React.useMemo(() => {

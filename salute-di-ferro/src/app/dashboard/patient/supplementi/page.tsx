@@ -407,7 +407,7 @@ export default function PatientSupplementiPage() {
 
   const onMark = React.useCallback(
     (id: string, taken: boolean) => intakeMutation.mutate({ itemId: id, taken }),
-    [],
+    [intakeMutation],
   );
 
   const onSaveNotes = React.useCallback(

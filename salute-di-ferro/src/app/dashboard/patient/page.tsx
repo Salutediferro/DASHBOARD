@@ -16,7 +16,6 @@ import { prisma } from "@/lib/prisma";
 import { greeting } from "@/lib/greeting";
 import { getPatientActivity, getPatientKpis } from "@/lib/queries/dashboard";
 import SectionHeader from "@/components/brand/section-header";
-import StatCard from "@/components/brand/stat-card";
 import { AppointmentsEmptyState } from "@/components/empty-states";
 import RecentActivity from "@/components/dashboard/recent-activity";
 import QuickLinkCard, { formatItalianDate } from "@/components/dashboard/quick-link-card";

@@ -155,7 +155,7 @@ export async function POST(req: Request) {
  * Lists the caller's invitations (most recent first). Automatically marks
  * expired rows as EXPIRED as a side effect (cheap one-pass sweep).
  */
-export async function GET(req: Request) {
+export async function GET() {
   const authz = await requireProfessional();
   if ("error" in authz) return authz.error;
   const { pro } = authz;

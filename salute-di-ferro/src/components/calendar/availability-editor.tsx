@@ -391,7 +391,6 @@ function UpcomingPreview({ slots }: { slots: AvailabilitySlotDTO[] }) {
   );
 
   function windowsFor(d: Date): string[] {
-    const iso = d.toISOString().slice(0, 10);
     const recurring = slots.filter(
       (s) => s.isRecurring && s.dayOfWeek === d.getDay(),
     );

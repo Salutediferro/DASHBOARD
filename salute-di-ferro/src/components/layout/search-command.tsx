@@ -11,7 +11,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
 import type { NavItem } from "@/lib/nav-items";
 import { cn } from "@/lib/utils";

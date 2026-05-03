@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -57,10 +57,9 @@ export function AssumptionDialog({ med }: AssumptionDialogProps) {
   });
 
   const currentIntake = useMemo(() => {
-    if (typeof intakes.data?.items === "undefined") return undefined;
-    return intakes.data.items.find(
-      (i) => toIsoDate(i.date as unknown as string) === isoDay,
-    );
+    const items = intakes.data?.items;
+    if (typeof items === "undefined") return undefined;
+    return items.find((i) => toIsoDate(i.date as unknown as string) === isoDay);
   }, [intakes.data?.items, isoDay]);
 
   const takenToday = currentIntake?.taken;
@@ -162,7 +161,7 @@ export function AssumptionDialog({ med }: AssumptionDialogProps) {
       <DialogContent className="sm:max-w-md md:max-w-lg">
         <DialogHeader>
           <DialogTitle>Assunzioni</DialogTitle>
-          <DialogDescription>Modifica le tue assunzioni relative a "{med.name}".</DialogDescription>
+          <DialogDescription>Modifica le tue assunzioni relative a &quot;{med.name}&quot;.</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-row items-start">

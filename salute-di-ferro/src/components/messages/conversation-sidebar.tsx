@@ -31,7 +31,7 @@ export function ConversationSidebar() {
   const [filter, setFilter] = React.useState<Filter>("all");
   const [newOpen, setNewOpen] = React.useState(false);
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -65,7 +65,7 @@ function computeRingMetrics(
         break;
 
       case "bodyFatPercentage":
-        isFemale ? 22 : 15;
+        target = isFemale ? 22 : 15;
         break;
     }
 
