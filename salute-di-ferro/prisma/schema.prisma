@@ -178,6 +178,11 @@ model User {
   bio         String?
   specialties String?
 
+  // IANA timezone, used by server-side reminder schedulers to interpret
+  // user-set HH:MM (e.g. supplement reminders) in the patient's locale.
+  // Defaults to Europe/Rome since the product is Italy-first.
+  timezone String @default("Europe/Rome")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -216,9 +221,10 @@ model User {
   // the items this user owns as a patient (kind=SELF) and the ones a
   // doctor prescribed for them (kind=PRESCRIBED). `prescribedTherapyItems`
   // is the reverse side for doctors — everything they prescribed.
-  therapyItems           TherapyItem[]   @relation("PatientTherapyItems")
-  prescribedTherapyItems TherapyItem[]   @relation("PrescribedTherapyItems")
-  therapyIntakes         TherapyIntake[] @relation("PatientTherapyIntakes")
+  therapyItems           TherapyItem[]             @relation("PatientTherapyItems")
+  prescribedTherapyItems TherapyItem[]             @relation("PrescribedTherapyItems")
+  therapyIntakes         TherapyIntake[]           @relation("PatientTherapyIntakes")
+  therapyReminderDeliveries TherapyReminderDelivery[] @relation("PatientReminderDeliveries")
   symptomLogs            SymptomLog[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
@@ -355,13 +361,59 @@ model TherapyItem {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  patient      User            @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
-  prescribedBy User?           @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
+  patient      User                      @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
+  prescribedBy User?                     @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
   intakes      TherapyIntake[]
+  reminderDeliveries TherapyReminderDelivery[]
 
   @@index([patientId, kind, active])
   @@index([patientId, startDate(sort: Desc)])
   @@index([prescribedById])
+}
+
+// Idempotent delivery log for server-side therapy reminders. The unique
+// (itemId, date, channel) index is the single anchor that makes a 5-min
+// cron safe to retry: every run either succeeds in claiming a slot
+// (insert succeeds, message gets sent) or hits the conflict (some prior
+// run already handled this date+channel combo, skip).
+//
+// `status` distinguishes the in-flight bookkeeping ("we tried, it
+// failed") from "we never even attempted" — the row is created BEFORE
+// the network call, so a crash after the row is written but before the
+// provider succeeds becomes a FAILED row that humans can retry from
+// the admin panel.
+model TherapyReminderDelivery {
+  id         String           @id @default(uuid()) @db.Uuid
+  itemId     String           @db.Uuid
+  patientId  String           @db.Uuid
+  // Calendar day in the *patient's* timezone — not the UTC date of
+  // sentAt. So a reminder set for 23:30 Europe/Rome on May 3 is keyed
+  // as 2026-05-03 even if the actual UTC instant slips into May 4.
+  date       DateTime         @db.Date
+  channel    ReminderChannel
+  status     ReminderStatus
+  sentAt     DateTime         @default(now())
+  provider   String?
+  providerId String?
+  error      String?
+
+  item    TherapyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  patient User        @relation("PatientReminderDeliveries", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, date, channel])
+  @@index([patientId, date])
+}
+
+enum ReminderChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum ReminderStatus {
+  SENT
+  FAILED
+  SKIPPED
 }
 
 // Daily check-off for self-managed supplements (AT-7 feedback).

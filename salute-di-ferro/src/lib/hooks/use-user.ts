@@ -32,6 +32,9 @@ export type UserProfile = {
   // Public professional profile (DOCTOR/COACH only — visible to linked patients)
   bio: string | null;
   specialties: string | null;
+  // IANA timezone (e.g. "Europe/Rome"). Drives server-side reminder
+  // scheduling so HH:MM is interpreted in the patient's local zone.
+  timezone: string;
 };
 
 export function useUser() {

@@ -33,11 +33,7 @@ import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import HealthEmptyState from "@/components/health/health-empty-state";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
-import {
-  SKINFOLD_SITES,
-  SKINFOLD_LABELS,
-  gradeSkinfold,
-} from "@/lib/health/skinfold-thresholds";
+import { SKINFOLD_SITES, SKINFOLD_LABELS, gradeSkinfold } from "@/lib/health/skinfold-thresholds";
 import {
   METRIC_GRADE_LABELS,
   findLatestNumeric,
@@ -263,9 +259,7 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
   // Context for traffic-light grading. Weight needs the current and prior
   // readings so its grade reflects trend direction, not just distance.
   const latestWeight = findLatestNumeric(items, "weight");
-  const prevWeight = latestWeight
-    ? findPreviousNumeric(items, "weight", latestWeight.date)
-    : null;
+  const prevWeight = latestWeight ? findPreviousNumeric(items, "weight", latestWeight.date) : null;
   const metricCtx: MetricContext = {
     sex: profile.sex,
     targetWeightKg: profile.targetWeightKg,
@@ -413,6 +407,25 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
 
 // ── Category panel ─────────────────────────────────────────────────────────
 
+const CATEGORIES_KEYS: Record<CategoryKey, PrimaryKey[]> = {
+  sleep: ["sleepBedtime", "sleepAwakenings", "sleepHours", "sleepQuality", "sleepWakeTime"],
+  cardiovascular: ["systolicBP", "diastolicBP", "restingHR", "spo2", "hrv"],
+  body: ["weight", "muscleMassKg", "bodyWaterPct"],
+  circumferences: ["waistCm", "hipsCm", "armsCm", "chestCm", "thighCm", "calvesCm"],
+  skinfolds: [
+    "chestSkinfoldMm",
+    "abdominalSkinfoldMm",
+    "thighSkinfoldMm",
+    "suprailiacSkinfoldMm",
+    "subscapularSkinfoldMm",
+    "midaxillarySkinfoldMm",
+    "tricepsSkinfoldMm",
+    "calfSkinfoldMm",
+  ],
+  metabolic: ["glucoseFasting", "glucosePostMeal", "ketones", "bodyTempC"],
+  activity: ["steps", "caloriesBurned", "activeMinutes", "distanceKm"],
+};
+
 function CategoryPanel({
   category,
   items,
@@ -458,6 +471,11 @@ function CategoryPanel({
     [category, allItems],
   );
 
+  const i = React.useMemo(() => {
+    const keys = CATEGORIES_KEYS[category];
+    return allItems.filter((i) => keys.some((k) => i[k] !== null));
+  }, [category, allItems]);
+
   return (
     <div className="flex flex-col gap-4">
       <SectionHeader
@@ -492,12 +510,7 @@ function CategoryPanel({
         decimals={primary.decimals ?? 1}
       />
 
-      <RecentTable
-        category={category}
-        items={allItems.slice(0, 10)}
-        readOnly={readOnly}
-        onAdd={onAdd}
-      />
+      <RecentTable category={category} items={i.slice(0, 10)} readOnly={readOnly} onAdd={onAdd} />
     </div>
   );
 }
@@ -725,7 +738,7 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
       if (r.restingHR != null) parts.push(`${r.restingHR} bpm`);
       break;
     case "metabolic":
-      if (r.glucoseFasting != null) parts.push(`${r.glucoseFasting} mg/dL`);
+      if (r.glucoseFasting != null) parts.push(`${r.glucoseFasting.toFixed(2)} mg/dL`);
       if (r.bodyTempC != null) parts.push(`${r.bodyTempC} °C`);
       break;
     case "sleep":
@@ -789,13 +802,9 @@ function MetricGradeCard({
       <p className="text-[10px] tracking-wide uppercase opacity-80">{label}</p>
       <p className="font-heading text-2xl font-semibold tabular-nums">
         {latest ? latest.value.toFixed(decimals) : "—"}
-        {latest && unit && (
-          <span className="ml-1 text-sm font-normal opacity-70">{unit}</span>
-        )}
+        {latest && unit && <span className="ml-1 text-sm font-normal opacity-70">{unit}</span>}
       </p>
-      {latest && grade && (
-        <p className="text-[11px] font-medium opacity-90">{labelMap[grade]}</p>
-      )}
+      {latest && grade && <p className="text-[11px] font-medium opacity-90">{labelMap[grade]}</p>}
       {latest && (
         <p className="text-[10px] opacity-70">
           {new Date(latest.date).toLocaleDateString("it-IT", {
@@ -888,8 +897,8 @@ function MetricsGrid({
   return (
     <section className="flex flex-col gap-2">
       <p className="text-muted-foreground text-xs">
-        Verde = nel range · giallo = attenzione · rosso = fuori range. Le metriche senza soglia restano
-        neutre.
+        Verde = nel range · giallo = attenzione · rosso = fuori range. Le metriche senza soglia
+        restano neutre.
       </p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {numeric.map((f) => {

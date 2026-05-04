@@ -71,6 +71,17 @@ export const profilePatchSchema = z.object({
   // Public professional profile (DOCTOR/COACH only — ignored otherwise)
   bio: nullableString(2000),
   specialties: nullableString(500),
+
+  // IANA timezone (e.g. "Europe/Rome"). Validated leniently against the
+  // browser's known list at write time — kept loose so a server in a
+  // different env doesn't reject a perfectly valid zone the runtime
+  // doesn't happen to enumerate.
+  timezone: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z]+\/[A-Za-z_+\-0-9/]+$|^UTC$/, "Timezone IANA non valida")
+    .optional(),
 });
 
 export type ProfilePatch = z.infer<typeof profilePatchSchema>;
@@ -97,6 +108,7 @@ export const profileFormSchema = z.object({
   targetWeightKg: z.number().nullable(),
   bio: z.string().max(2000).nullable(),
   specialties: z.string().max(500).nullable(),
+  timezone: z.string().min(1).max(64),
 });
 
 export type ProfileFormInput = z.infer<typeof profileFormSchema>;

@@ -35,6 +35,30 @@ type Props = {
   hideHeader?: boolean;
 };
 
+// Curated list of timezones we expect actual users to live in. Italy
+// first, then EU neighbours, then the few non-EU zones an Italian
+// patient might realistically be in (work travel, expats). Keeping it
+// short over enumerating Intl.supportedValuesOf("timeZone") (~600
+// entries) — easier to scroll, easier to test.
+const COMMON_TIMEZONES: { value: string; label: string }[] = [
+  { value: "Europe/Rome", label: "Europe/Rome (Italia)" },
+  { value: "Europe/Paris", label: "Europe/Paris" },
+  { value: "Europe/Berlin", label: "Europe/Berlin" },
+  { value: "Europe/Madrid", label: "Europe/Madrid" },
+  { value: "Europe/London", label: "Europe/London" },
+  { value: "Europe/Lisbon", label: "Europe/Lisbon" },
+  { value: "Europe/Amsterdam", label: "Europe/Amsterdam" },
+  { value: "Europe/Zurich", label: "Europe/Zurich" },
+  { value: "Europe/Athens", label: "Europe/Athens" },
+  { value: "Europe/Istanbul", label: "Europe/Istanbul" },
+  { value: "America/New_York", label: "America/New_York" },
+  { value: "America/Chicago", label: "America/Chicago" },
+  { value: "America/Los_Angeles", label: "America/Los_Angeles" },
+  { value: "Asia/Tokyo", label: "Asia/Tokyo" },
+  { value: "Asia/Dubai", label: "Asia/Dubai" },
+  { value: "UTC", label: "UTC" },
+];
+
 function initials(name: string, email: string) {
   const src = name?.trim() || email || "";
   return (
@@ -84,6 +108,7 @@ export function ProfileForm({
       targetWeightKg: null,
       bio: "",
       specialties: "",
+      timezone: "Europe/Rome",
     },
   });
 
@@ -94,6 +119,10 @@ export function ProfileForm({
   const sex = useWatch({
     control: form.control,
     name: "sex",
+  });
+  const timezone = useWatch({
+    control: form.control,
+    name: "timezone",
   });
 
   // Hydrate the form once the profile fetch resolves.
@@ -115,6 +144,7 @@ export function ProfileForm({
       targetWeightKg: profile.targetWeightKg ?? null,
       bio: profile.bio ?? "",
       specialties: profile.specialties ?? "",
+      timezone: profile.timezone ?? "Europe/Rome",
     });
   }, [profile, form]);
 
@@ -401,6 +431,30 @@ export function ProfileForm({
               <Input value={profile.email} disabled />
               <p className="text-muted-foreground text-xs">
                 L&apos;email non può essere modificata.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="timezone">Fuso orario</Label>
+              <Select
+                value={timezone ?? "Europe/Rome"}
+                onValueChange={(v) =>
+                  form.setValue("timezone", v as string, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger id="timezone">
+                  <SelectValue placeholder="Seleziona fuso orario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                Usato per inviare i promemoria dei supplementi all&apos;orario corretto.
               </p>
             </div>
           </CardContent>

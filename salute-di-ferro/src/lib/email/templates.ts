@@ -296,3 +296,57 @@ export function appointmentReminderEmail(params: {
 
   return { html, text, subject };
 }
+
+// ── Therapy reminder (opaque) ─────────────────────────────────────────
+//
+// IMPORTANT: this template is intentionally opaque on supplement
+// content. Email is not an authenticated channel and the patient's
+// inbox provider can read every line we send, so we never name the
+// supplement, the dose, or the underlying condition. The deep link
+// carries the metadata that lets the authenticated dashboard show the
+// right row when the user clicks through.
+
+export function therapyReminderEmail(params: {
+  recipientName: string;
+  /** The HH:MM the user originally set, formatted for their locale. */
+  timeLabel: string;
+  /** Authenticated landing page that highlights the right supplement. */
+  deepLinkUrl: string;
+}): { html: string; text: string; subject: string } {
+  const subject = "È ora del tuo supplemento";
+  const greeting = params.recipientName
+    ? `Ciao ${escapeHtml(params.recipientName)},`
+    : "Ciao,";
+
+  const html = layout(`
+    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${subject}</td></tr>
+    <tr><td style="color:${MUTED};padding-bottom:16px;">
+      ${greeting} è il momento del tuo supplemento programmato per le
+      <strong style="color:${TEXT};">${escapeHtml(params.timeLabel)}</strong>.
+      Apri Salute di Ferro per vedere quale e segnare l&apos;assunzione.
+    </td></tr>
+    <tr><td align="center" style="padding:8px 0 24px;">
+      ${button(params.deepLinkUrl, "Apri promemoria")}
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;">
+      Per privacy non includiamo dettagli del supplemento in questa email.
+      Se non vuoi più ricevere questi promemoria, disattivali nella scheda del
+      supplemento all&apos;interno dell&apos;app.
+    </td></tr>
+  `);
+
+  const text = [
+    subject,
+    "",
+    `${greeting}`,
+    `è il momento del tuo supplemento programmato per le ${params.timeLabel}.`,
+    "Apri Salute di Ferro per vedere quale e segnare l'assunzione:",
+    params.deepLinkUrl,
+    "",
+    "Per privacy non includiamo dettagli del supplemento in questa email.",
+    "",
+    "— Salute di Ferro",
+  ].join("\n");
+
+  return { html, text, subject };
+}
