@@ -105,6 +105,52 @@ export function buildDailySeries(
 
 // ---------- PATIENT ---------- //
 
+// Per-metric snapshot powering the customisable overview cards.
+// `current` is the most recent reading in the 14-day window, `delta14d`
+// is the raw change between the first and last reading (null if we only
+// have one data point), and `series` is the daily forward-filled series
+// suitable for a sparkline.
+export type MetricSeries = {
+  current: number | null;
+  delta14d: number | null;
+  series: number[];
+  hasData: boolean;
+};
+
+// Keys for the per-patient metrics registry. Stays in sync with
+// OVERVIEW_METRIC_KEYS in use-overview-prefs — see comment there.
+export type PatientMetricKey =
+  | "weight"
+  | "bmi"
+  | "bodyFat"
+  | "muscleMass"
+  | "bodyWater"
+  | "waist"
+  | "hips"
+  | "chest"
+  | "arms"
+  | "thigh"
+  | "calves"
+  | "systolicBP"
+  | "diastolicBP"
+  | "restingHR"
+  | "spo2"
+  | "hrv"
+  | "glucoseFasting"
+  | "glucosePostMeal"
+  | "bodyTempC"
+  | "ketones"
+  | "sleepHours"
+  | "sleepQuality"
+  | "sleepAwakenings"
+  | "steps"
+  | "caloriesBurned"
+  | "activeMinutes"
+  | "distanceKm"
+  | "energyLevel"
+  | "mood"
+  | "energy";
+
 export type PatientKpis = {
   currentWeightKg: number | null;
   weightDelta14d: number | null;
@@ -116,19 +162,76 @@ export type PatientKpis = {
     bmi: number[] | null;
     checkIns: number[];
   };
+  metrics: Record<PatientMetricKey, MetricSeries>;
 };
+
+const EMPTY_METRIC: MetricSeries = {
+  current: null,
+  delta14d: null,
+  series: [],
+  hasData: false,
+};
+
+function buildMetricSeries(
+  points: Array<{ date: Date; value: number | null }>,
+): MetricSeries {
+  const filtered = points.filter(
+    (p): p is { date: Date; value: number } => p.value != null,
+  );
+  if (filtered.length === 0) return EMPTY_METRIC;
+  const series = buildDailySeries(filtered);
+  const current = filtered[filtered.length - 1].value;
+  const delta14d =
+    filtered.length > 1 ? current - filtered[0].value : null;
+  return { current, delta14d, series, hasData: true };
+}
 
 export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
   const now = new Date();
   const weekStart = startOfIsoWeek(now);
   const twoWeeksAgo = addDays(startOfDay(now), -14);
 
-  const [biometrics, checkInsWeekCount, checkInsRecent, nextApp] =
+  const [biometrics, symptoms, checkInsWeekCount, checkInsRecent, nextApp] =
     await Promise.all([
       prisma.biometricLog.findMany({
         where: { patientId, date: { gte: twoWeeksAgo } },
         orderBy: { date: "asc" },
-        select: { date: true, weight: true, bmi: true },
+        select: {
+          date: true,
+          weight: true,
+          bmi: true,
+          bodyFatPercentage: true,
+          muscleMassKg: true,
+          bodyWaterPct: true,
+          waistCm: true,
+          hipsCm: true,
+          chestCm: true,
+          armsCm: true,
+          thighCm: true,
+          calvesCm: true,
+          systolicBP: true,
+          diastolicBP: true,
+          restingHR: true,
+          spo2: true,
+          hrv: true,
+          glucoseFasting: true,
+          glucosePostMeal: true,
+          ketones: true,
+          bodyTempC: true,
+          sleepHours: true,
+          sleepQuality: true,
+          sleepAwakenings: true,
+          steps: true,
+          caloriesBurned: true,
+          activeMinutes: true,
+          distanceKm: true,
+          energyLevel: true,
+        },
+      }),
+      prisma.symptomLog.findMany({
+        where: { patientId, date: { gte: twoWeeksAgo } },
+        orderBy: { date: "asc" },
+        select: { date: true, mood: true, energy: true },
       }),
       prisma.checkIn.count({
         where: { patientId, date: { gte: weekStart } },
@@ -154,34 +257,67 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
       }),
     ]);
 
-  const weights = biometrics
-    .filter((b) => b.weight != null)
-    .map((b) => ({ date: b.date, weight: b.weight as number }));
-  const lastWeight = weights[weights.length - 1]?.weight ?? null;
-  const firstWeight = weights[0]?.weight ?? null;
-  const weightDelta =
-    lastWeight != null && firstWeight != null
-      ? lastWeight - firstWeight
-      : null;
-  const lastBmi =
-    biometrics
-      .slice()
-      .reverse()
-      .find((b) => b.bmi != null)?.bmi ?? null;
+  // Map every Prisma field to a PatientMetricKey via a per-key extractor.
+  // Listing these inline (rather than chasing dynamic field access) keeps
+  // the types honest with no `as any` cast.
+  const extractors: Record<
+    PatientMetricKey,
+    (i: number) => number | null
+  > = {
+    weight: (i) => biometrics[i].weight,
+    bmi: (i) => biometrics[i].bmi,
+    bodyFat: (i) => biometrics[i].bodyFatPercentage,
+    muscleMass: (i) => biometrics[i].muscleMassKg,
+    bodyWater: (i) => biometrics[i].bodyWaterPct,
+    waist: (i) => biometrics[i].waistCm,
+    hips: (i) => biometrics[i].hipsCm,
+    chest: (i) => biometrics[i].chestCm,
+    arms: (i) => biometrics[i].armsCm,
+    thigh: (i) => biometrics[i].thighCm,
+    calves: (i) => biometrics[i].calvesCm,
+    systolicBP: (i) => biometrics[i].systolicBP,
+    diastolicBP: (i) => biometrics[i].diastolicBP,
+    restingHR: (i) => biometrics[i].restingHR,
+    spo2: (i) => biometrics[i].spo2,
+    hrv: (i) => biometrics[i].hrv,
+    glucoseFasting: (i) => biometrics[i].glucoseFasting,
+    glucosePostMeal: (i) => biometrics[i].glucosePostMeal,
+    bodyTempC: (i) => biometrics[i].bodyTempC,
+    ketones: (i) => biometrics[i].ketones,
+    sleepHours: (i) => biometrics[i].sleepHours,
+    sleepQuality: (i) => biometrics[i].sleepQuality,
+    sleepAwakenings: (i) => biometrics[i].sleepAwakenings,
+    steps: (i) => biometrics[i].steps,
+    caloriesBurned: (i) => biometrics[i].caloriesBurned,
+    activeMinutes: (i) => biometrics[i].activeMinutes,
+    distanceKm: (i) => biometrics[i].distanceKm,
+    energyLevel: (i) => biometrics[i].energyLevel,
+    // Symptom-log derived — different source so we plug in a custom map below.
+    mood: () => null,
+    energy: () => null,
+  };
 
-  const weightSeries =
-    weights.length > 0
-      ? buildDailySeries(weights.map((w) => ({ date: w.date, value: w.weight })))
-      : null;
-  const bmiSeries =
-    biometrics.filter((b) => b.bmi != null).length > 0
-      ? buildDailySeries(
-          biometrics.map((b) => ({
-            date: b.date,
-            value: b.bmi ?? null,
-          })),
-        )
-      : null;
+  const metrics = {} as Record<PatientMetricKey, MetricSeries>;
+  for (const key of Object.keys(extractors) as PatientMetricKey[]) {
+    if (key === "mood" || key === "energy") continue;
+    metrics[key] = buildMetricSeries(
+      biometrics.map((b, i) => ({ date: b.date, value: extractors[key](i) })),
+    );
+  }
+  metrics.mood = buildMetricSeries(
+    symptoms.map((s) => ({ date: s.date, value: s.mood })),
+  );
+  metrics.energy = buildMetricSeries(
+    symptoms.map((s) => ({ date: s.date, value: s.energy })),
+  );
+
+  // Legacy fields kept verbatim so the hero signal and existing cards
+  // keep working without reaching into `metrics`.
+  const lastWeight = metrics.weight.current;
+  const weightDelta = metrics.weight.delta14d;
+  const lastBmi = metrics.bmi.current;
+  const weightSeries = metrics.weight.hasData ? metrics.weight.series : null;
+  const bmiSeries = metrics.bmi.hasData ? metrics.bmi.series : null;
   const checkInSeries = buildDailySeries(
     checkInsRecent.map((c) => ({ date: c.date, value: 1 })),
   );
@@ -216,6 +352,7 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
       bmi: bmiSeries,
       checkIns: checkInSeries,
     },
+    metrics,
   };
 }
 

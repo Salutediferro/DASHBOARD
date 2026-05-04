@@ -13,11 +13,46 @@ import * as React from "react";
  */
 
 export const OVERVIEW_METRIC_KEYS = [
+  // Core / cross-cutting
   "weight",
   "weightDelta",
   "bmi",
   "checkIns",
   "nextAppointment",
+  // Body composition
+  "bodyFat",
+  "muscleMass",
+  "bodyWater",
+  // Circumferences
+  "waist",
+  "hips",
+  "chest",
+  "arms",
+  "thigh",
+  "calves",
+  // Cardiovascular
+  "bloodPressure",
+  "restingHR",
+  "spo2",
+  "hrv",
+  // Metabolic
+  "glucoseFasting",
+  "glucosePostMeal",
+  "bodyTempC",
+  "ketones",
+  // Sleep
+  "sleepHours",
+  "sleepQuality",
+  "sleepAwakenings",
+  // Activity
+  "steps",
+  "caloriesBurned",
+  "activeMinutes",
+  "distanceKm",
+  // Wellbeing
+  "mood",
+  "energy",
+  "energyLevel",
 ] as const;
 
 export type OverviewMetricKey = (typeof OVERVIEW_METRIC_KEYS)[number];
