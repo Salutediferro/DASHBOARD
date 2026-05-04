@@ -86,6 +86,21 @@ export async function POST(req: Request) {
   const dateStr = parsed.data.date ?? todayIsoDate();
   const date = new Date(dateStr);
 
+  // Merge semantics on update: only keys present in the request body
+  // touch the row, so the dashboard quick-edit (e.g. "set mood=4") can
+  // patch one field without nulling the others. The full diary form
+  // still works because it sends every field.
+  //
+  // `parsed.data` strips `undefined`, so testing presence in the raw
+  // body is the source of truth for "did the client send this field".
+  const raw = body as Record<string, unknown>;
+  const update: Record<string, unknown> = {};
+  if ("mood" in raw) update.mood = parsed.data.mood ?? null;
+  if ("energy" in raw) update.energy = parsed.data.energy ?? null;
+  if ("sleepQuality" in raw) update.sleepQuality = parsed.data.sleepQuality ?? null;
+  if ("symptoms" in raw) update.symptoms = parsed.data.symptoms ?? [];
+  if ("notes" in raw) update.notes = parsed.data.notes ?? null;
+
   const upserted = await prisma.symptomLog.upsert({
     where: { patientId_date: { patientId: me.id, date } },
     create: {
@@ -97,13 +112,7 @@ export async function POST(req: Request) {
       symptoms: parsed.data.symptoms ?? [],
       notes: parsed.data.notes ?? null,
     },
-    update: {
-      mood: parsed.data.mood ?? null,
-      energy: parsed.data.energy ?? null,
-      sleepQuality: parsed.data.sleepQuality ?? null,
-      symptoms: parsed.data.symptoms ?? [],
-      notes: parsed.data.notes ?? null,
-    },
+    update,
   });
 
   return NextResponse.json(upserted);

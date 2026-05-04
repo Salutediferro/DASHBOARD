@@ -5,6 +5,8 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarClock, HeartPulse } f
 import { cn } from "@/lib/utils";
 import { StatCard } from "../brand";
 import type { PatientKpis, PatientMetricKey } from "@/lib/queries/dashboard";
+import type { MetricGrade } from "@/lib/health/metric-thresholds";
+import { GRADE_TONE } from "@/lib/health/grade-with-target";
 
 /**
  * Each overview card has its own visual treatment — they share the
@@ -14,7 +16,7 @@ import type { PatientKpis, PatientMetricKey } from "@/lib/queries/dashboard";
  * smash them into the same shape and bury the differences that matter.
  */
 
-export function WeightCard({ kpis }: { kpis: PatientKpis }) {
+export function WeightCard({ kpis, grade }: { kpis: PatientKpis; grade?: MetricGrade | null }) {
   return (
     <StatCard
       label="Peso corrente"
@@ -27,6 +29,7 @@ export function WeightCard({ kpis }: { kpis: PatientKpis }) {
       }
       trend={kpis.sparklines.weight ?? undefined}
       invertDelta
+      className={grade ? GRADE_TONE[grade] : undefined}
     />
   );
 }
@@ -66,11 +69,22 @@ const BMI_CLASSES: { max: number; label: string; tone: string }[] = [
   { max: Infinity, label: "Obesità", tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
 ];
 
-export function BMICard({ kpis }: { kpis: PatientKpis }) {
+export function BMICard({
+  kpis,
+  grade,
+}: {
+  kpis: PatientKpis;
+  grade?: MetricGrade | null;
+}) {
   const bmi = kpis.bmi;
   const klass = bmi != null ? (BMI_CLASSES.find((c) => bmi < c.max) ?? null) : null;
   return (
-    <div className="surface-1 flex size-full flex-col p-3 md:p-4">
+    <div
+      className={cn(
+        "surface-1 flex size-full flex-col p-3 md:p-4",
+        grade && GRADE_TONE[grade],
+      )}
+    >
       <p className="text-muted-foreground text-xs font-medium">BMI</p>
       <span className="text-display mt-1 text-2xl tabular-nums md:text-3xl">
         {bmi != null ? bmi.toFixed(1) : "—"}
@@ -133,6 +147,7 @@ export function SimpleMetricCard({
   unit,
   invertDelta = false,
   format,
+  grade,
 }: {
   kpis: PatientKpis;
   metricKey: PatientMetricKey;
@@ -140,6 +155,7 @@ export function SimpleMetricCard({
   unit?: string;
   invertDelta?: boolean;
   format?: (v: number) => string;
+  grade?: MetricGrade | null;
 }) {
   const m = kpis.metrics[metricKey];
   const value = m.current;
@@ -156,6 +172,7 @@ export function SimpleMetricCard({
       delta={deltaPct}
       trend={m.hasData && m.series.length > 1 ? m.series : undefined}
       invertDelta={invertDelta}
+      className={grade ? GRADE_TONE[grade] : undefined}
     />
   );
 }
@@ -170,7 +187,13 @@ const BP_CLASSES: { sys: number; dia: number; label: string; tone: string }[] = 
   { sys: Infinity, dia: Infinity, label: "Ipertensione", tone: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
 ];
 
-export function BloodPressureCard({ kpis }: { kpis: PatientKpis }) {
+export function BloodPressureCard({
+  kpis,
+  grade,
+}: {
+  kpis: PatientKpis;
+  grade?: MetricGrade | null;
+}) {
   const sys = kpis.metrics.systolicBP.current;
   const dia = kpis.metrics.diastolicBP.current;
   const klass =
@@ -178,7 +201,12 @@ export function BloodPressureCard({ kpis }: { kpis: PatientKpis }) {
       ? (BP_CLASSES.find((c) => sys < c.sys && dia < c.dia) ?? BP_CLASSES[BP_CLASSES.length - 1])
       : null;
   return (
-    <div className="surface-1 flex size-full flex-col p-3 md:p-4">
+    <div
+      className={cn(
+        "surface-1 flex size-full flex-col p-3 md:p-4",
+        grade && GRADE_TONE[grade],
+      )}
+    >
       <p className="text-muted-foreground inline-flex items-center gap-1.5 text-xs font-medium">
         <HeartPulse className="h-3.5 w-3.5" aria-hidden />
         Pressione arteriosa

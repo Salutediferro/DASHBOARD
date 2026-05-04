@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Settings } from "lucide-react";
+import { Settings, Target, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -11,6 +11,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
+import type { Sex } from "@prisma/client";
 
 import {
   Dialog,
@@ -28,7 +29,14 @@ import {
   useOverviewPrefs,
   type OverviewMetricKey,
 } from "@/lib/hooks/use-overview-prefs";
-import type { PatientKpis } from "@/lib/queries/dashboard";
+import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
+import type { PatientKpis, PatientMetricKey } from "@/lib/queries/dashboard";
+import type { MetricContext, MetricGrade } from "@/lib/health/metric-thresholds";
+import {
+  gradeBmi,
+  gradeBloodPressure,
+  gradeOverviewMetric,
+} from "@/lib/health/grade-with-target";
 import {
   BMICard,
   BloodPressureCard,
@@ -38,16 +46,62 @@ import {
   WeightCard,
   WeightDeltaCard,
 } from "./overview-cards";
+import { EDITOR_CONFIG } from "./metric-editor-config";
+import { MetricEditorDialog } from "./metric-editor-dialog";
 
 interface PatientOverviewProps {
   kpis: PatientKpis;
+  /** Patient bio used by the grading engine — sex (for body-comp/waist
+   * bands) and target weight (for weight grading). Optional: when
+   * omitted, those metrics fall back to neutral (no medical band). */
+  profile?: {
+    sex: Sex | null;
+    heightCm: number | null;
+    targetWeightKg: number | null;
+  };
+  /** Server-fetched targets used to seed React Query so cards render
+   * with their grade colour on first paint. */
+  initialTargets?: MetricTargetsMap;
 }
 
 type MetricDef = {
   label: string;
   description: string;
   category: string;
-  Component: React.FC<{ kpis: PatientKpis }>;
+  Component: React.FC<{ kpis: PatientKpis; grade?: MetricGrade | null }>;
+};
+
+// Map our card keys to the underlying entry in `kpis.metrics` (most are
+// 1:1, but composite/aggregate cards have no direct match).
+const PATIENT_METRIC_FOR: Partial<Record<OverviewMetricKey, PatientMetricKey>> = {
+  weight: "weight",
+  bmi: "bmi",
+  bodyFat: "bodyFat",
+  muscleMass: "muscleMass",
+  bodyWater: "bodyWater",
+  waist: "waist",
+  hips: "hips",
+  chest: "chest",
+  arms: "arms",
+  thigh: "thigh",
+  calves: "calves",
+  restingHR: "restingHR",
+  spo2: "spo2",
+  hrv: "hrv",
+  glucoseFasting: "glucoseFasting",
+  glucosePostMeal: "glucosePostMeal",
+  bodyTempC: "bodyTempC",
+  ketones: "ketones",
+  sleepHours: "sleepHours",
+  sleepQuality: "sleepQuality",
+  sleepAwakenings: "sleepAwakenings",
+  steps: "steps",
+  caloriesBurned: "caloriesBurned",
+  activeMinutes: "activeMinutes",
+  distanceKm: "distanceKm",
+  energyLevel: "energyLevel",
+  mood: "mood",
+  energy: "energy",
 };
 
 // Helper that wires SimpleMetricCard to a particular metric. Keeps the
@@ -58,8 +112,8 @@ function makeSimple(
   unit?: string,
   invertDelta = false,
   format?: (v: number) => string,
-): React.FC<{ kpis: PatientKpis }> {
-  const C: React.FC<{ kpis: PatientKpis }> = ({ kpis }) => (
+): MetricDef["Component"] {
+  const C: MetricDef["Component"] = ({ kpis, grade }) => (
     <SimpleMetricCard
       kpis={kpis}
       metricKey={metricKey}
@@ -67,6 +121,7 @@ function makeSimple(
       unit={unit}
       invertDelta={invertDelta}
       format={format}
+      grade={grade}
     />
   );
   C.displayName = `SimpleMetricCard(${metricKey})`;
@@ -300,6 +355,36 @@ const CATEGORY_ORDER = [
   "Benessere",
 ] as const;
 
+// Compact chip text for the on-card target indicator. Reuses the same
+// units the editor's input shows to avoid surprise mismatches.
+function formatTargetChip(
+  key: OverviewMetricKey,
+  value: import("@/lib/hooks/use-metric-targets").MetricTargetValue | undefined,
+): string | null {
+  if (value == null) return null;
+  if (typeof value === "object") {
+    return `${Math.round(value.systolic)}/${Math.round(value.diastolic)}`;
+  }
+  // Integers vs decimals: pick decimals based on the metric's natural unit.
+  const integerKeys: OverviewMetricKey[] = [
+    "restingHR",
+    "hrv",
+    "glucoseFasting",
+    "glucosePostMeal",
+    "sleepQuality",
+    "sleepAwakenings",
+    "steps",
+    "caloriesBurned",
+    "activeMinutes",
+    "energyLevel",
+    "mood",
+    "energy",
+  ];
+  return integerKeys.includes(key)
+    ? Math.round(value).toLocaleString("it-IT")
+    : value.toFixed(1);
+}
+
 // Tailwind needs the literal class strings to be present somewhere it
 // can statically scan, otherwise `lg:grid-cols-3` etc. get purged.
 const LG_COLS: Record<number, string> = {
@@ -309,9 +394,11 @@ const LG_COLS: Record<number, string> = {
   4: "lg:grid-cols-4",
 };
 
-export function PatientOverview({ kpis }: PatientOverviewProps) {
+export function PatientOverview({ kpis, profile, initialTargets }: PatientOverviewProps) {
   const { selected, hydrated, toggle, setOrder, max } = useOverviewPrefs();
+  const { targets, hydrated: targetsHydrated } = useMetricTargets({ initialData: initialTargets });
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [editorKey, setEditorKey] = React.useState<OverviewMetricKey | null>(null);
 
   // Honour the user's drag-reordered sequence. Before hydration we fall
   // back to the canonical default order to keep SSR matching.
@@ -320,6 +407,48 @@ export function PatientOverview({ kpis }: PatientOverviewProps) {
     (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
   ) as OverviewMetricKey[];
   const cols = LG_COLS[Math.min(visible.length, max)] ?? LG_COLS[max];
+
+  // Shared context for `gradeMetric` (sex-specific bands, target weight
+  // for trend-aware weight grading).
+  const metricCtx: MetricContext = React.useMemo(
+    () => ({
+      sex: profile?.sex ?? null,
+      targetWeightKg: profile?.targetWeightKg ?? null,
+      currentWeightKg: kpis.currentWeightKg,
+      previousWeightKg: null, // 14-day window is too short to be reliable here
+    }),
+    [profile?.sex, profile?.targetWeightKg, kpis.currentWeightKg],
+  );
+
+  // Compute the grade for each visible card. Targets that are still
+  // hydrating read as "no target", which means SSR == first paint and
+  // we don't flash a colour.
+  const gradeFor = React.useCallback(
+    (key: OverviewMetricKey): MetricGrade | null => {
+      if (!targetsHydrated) return null;
+      const t = targets[key];
+      if (key === "bloodPressure") {
+        const sys = kpis.metrics.systolicBP.current;
+        const dia = kpis.metrics.diastolicBP.current;
+        const bp = t && typeof t === "object" ? t : null;
+        return gradeBloodPressure(sys, dia, metricCtx, bp);
+      }
+      if (key === "bmi") {
+        return kpis.bmi != null
+          ? gradeBmi(kpis.bmi, typeof t === "number" ? t : null)
+          : null;
+      }
+      const pmKey = PATIENT_METRIC_FOR[key];
+      if (!pmKey) return null; // weightDelta / checkIns / nextAppointment
+      const value = kpis.metrics[pmKey].current;
+      if (value == null) return null;
+      return gradeOverviewMetric(key, value, {
+        ...metricCtx,
+        userTarget: typeof t === "number" ? t : null,
+      });
+    },
+    [kpis, targets, targetsHydrated, metricCtx],
+  );
 
   // Require ~5 px of pointer movement before a drag starts, so a click on
   // the link/card body isn't intercepted by the sortable wrapper.
@@ -420,15 +549,71 @@ export function PatientOverview({ kpis }: PatientOverviewProps) {
             {visible.map((key) => {
               const def = REGISTRY[key];
               const Component = def.Component;
+              const editable = EDITOR_CONFIG[key] != null;
+              const grade = gradeFor(key);
+              const canRemove = visible.length > 1;
+              const target = targets[key];
+              const targetLabel = formatTargetChip(key, target);
               return (
                 <SortableCard key={key} id={key}>
-                  <Component kpis={kpis} />
+                  {/* Trash button — sits next to the drag grip (right-1.5)
+                      at right-7 so they don't overlap. Reveals on hover via
+                      the SortableCard's `group` wrapper. */}
+                  {canRemove && (
+                    <button
+                      type="button"
+                      aria-label={`Rimuovi ${def.label}`}
+                      title="Rimuovi dalla dashboard"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(key);
+                      }}
+                      className="text-destructive/70 hover:bg-destructive/10 hover:text-destructive absolute top-1.5 right-7 z-10 inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  )}
+                  {editable ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditorKey(key)}
+                      aria-label={`Modifica ${def.label}`}
+                      className="focus-ring block size-full cursor-pointer rounded-xl text-left transition-all hover:brightness-[1.04] hover:ring-1 hover:ring-primary/30 active:scale-[0.99]"
+                    >
+                      <Component kpis={kpis} grade={grade} />
+                    </button>
+                  ) : (
+                    <Component kpis={kpis} grade={grade} />
+                  )}
+                  {/* Target chip — visible confirmation that the user's
+                      target was saved server-side. Sits at the bottom-right
+                      so it doesn't collide with the drag/trash controls. */}
+                  {targetLabel && (
+                    <span
+                      className="border-border/60 bg-background/90 text-muted-foreground pointer-events-none absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] tabular-nums backdrop-blur-sm"
+                      title={`Obiettivo: ${targetLabel}`}
+                    >
+                      <Target className="h-2.5 w-2.5" aria-hidden />
+                      {targetLabel}
+                    </span>
+                  )}
                 </SortableCard>
               );
             })}
           </div>
         </SortableContext>
       </DndContext>
+
+      {editorKey && (
+        <MetricEditorDialog
+          open={!!editorKey}
+          onOpenChange={(o) => {
+            if (!o) setEditorKey(null);
+          }}
+          metricKey={editorKey}
+          label={REGISTRY[editorKey].label}
+        />
+      )}
     </section>
   );
 }

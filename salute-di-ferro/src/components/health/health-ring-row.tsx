@@ -26,6 +26,25 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 
+import {
+  FIELD_TO_OVERVIEW_KEY,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
+import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
+import {
+  GRADE_TONE,
+  effectiveTargetFor,
+  gradeForHealthCard,
+} from "@/lib/health/grade-with-target";
+import {
+  findLatestNumeric,
+  findPreviousNumeric,
+  type MetricContext,
+  type MetricGrade,
+} from "@/lib/health/metric-thresholds";
+import { cn } from "@/lib/utils";
+import { EDITOR_CONFIG } from "@/components/dashboard/metric-editor-config";
+
 function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
   for (const r of items) {
     const v = r[key];
@@ -49,34 +68,46 @@ export function getMapping(key: PrimaryKey): MetricConfig | undefined {
   if (map) return map[1];
 }
 
+// Sex-specific medical reference defaults used as a fallback target when
+// the user hasn't set their own. Mirrors the bands in metric-thresholds
+// (waist cardio-metabolic cut-offs, ACE body-fat fitness midpoint).
+function fallbackTargetFor(key: PrimaryKey, profile: PatientProfile): number | null {
+  const isFemale = profile.sex === "FEMALE";
+  switch (key) {
+    case "weight":
+      return profile.targetWeightKg;
+    case "bmi":
+      return 22;
+    case "waistCm":
+      return isFemale ? 80 : 94;
+    case "bodyFatPercentage":
+      return isFemale ? 22 : 15;
+    default:
+      return null;
+  }
+}
+
 function computeRingMetrics(
   items: BiometricLogDTO[],
   profile: PatientProfile,
   selected: PrimaryKey[],
+  targets: MetricTargetsMap,
 ): RingMetric[] {
   const latest: [PrimaryKey, number | null][] = selected.map((k) => [k, latestOf(items, k)]);
-  const isFemale = profile.sex === "FEMALE";
 
   return latest.map(([key, value]) => {
     const mapping = getMapping(key);
+    // BP-composite cards aren't shown in the rings (METRICS lists sys/dia
+    // separately), but we still resolve their target from the composite
+    // entry so each individual ring respects the user's chosen value.
     let target: number | null = null;
-
-    switch (key) {
-      case "weight":
-        target = profile.targetWeightKg;
-        break;
-
-      case "bmi":
-        target = 22;
-        break;
-
-      case "waistCm":
-        target = isFemale ? 80 : 94;
-        break;
-
-      case "bodyFatPercentage":
-        target = isFemale ? 22 : 15;
-        break;
+    if (key === "systolicBP" || key === "diastolicBP") {
+      const t = targets.bloodPressure;
+      if (t && typeof t === "object") {
+        target = key === "systolicBP" ? t.systolic : t.diastolic;
+      }
+    } else {
+      target = effectiveTargetFor(key, fallbackTargetFor(key, profile), targets);
     }
 
     return {
@@ -93,6 +124,10 @@ function computeRingMetrics(
 interface HealthRingRowProps {
   items: BiometricLogDTO[];
   profile: PatientProfile;
+  /** Server-side targets keyed by overview-card vocabulary. */
+  targets: MetricTargetsMap;
+  /** When set, each ring becomes clickable and opens the editor. */
+  onCardClick?: (key: OverviewMetricKey, label: string) => void;
 }
 
 export type MetricConfig = { label: string; unit?: string };
@@ -129,7 +164,7 @@ export const METRICS: Record<string, Partial<Record<PrimaryKey, MetricConfig>>> 
   Sonno: {
     sleepHours: { label: "Ore dormite", unit: "h" },
     sleepQuality: { label: "Qualità del sonno" },
-    sleepWakeTime: { label: "Risvegli" },
+    sleepAwakenings: { label: "Risvegli" },
   },
   Attività: {
     steps: { label: "Passi" },
@@ -139,16 +174,29 @@ export const METRICS: Record<string, Partial<Record<PrimaryKey, MetricConfig>>> 
   },
 } as const;
 
-export function HealthRingRow({ items, profile }: HealthRingRowProps) {
+export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRingRowProps) {
   const [editing, setEditing] = useState(false);
   const [metrics, setMetrics] = useLocalStorageState<PrimaryKey[]>("tracked-metrics", {
     defaultValue: ["weight", "bmi", "waistCm", "bodyFatPercentage"],
   });
 
   const rings = useMemo(
-    () => computeRingMetrics(items, profile, metrics),
-    [items, profile, metrics],
+    () => computeRingMetrics(items, profile, metrics ?? [], targets),
+    [items, profile, metrics, targets],
   );
+
+  // Grading context — same shape MetricsGrid uses, including trend-aware
+  // weight grading via the previous reading.
+  const metricCtx: MetricContext = useMemo(() => {
+    const latestWeight = findLatestNumeric(items, "weight");
+    const prevWeight = latestWeight ? findPreviousNumeric(items, "weight", latestWeight.date) : null;
+    return {
+      sex: profile.sex,
+      targetWeightKg: profile.targetWeightKg,
+      currentWeightKg: latestWeight?.value ?? null,
+      previousWeightKg: prevWeight?.value ?? null,
+    };
+  }, [items, profile.sex, profile.targetWeightKg]);
 
   const onToggle = useCallback(
     (key: PrimaryKey) =>
@@ -214,12 +262,12 @@ export function HealthRingRow({ items, profile }: HealthRingRowProps) {
                         <input
                           type="checkbox"
                           className="focus-ring border-input accent-primary h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
-                          checked={metrics.includes(key as PrimaryKey)}
+                          checked={(metrics ?? []).includes(key as PrimaryKey)}
                           onChange={() => onToggle(key as PrimaryKey)}
-                          aria-label={`Mostra ${map}`}
+                          aria-label={`Mostra ${map.label}`}
                         />
                         <span className="text-muted-foreground text-xs">
-                          {true ? "Nascosto" : "Visibile"}
+                          {(metrics ?? []).includes(key as PrimaryKey) ? "Visibile" : "Nascosto"}
                         </span>
                       </label>
                     </li>
@@ -234,11 +282,35 @@ export function HealthRingRow({ items, profile }: HealthRingRowProps) {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={rings.map((r) => r.name)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {rings.map((r) => (
-              <SortableCard key={r.name} id={r.name}>
-                <MetricRingCard metric={r} />
-              </SortableCard>
-            ))}
+            {rings.map((r) => {
+              const fieldName = r.name as PrimaryKey;
+              const grade: MetricGrade | null =
+                r.value != null ? gradeForHealthCard(fieldName, r.value, metricCtx, targets) : null;
+              const overviewKey = FIELD_TO_OVERVIEW_KEY[fieldName];
+              const editable =
+                !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
+              return (
+                <SortableCard key={r.name} id={r.name}>
+                  {editable ? (
+                    <button
+                      type="button"
+                      onClick={() => onCardClick!(overviewKey as OverviewMetricKey, r.label)}
+                      aria-label={`Modifica ${r.label}`}
+                      className={cn(
+                        "focus-ring block size-full cursor-pointer rounded-xl text-left transition-all hover:brightness-[1.04] hover:ring-1 hover:ring-primary/30 active:scale-[0.99]",
+                        grade && GRADE_TONE[grade],
+                      )}
+                    >
+                      <MetricRingCard metric={r} />
+                    </button>
+                  ) : (
+                    <div className={cn("rounded-xl", grade && GRADE_TONE[grade])}>
+                      <MetricRingCard metric={r} />
+                    </div>
+                  )}
+                </SortableCard>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>

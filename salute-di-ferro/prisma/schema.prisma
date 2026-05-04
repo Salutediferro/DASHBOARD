@@ -226,6 +226,7 @@ model User {
   therapyIntakes         TherapyIntake[]           @relation("PatientTherapyIntakes")
   therapyReminderDeliveries TherapyReminderDelivery[] @relation("PatientReminderDeliveries")
   symptomLogs            SymptomLog[]
+  metricTargets          MetricTarget[]
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -457,6 +458,32 @@ model SymptomLog {
 
   @@unique([patientId, date])
   @@index([patientId, date(sort: Desc)])
+}
+
+// Per-metric personal targets that drive the red/yellow/green grade on
+// the overview cards. One row per (patient, metricKey). Stored on the
+// server (not localStorage) so the upcoming native app reads the same
+// targets as the web dashboard.
+//
+// `metricKey` is the OverviewMetricKey vocabulary (e.g. "weight",
+// "bloodPressure", "restingHR"). Most metrics use `value` only;
+// composite metrics like blood pressure also fill `secondary`
+// (diastolic). Skipping the discriminator keeps queries simple — the
+// presence/absence of `secondary` tells us the shape.
+model MetricTarget {
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @db.Uuid
+  metricKey String
+  value     Float
+  /// Composite second value, e.g. diastolic for `metricKey="bloodPressure"`.
+  secondary Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, metricKey])
+  @@index([patientId])
 }
 
 model CheckIn {

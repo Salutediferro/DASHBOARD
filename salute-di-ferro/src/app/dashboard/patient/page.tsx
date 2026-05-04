@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { greeting } from "@/lib/greeting";
 import { getPatientActivity, getPatientKpis } from "@/lib/queries/dashboard";
+import { getMetricTargets } from "@/lib/queries/metric-targets";
 import SectionHeader from "@/components/brand/section-header";
 import { AppointmentsEmptyState } from "@/components/empty-states";
 import RecentActivity from "@/components/dashboard/recent-activity";
@@ -34,12 +35,24 @@ export default async function PatientDashboardPage() {
 
   const me = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true, fullName: true, firstName: true, role: true },
+    select: {
+      id: true,
+      fullName: true,
+      firstName: true,
+      role: true,
+      sex: true,
+      heightCm: true,
+      targetWeightKg: true,
+    },
   });
   if (!me) redirect("/login");
   if (me.role !== "PATIENT") redirect("/dashboard");
 
-  const [kpis, activity] = await Promise.all([getPatientKpis(me.id), getPatientActivity(me.id, 5)]);
+  const [kpis, activity, metricTargets] = await Promise.all([
+    getPatientKpis(me.id),
+    getPatientActivity(me.id, 5),
+    getMetricTargets(me.id),
+  ]);
 
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
@@ -47,7 +60,15 @@ export default async function PatientDashboardPage() {
     <div className="page-in-stagger flex flex-col gap-6 pb-6 md:gap-8">
       <PatientHero firstName={firstName} kpis={kpis} />
 
-      <PatientOverview kpis={kpis} />
+      <PatientOverview
+        kpis={kpis}
+        profile={{
+          sex: me.sex,
+          heightCm: me.heightCm,
+          targetWeightKg: me.targetWeightKg,
+        }}
+        initialTargets={metricTargets}
+      />
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Prossimo" subtitle="Il tuo impegno più vicino nel calendario." />

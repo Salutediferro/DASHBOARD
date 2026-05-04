@@ -1,6 +1,12 @@
 "use client";
 
 import * as React from "react";
+import {
+  OVERVIEW_DEFAULT,
+  OVERVIEW_MAX,
+  OVERVIEW_METRIC_KEYS,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
 
 /**
  * UI-only preference for which metrics the patient wants pinned at the
@@ -10,61 +16,19 @@ import * as React from "react";
  * Mirrors the convention in `useHealthCategoryPrefs`: hydrated flag so
  * the first paint matches the SSR fallback (default selection), then
  * swaps to the user's choice on the client.
+ *
+ * Constants live in `lib/overview-metric-keys.ts` so server code (Zod
+ * validators, API routes) can import them without crossing the
+ * `"use client"` boundary.
  */
-
-export const OVERVIEW_METRIC_KEYS = [
-  // Core / cross-cutting
-  "weight",
-  "weightDelta",
-  "bmi",
-  "checkIns",
-  "nextAppointment",
-  // Body composition
-  "bodyFat",
-  "muscleMass",
-  "bodyWater",
-  // Circumferences
-  "waist",
-  "hips",
-  "chest",
-  "arms",
-  "thigh",
-  "calves",
-  // Cardiovascular
-  "bloodPressure",
-  "restingHR",
-  "spo2",
-  "hrv",
-  // Metabolic
-  "glucoseFasting",
-  "glucosePostMeal",
-  "bodyTempC",
-  "ketones",
-  // Sleep
-  "sleepHours",
-  "sleepQuality",
-  "sleepAwakenings",
-  // Activity
-  "steps",
-  "caloriesBurned",
-  "activeMinutes",
-  "distanceKm",
-  // Wellbeing
-  "mood",
-  "energy",
-  "energyLevel",
-] as const;
-
-export type OverviewMetricKey = (typeof OVERVIEW_METRIC_KEYS)[number];
+export {
+  OVERVIEW_DEFAULT,
+  OVERVIEW_MAX,
+  OVERVIEW_METRIC_KEYS,
+  type OverviewMetricKey,
+};
 
 const STORAGE_KEY = "sdf.overview.selected.v1";
-export const OVERVIEW_MAX = 4;
-export const OVERVIEW_DEFAULT: OverviewMetricKey[] = [
-  "weight",
-  "bmi",
-  "checkIns",
-  "nextAppointment",
-];
 
 function readInitial(): OverviewMetricKey[] {
   if (typeof window === "undefined") return OVERVIEW_DEFAULT;

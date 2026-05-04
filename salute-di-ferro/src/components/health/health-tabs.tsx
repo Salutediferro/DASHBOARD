@@ -38,11 +38,18 @@ import {
   METRIC_GRADE_LABELS,
   findLatestNumeric,
   findPreviousNumeric,
-  gradeMetric,
   type MetricContext,
   type MetricGrade,
 } from "@/lib/health/metric-thresholds";
 import { HealthRingRow } from "./health-ring-row";
+import { MetricEditorDialog } from "@/components/dashboard/metric-editor-dialog";
+import { EDITOR_CONFIG } from "@/components/dashboard/metric-editor-config";
+import {
+  FIELD_TO_OVERVIEW_KEY,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
+import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
+import { gradeForHealthCard } from "@/lib/health/grade-with-target";
 
 export type PatientProfile = {
   targetWeightKg: number | null;
@@ -57,6 +64,9 @@ type Props = {
   /** Omit for patient self-view; required for professional readonly views. */
   patientId?: string;
   readOnly?: boolean;
+  /** Server-fetched personal targets (drives card grading). Seeds React
+   * Query so first paint already reflects the user's targets. */
+  initialTargets?: MetricTargetsMap;
 };
 
 const EMPTY_PROFILE: PatientProfile = {
@@ -211,12 +221,21 @@ type PeriodKey = (typeof PERIODS)[number]["key"];
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Props) {
+export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initialTargets }: Props) {
+  const { targets } = useMetricTargets({ initialData: initialTargets });
   const [category, setCategory] = React.useState<CategoryKey>("body");
   const [period, setPeriod] = React.useState<PeriodKey>(30);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [formCategory, setFormCategory] = React.useState<CategoryKey>("body");
+  // Per-card click-to-edit dialog. `null` = closed; otherwise the
+  // overview-card key whose editor is open.
+  const [editorKey, setEditorKey] = React.useState<OverviewMetricKey | null>(null);
+  const [editorLabel, setEditorLabel] = React.useState<string>("");
+  const openEditor = React.useCallback((key: OverviewMetricKey, label: string) => {
+    setEditorKey(key);
+    setEditorLabel(label);
+  }, []);
 
   const { hidden, hydrated, toggle } = useHealthCategoryPrefs();
   const visibleCategories = React.useMemo(
@@ -366,7 +385,12 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
       ) : (
         <>
           {/* Ring row ────────────────────────────── */}
-          <HealthRingRow items={items} profile={profile} />
+          <HealthRingRow
+            items={items}
+            profile={profile}
+            targets={targets}
+            onCardClick={readOnly ? undefined : openEditor}
+          />
 
           {/* Category tabs ───────────────────────── */}
           <section className="flex flex-col gap-3">
@@ -384,7 +408,13 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
                   {c.key === "skinfolds" ? (
                     <SkinfoldsGrid items={items} sex={profile.sex} />
                   ) : (
-                    <MetricsGrid items={items} fields={FIELDS[c.key]} ctx={metricCtx} />
+                    <MetricsGrid
+                      items={items}
+                      fields={FIELDS[c.key]}
+                      ctx={metricCtx}
+                      targets={targets}
+                      onCardClick={readOnly ? undefined : openEditor}
+                    />
                   )}
                   <CategoryPanel
                     category={c.key}
@@ -400,6 +430,16 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly }: Pro
             </Tabs>
           </section>
         </>
+      )}
+      {editorKey && (
+        <MetricEditorDialog
+          open={!!editorKey}
+          onOpenChange={(o) => {
+            if (!o) setEditorKey(null);
+          }}
+          metricKey={editorKey}
+          label={editorLabel}
+        />
       )}
     </div>
   );
@@ -781,6 +821,7 @@ function MetricGradeCard({
   latest,
   grade,
   gradeKey,
+  onClick,
 }: {
   label: string;
   unit?: string;
@@ -789,16 +830,18 @@ function MetricGradeCard({
   grade: MetricGrade | null;
   /** Optional metric key — used to look up label overrides (e.g. weight). */
   gradeKey?: string;
+  /** When provided, the card becomes a button that opens the editor. */
+  onClick?: () => void;
 }) {
   const override = gradeKey ? GRADE_LABEL_OVERRIDE[gradeKey] : undefined;
   const labelMap = override ?? METRIC_GRADE_LABELS;
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-1 rounded-xl border p-3 transition-colors",
-        grade ? GRADE_TONE[grade] : "border-border/60 bg-muted/30 text-foreground",
-      )}
-    >
+  const className = cn(
+    "flex flex-col gap-1 rounded-xl border p-3 transition-colors text-left",
+    grade ? GRADE_TONE[grade] : "border-border/60 bg-muted/30 text-foreground",
+    onClick && "focus-ring hover:brightness-105 cursor-pointer",
+  );
+  const body = (
+    <>
       <p className="text-[10px] tracking-wide uppercase opacity-80">{label}</p>
       <p className="font-heading text-2xl font-semibold tabular-nums">
         {latest ? latest.value.toFixed(decimals) : "—"}
@@ -814,8 +857,16 @@ function MetricGradeCard({
           })}
         </p>
       )}
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className} aria-label={`Modifica ${label}`}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={className}>{body}</div>;
 }
 
 // ── Skinfolds (specialised: shows Σ of all sites) ──────────────────────────
@@ -887,10 +938,15 @@ function MetricsGrid({
   items,
   fields,
   ctx,
+  targets,
+  onCardClick,
 }: {
   items: BiometricLogDTO[];
   fields: MetricField[];
   ctx: MetricContext;
+  targets: MetricTargetsMap;
+  /** When set, cards with a known overview-key become clickable. */
+  onCardClick?: (key: OverviewMetricKey, label: string) => void;
 }) {
   // Time-typed fields (e.g. sleepBedtime) have no numeric grade.
   const numeric = fields.filter((f) => (f.type ?? "number") === "number");
@@ -898,13 +954,16 @@ function MetricsGrid({
     <section className="flex flex-col gap-2">
       <p className="text-muted-foreground text-xs">
         Verde = nel range · giallo = attenzione · rosso = fuori range. Le metriche senza soglia
-        restano neutre.
+        restano neutre. Tocca una card per registrare un valore o impostare l&apos;obiettivo.
       </p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {numeric.map((f) => {
           const key = f.name as keyof BiometricLogDTO;
           const latest = findLatestNumeric(items, key);
-          const grade = latest ? gradeMetric(key, latest.value, ctx) : null;
+          const grade = latest ? gradeForHealthCard(f.name, latest.value, ctx, targets) : null;
+          const overviewKey = FIELD_TO_OVERVIEW_KEY[f.name];
+          const editable =
+            !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
           return (
             <MetricGradeCard
               key={f.name}
@@ -914,6 +973,11 @@ function MetricsGrid({
               latest={latest}
               grade={grade}
               gradeKey={f.name}
+              onClick={
+                editable
+                  ? () => onCardClick!(overviewKey as OverviewMetricKey, f.label)
+                  : undefined
+              }
             />
           );
         })}
@@ -921,6 +985,7 @@ function MetricsGrid({
     </section>
   );
 }
+
 
 // ── Loading state ──────────────────────────────────────────────────────────
 

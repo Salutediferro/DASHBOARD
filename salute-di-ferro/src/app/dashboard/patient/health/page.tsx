@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { HealthTabs } from "@/components/health/health-tabs";
+import { getMetricTargets } from "@/lib/queries/metric-targets";
 
 export const metadata = { title: "Dati salute — Salute di Ferro" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function PatientHealthPage() {
   if (!me) redirect("/login");
   if (me.role !== "PATIENT") redirect("/dashboard");
 
+  const metricTargets = await getMetricTargets(me.id);
+
   return (
     <HealthTabs
       profile={{
@@ -34,6 +37,7 @@ export default async function PatientHealthPage() {
         heightCm: me.heightCm,
         sex: me.sex,
       }}
+      initialTargets={metricTargets}
     />
   );
 }
