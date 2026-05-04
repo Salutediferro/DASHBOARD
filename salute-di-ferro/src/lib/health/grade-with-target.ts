@@ -18,7 +18,11 @@ import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
 export const GRADE_TONE: Record<MetricGrade, string> = {
   green: "ring-1 ring-emerald-500/50 bg-emerald-500/[0.08]",
   yellow: "ring-1 ring-amber-500/50 bg-amber-500/[0.08]",
-  red: "ring-1 ring-rose-500/50 bg-rose-500/[0.10]",
+  // Switched from rose-500 (pinkish) to red-500 — same hue family as the
+  // app's `--destructive` token, reads as a vivid alarm red rather than
+  // the previous muted pink. Slightly higher ring + bg opacity so it
+  // stands out at a glance against the other tones.
+  red: "ring-1 ring-red-500/70 bg-red-500/[0.14]",
 };
 
 /**

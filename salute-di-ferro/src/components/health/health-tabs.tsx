@@ -798,7 +798,7 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
 const GRADE_TONE: Record<MetricGrade, string> = {
   green: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   yellow: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  red: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  red: "border-red-500/60 bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 const GRADE_LABEL_OVERRIDE: Partial<Record<string, Record<MetricGrade, string>>> = {
