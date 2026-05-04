@@ -10,8 +10,13 @@
 --
 -- RLS follows the same pattern as SymptomLog / TherapyIntake: default
 -- deny, Prisma bypasses via the postgres role.
+--
+-- Every DDL is idempotent (IF NOT EXISTS) because this migration was
+-- applied by hand to Supabase before the matching `_prisma_migrations`
+-- row existed, so Vercel's `prisma migrate deploy` would otherwise
+-- 23P02 on the next push. Running this whole file twice is a no-op.
 
-CREATE TABLE "MetricTarget" (
+CREATE TABLE IF NOT EXISTS "MetricTarget" (
   "id"        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "patientId" UUID NOT NULL,
   "metricKey" TEXT NOT NULL,
@@ -23,9 +28,11 @@ CREATE TABLE "MetricTarget" (
     FOREIGN KEY ("patientId") REFERENCES "User"("id") ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX "MetricTarget_patientId_metricKey_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "MetricTarget_patientId_metricKey_key"
   ON "MetricTarget" ("patientId", "metricKey");
-CREATE INDEX "MetricTarget_patientId_idx"
+CREATE INDEX IF NOT EXISTS "MetricTarget_patientId_idx"
   ON "MetricTarget" ("patientId");
 
+-- ENABLE ROW LEVEL SECURITY is already idempotent — running it on a
+-- table that already has RLS on is a no-op, no guard needed.
 ALTER TABLE "MetricTarget" ENABLE ROW LEVEL SECURITY;
