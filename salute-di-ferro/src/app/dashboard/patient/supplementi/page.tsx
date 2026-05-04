@@ -26,6 +26,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { readApiError } from "@/lib/api-error";
 import {
@@ -84,7 +92,10 @@ const EMPTY_FORM: FormState = {
 const QUERY_KEY = ["therapy", "SELF"] as const;
 export const INTAKE_KEY = ["therapy", "intake", "today"] as const;
 export const INTAKE_WEEK_KEY = ["therapy", "intake", "week"] as const;
-export const INTAKE_WEEK_DAYS = 7;
+// Width of the per-supplement intake strip. 20 days gives ~3 weeks of
+// visible adherence at a glance — long enough to spot streaks/gaps,
+// short enough to fit on a phone screen with a small horizontal scroll.
+export const INTAKE_STRIP_DAYS = 20;
 export const intakesKey = (medId: string) => ["therapy", "intake", "singular", medId] as const;
 
 const WEEKDAYS: { day: DayOfWeek; label: string; short: string }[] = [
@@ -228,7 +239,7 @@ export default function PatientSupplementiPage() {
     queryFn: async () => {
       const to = todayIsoDate();
       const fromD = new Date();
-      fromD.setDate(fromD.getDate() - (INTAKE_WEEK_DAYS - 1));
+      fromD.setDate(fromD.getDate() - (INTAKE_STRIP_DAYS - 1));
       const from = toIsoDate(fromD.toISOString())!;
       const res = await fetch(`/api/therapy/intake?from=${from}&to=${to}`);
       if (!res.ok) throw new Error("Errore caricamento");
@@ -452,7 +463,7 @@ export default function PatientSupplementiPage() {
 
   // Build the 7-day window once per render. Date-of-render dependency is
   // intentional — opening the page next day naturally rolls the window.
-  const last7 = React.useMemo(() => lastNDays(INTAKE_WEEK_DAYS), []);
+  const lastDays = React.useMemo(() => lastNDays(INTAKE_STRIP_DAYS), []);
 
   function resetForm() {
     setForm(EMPTY_FORM);
@@ -701,7 +712,7 @@ export default function PatientSupplementiPage() {
             title="In corso"
             empty="Nessun supplemento attivo."
             meds={active}
-            last7={last7}
+            lastDays={lastDays}
             intakeByItemByDay={intakeByItemByDay}
             onEdit={startEdit}
             onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
@@ -725,7 +736,7 @@ export default function PatientSupplementiPage() {
               title="Archivio"
               empty=""
               meds={archived}
-              last7={last7}
+              lastDays={lastDays}
               intakeByItemByDay={intakeByItemByDay}
               onEdit={startEdit}
               onToggleActive={(id, a) => toggleMutation.mutate({ id, active: a })}
@@ -894,7 +905,7 @@ function MedSection({
   title,
   empty,
   meds,
-  last7,
+  lastDays,
   intakeByItemByDay,
   onEdit,
   onToggleActive,
@@ -904,7 +915,7 @@ function MedSection({
   title: string;
   empty: string;
   meds: TherapySelfItem[];
-  last7: { iso: string; weekday: DayOfWeek; date: Date }[];
+  lastDays: { iso: string; weekday: DayOfWeek; date: Date }[];
   intakeByItemByDay: Map<string, Map<string, TherapyIntakeItem>>;
   onEdit: (item: TherapySelfItem) => void;
   onToggleActive: (id: string, active: boolean) => void;
@@ -957,7 +968,11 @@ function MedSection({
                     {m.frequency && (
                       <p className="text-muted-foreground mt-0.5 text-xs">{m.frequency}</p>
                     )}
-                    <IntakeStrip med={m} days={last7} intakesByDay={intakeByItemByDay.get(m.id)} />
+                    <IntakeStrip
+                      med={m}
+                      days={lastDays}
+                      intakesByDay={intakeByItemByDay.get(m.id)}
+                    />
                     <p className="text-muted-foreground mt-1 text-[11px]">
                       Dal {fmtDate(m.startDate)}
                       {m.endDate && ` al ${fmtDate(m.endDate)}`}
@@ -1035,19 +1050,37 @@ type IntakeDayStatus = "taken" | "missed" | "pending" | "off";
 
 const STATUS_TONE: Record<IntakeDayStatus, string> = {
   taken: "bg-emerald-500/25 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  missed: "bg-rose-600 text-white",
+  // Vibrant fire red for missed days — rosso fuoco. Brighter than the
+  // previous rose-600 so a streak of missed days reads as a clear alarm.
+  missed: "bg-red-500 text-white shadow-sm shadow-red-500/30 dark:bg-red-500",
   pending: "border-2 border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   // Non-scheduled days render as empty placeholders (dashed outline, no fill) so
   // they read as "not part of the rhythm" rather than "missed".
-  off: "border border-muted-foreground/30 bg-transparent text-muted-foreground/40",
+  off: "border border-dashed border-muted-foreground/30 bg-transparent text-muted-foreground/40",
 };
 
 const STATUS_LABEL: Record<IntakeDayStatus, string> = {
   taken: "assunto",
-  missed: "non registrato",
+  missed: "non assunto",
   pending: "da segnare",
   off: "non programmato",
 };
+
+const ITALIAN_WEEKDAY_AT: Record<number, DayOfWeek> = WEEKDAY_AT;
+
+function statusFor(opts: {
+  intake: TherapyIntakeItem | undefined;
+  scheduled: boolean;
+  beforeStart: boolean;
+  afterEnd: boolean;
+  isToday: boolean;
+}): IntakeDayStatus {
+  if (!opts.scheduled || opts.beforeStart || opts.afterEnd) return "off";
+  if (opts.intake?.taken === true) return "taken";
+  if (opts.intake?.taken === false) return "missed";
+  if (opts.isToday) return "pending"; // unmarked today — "not over yet"
+  return "missed"; // past day with no intake row
+}
 
 function IntakeStrip({
   med,
@@ -1058,67 +1091,227 @@ function IntakeStrip({
   days: { iso: string; weekday: DayOfWeek; date: Date }[];
   intakesByDay: Map<string, TherapyIntakeItem> | undefined;
 }) {
-  const todayWeekdayKey = todayWeekday();
-  // Slice the first 10 chars rather than going through `new Date(...)` so the
-  // user's chosen calendar date isn't shifted by their browser timezone.
+  const qc = useQueryClient();
+  const todayIso = todayIsoDate();
   const startIso = med.startDate?.slice(0, 10) ?? null;
   const endIso = med.endDate?.slice(0, 10) ?? null;
 
-  // Pivot the chronological 7-day window into a fixed weekday lookup so
-  // each Mon..Sun cell maps to the date that fell on that weekday.
-  const dayByWeekday = new Map<DayOfWeek, (typeof days)[number]>();
-  for (const d of days) dayByWeekday.set(d.weekday, d);
+  // Per-day intake mutation. Reuses the same optimistic-update strategy
+  // as the page-level `intakeMutation` but takes the date as input so a
+  // click on any square in the strip can patch its own day.
+  const intakeMutation = useMutation({
+    mutationFn: async (args: { date: string; taken: boolean }) => {
+      const res = await fetch("/api/therapy/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: med.id, date: args.date, taken: args.taken }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, "Errore"));
+      return res.json();
+    },
+    onMutate: async ({ date, taken }) => {
+      const dialogKey = intakesKey(med.id);
+      const wasToday = date === todayIso;
+      await Promise.all([
+        wasToday ? qc.cancelQueries({ queryKey: INTAKE_KEY }) : Promise.resolve(),
+        qc.cancelQueries({ queryKey: INTAKE_WEEK_KEY }),
+        qc.cancelQueries({ queryKey: dialogKey }),
+      ]);
+      const prevToday = wasToday
+        ? qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY)
+        : undefined;
+      const prevWeek = qc.getQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY);
+      const prevDialog = qc.getQueryData<{ items: TherapyIntakeItem[] }>(dialogKey);
+
+      const payload = { itemId: med.id, date, taken };
+      if (wasToday) {
+        qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_KEY, (old) => ({
+          items: upsertIntakeInItems(old?.items ?? [], payload),
+        }));
+      }
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(INTAKE_WEEK_KEY, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
+      qc.setQueryData<{ items: TherapyIntakeItem[] }>(dialogKey, (old) => ({
+        items: upsertIntakeInItems(old?.items ?? [], payload),
+      }));
+      return { prevToday, prevWeek, prevDialog, wasToday };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.wasToday && ctx.prevToday) qc.setQueryData(INTAKE_KEY, ctx.prevToday);
+      if (ctx?.prevWeek) qc.setQueryData(INTAKE_WEEK_KEY, ctx.prevWeek);
+      if (ctx?.prevDialog) qc.setQueryData(intakesKey(med.id), ctx.prevDialog);
+      toast.error(e.message);
+    },
+    onSettled: (_d, _e, _v, ctx) => {
+      if (ctx?.wasToday) {
+        qc.invalidateQueries({ queryKey: INTAKE_KEY, refetchType: "none" });
+      }
+      qc.invalidateQueries({ queryKey: INTAKE_WEEK_KEY, refetchType: "none" });
+      qc.invalidateQueries({ queryKey: intakesKey(med.id), refetchType: "none" });
+    },
+  });
 
   return (
-    <div className="mt-1.5 flex items-center gap-1.5">
-      <div className="flex items-center gap-1">
-        {WEEKDAYS.map((w) => {
-          const d = dayByWeekday.get(w.day);
-          // Empty `daysOfWeek` means "every day" (matches the convention in
-          // isScheduledToday + the form's "Ogni giorno" hint).
-          const shouldTakeOnThisDay = !med.daysOfWeek.length || med.daysOfWeek.includes(w.day);
-          const intake = d ? intakesByDay?.get(d.iso) : undefined;
-          const isToday = w.day === todayWeekdayKey;
-          const beforeStart = !!(d && startIso && d.iso < startIso);
-          const afterEnd = !!(d && endIso && d.iso > endIso);
+    <div className="mt-1.5 grid w-fit flex-0 grid-cols-5 gap-1 space-x-1 pb-1 xl:grid-cols-10">
+      {days.map((d) => {
+        const weekday = ITALIAN_WEEKDAY_AT[d.date.getDay()];
+        // Empty `daysOfWeek` means "every day" (matches isScheduledToday).
+        const scheduled = !med.daysOfWeek.length || med.daysOfWeek.includes(weekday);
+        const intake = intakesByDay?.get(d.iso);
+        const beforeStart = !!(startIso && d.iso < startIso);
+        const afterEnd = !!(endIso && d.iso > endIso);
+        const isToday = d.iso === todayIso;
+        const status = statusFor({ intake, scheduled, beforeStart, afterEnd, isToday });
 
-          let status: IntakeDayStatus;
-          if (!shouldTakeOnThisDay) status = "off";
-          else if (beforeStart || afterEnd) status = "off"; // outside med's active range
-          else if (isToday)
-            status = "pending"; // day's not over yet
-          else if (intake?.taken) status = "taken";
-          else status = "missed"; // past day with no intake, or intake.taken === false
-
-          const dateLabel = d
-            ? d.date.toLocaleDateString("it-IT", {
-                weekday: "short",
-                day: "2-digit",
-                month: "short",
-              })
-            : w.label;
-
-          return (
-            <div
-              key={w.day}
-              aria-disabled={!shouldTakeOnThisDay}
-              title={`${dateLabel} — ${STATUS_LABEL[status]}`}
-              className={cn(
-                "inline-flex h-7 w-8 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums aria-disabled:opacity-50",
-                STATUS_TONE[status],
-                isToday && status !== "pending" && "ring-foreground/30 ring-1",
-              )}
-            >
-              {status === "missed" ? (
-                <Flame className="h-3.5 w-3.5" aria-label="Non assunto" />
-              ) : (
-                w.short.slice(0, 2)
-              )}
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <DayCell
+            key={d.iso}
+            d={d}
+            status={status}
+            scheduled={scheduled}
+            isToday={isToday}
+            medName={med.name}
+            currentTaken={intake?.taken ?? null}
+            onConfirm={(taken) => intakeMutation.mutate({ date: d.iso, taken })}
+          />
+        );
+      })}
     </div>
+  );
+}
+
+function DayCell({
+  d,
+  status,
+  scheduled,
+  isToday,
+  medName,
+  currentTaken,
+  onConfirm,
+}: {
+  d: { iso: string; date: Date };
+  status: IntakeDayStatus;
+  scheduled: boolean;
+  isToday: boolean;
+  medName: string;
+  currentTaken: boolean | null;
+  onConfirm: (taken: boolean) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  // Local "selected but not yet confirmed" state. Seeded from current
+  // intake when the popover opens — null = "no choice yet, can't confirm".
+  const [pending, setPending] = React.useState<boolean | null>(currentTaken);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setPending(currentTaken);
+  }, [open, currentTaken]);
+
+  const ddmm = d.date.toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const fullLabel = d.date.toLocaleDateString("it-IT", {
+    weekday: "short",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const tooltip = `${fullLabel} — ${STATUS_LABEL[status]}`;
+
+  // Off days don't get a popover — they're not actionable. Keep them as
+  // a non-interactive placeholder that still reserves grid space.
+  if (!scheduled || status === "off") {
+    return (
+      <div
+        aria-disabled
+        title={tooltip}
+        className={cn(
+          "inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums opacity-60",
+          STATUS_TONE.off,
+          isToday && "ring-offset-background ring-2 ring-blue-500/80 ring-offset-1",
+        )}
+      >
+        {ddmm}
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        type="button"
+        title={tooltip}
+        aria-label={`Modifica assunzione del ${fullLabel}`}
+        className={cn(
+          "focus-ring inline-flex h-9 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-[10px] font-semibold tabular-nums transition-transform hover:brightness-105 active:scale-95",
+          STATUS_TONE[status],
+          // Vibrant blue outline for today so it's unmistakable as the
+          // anchor of the strip (and always the rightmost square).
+          isToday && "ring-offset-background ring-2 ring-blue-500/80 ring-offset-1",
+        )}
+      >
+        {status === "missed" && currentTaken === null ? (
+          <Flame className="h-3.5 w-3.5" aria-hidden />
+        ) : (
+          ddmm
+        )}
+      </PopoverTrigger>
+      <PopoverContent className="w-56" align="center">
+        <PopoverHeader>
+          <PopoverTitle>Assunzione del {ddmm}</PopoverTitle>
+          <PopoverDescription>{medName}</PopoverDescription>
+        </PopoverHeader>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setPending(true)}
+            aria-pressed={pending === true}
+            className={cn(
+              "focus-ring inline-flex h-9 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors",
+              pending === true
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden />
+            Assunto
+          </button>
+          <button
+            type="button"
+            onClick={() => setPending(false)}
+            aria-pressed={pending === false}
+            className={cn(
+              "focus-ring inline-flex h-9 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors",
+              pending === false
+                ? "border-red-500 bg-red-500 text-white"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+            Non assunto
+          </button>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            Annulla
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={pending === null || pending === currentTaken}
+            onClick={() => {
+              if (pending === null) return;
+              onConfirm(pending);
+              setOpen(false);
+            }}
+          >
+            Conferma
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

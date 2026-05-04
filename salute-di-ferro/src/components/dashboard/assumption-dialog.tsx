@@ -12,7 +12,7 @@ import {
 import { BookCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   INTAKE_KEY,
-  INTAKE_WEEK_DAYS,
+  INTAKE_STRIP_DAYS,
   INTAKE_WEEK_KEY,
   IntakeModifiers,
   IntakeNotesField,
@@ -90,7 +90,7 @@ export function AssumptionDialog({ med }: AssumptionDialogProps) {
       const isInWeekWindow = (() => {
         if (wasToday) return true;
         const target = new Date(`${isoDay}T00:00:00.000Z`).getTime();
-        const oldest = Date.now() - (INTAKE_WEEK_DAYS - 1) * 24 * 60 * 60 * 1000;
+        const oldest = Date.now() - (INTAKE_STRIP_DAYS - 1) * 24 * 60 * 60 * 1000;
         return target >= oldest - 24 * 60 * 60 * 1000;
       })();
 
