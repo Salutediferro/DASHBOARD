@@ -29,10 +29,23 @@ import { getFeatureFlag } from "@/lib/feature-flags";
  *
  * Auth: Vercel Cron sets `Authorization: Bearer ${CRON_SECRET}`.
  *
- * IMPORTANT: `*\/5 * * * *` requires the Vercel Pro plan. On Hobby
- * (daily-only crons) this endpoint still works correctly but at coarser
- * resolution — change `WINDOW_MINUTES` accordingly if you adjust the
- * cron cadence in `vercel.json`.
+ * IMPORTANT — Vercel plan compatibility:
+ *   * The `*\/5 * * * *` cadence this handler is designed for requires
+ *     the Vercel Pro plan. On the Hobby plan, only one-per-day crons are
+ *     allowed, so the entry is intentionally **omitted** from
+ *     `vercel.json` and the handler is unscheduled.
+ *   * The page-side `useTherapyReminders` hook still fires reminders
+ *     client-side (toast + Web Notification) for users who have the
+ *     supplements page open, so reminders aren't silently broken — they
+ *     just don't deliver to email/push when nobody has the app open.
+ *   * To re-enable the server scheduler on Pro, add this back to
+ *     `vercel.json`:
+ *
+ *       { "path": "/api/cron/therapy-reminders", "schedule": "*\/5 * * * *" }
+ *
+ *     A daily cadence on Hobby would only fire reminders once a day at
+ *     a fixed UTC instant regardless of the patient's chosen HH:MM,
+ *     which is worse UX than no server cron at all — hence the omission.
  */
 
 export const dynamic = "force-dynamic";
