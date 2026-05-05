@@ -92,10 +92,10 @@ const EMPTY_FORM: FormState = {
 const QUERY_KEY = ["therapy", "SELF"] as const;
 export const INTAKE_KEY = ["therapy", "intake", "today"] as const;
 export const INTAKE_WEEK_KEY = ["therapy", "intake", "week"] as const;
-// Width of the per-supplement intake strip. 20 days gives ~3 weeks of
-// visible adherence at a glance — long enough to spot streaks/gaps,
-// short enough to fit on a phone screen with a small horizontal scroll.
-export const INTAKE_STRIP_DAYS = 20;
+// Width of the per-supplement intake strip. 10 days keeps the recent
+// adherence in-view without scrolling on phones; older history stays
+// available via the AssumptionDialog if the user wants to dig.
+export const INTAKE_STRIP_DAYS = 10;
 export const intakesKey = (medId: string) => ["therapy", "intake", "singular", medId] as const;
 
 const WEEKDAYS: { day: DayOfWeek; label: string; short: string }[] = [
@@ -1046,7 +1046,10 @@ function MedSection({
   );
 }
 
-type IntakeDayStatus = "taken" | "missed" | "pending" | "off";
+// `optional` = day where the supplement isn't scheduled, but the user
+// can still log a one-off assumption (or correct one). `off` keeps its
+// "truly out-of-range" meaning — before startDate or after endDate.
+type IntakeDayStatus = "taken" | "missed" | "pending" | "optional" | "off";
 
 const STATUS_TONE: Record<IntakeDayStatus, string> = {
   taken: "bg-emerald-500/25 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -1054,8 +1057,13 @@ const STATUS_TONE: Record<IntakeDayStatus, string> = {
   // previous rose-600 so a streak of missed days reads as a clear alarm.
   missed: "bg-red-500 text-white shadow-sm shadow-red-500/30 dark:bg-red-500",
   pending: "border-2 border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  // Non-scheduled days render as empty placeholders (dashed outline, no fill) so
-  // they read as "not part of the rhythm" rather than "missed".
+  // Non-scheduled but actionable: dashed outline + slightly stronger
+  // muted text than `off` so the user reads it as "you can still log
+  // here if you want".
+  optional:
+    "border border-dashed border-muted-foreground/40 bg-transparent text-muted-foreground/70 hover:border-muted-foreground/70 hover:bg-muted/50",
+  // Truly inactionable — before startDate or after endDate. Faintest
+  // styling, non-interactive.
   off: "border border-dashed border-muted-foreground/30 bg-transparent text-muted-foreground/40",
 };
 
@@ -1063,7 +1071,8 @@ const STATUS_LABEL: Record<IntakeDayStatus, string> = {
   taken: "assunto",
   missed: "non assunto",
   pending: "da segnare",
-  off: "non programmato",
+  optional: "non programmato — clicca per registrare",
+  off: "fuori periodo",
 };
 
 const ITALIAN_WEEKDAY_AT: Record<number, DayOfWeek> = WEEKDAY_AT;
@@ -1075,11 +1084,20 @@ function statusFor(opts: {
   afterEnd: boolean;
   isToday: boolean;
 }): IntakeDayStatus {
-  if (!opts.scheduled || opts.beforeStart || opts.afterEnd) return "off";
+  // Existing intake always wins — the user logged something here, so
+  // we surface it regardless of whether the day was scheduled. (Old
+  // logic hid intakes on non-scheduled days, which made one-off
+  // assumptions invisible.)
   if (opts.intake?.taken === true) return "taken";
   if (opts.intake?.taken === false) return "missed";
-  if (opts.isToday) return "pending"; // unmarked today — "not over yet"
-  return "missed"; // past day with no intake row
+  // No intake yet → bucket by range/scheduling.
+  if (opts.beforeStart || opts.afterEnd) return "off";
+  // Non-scheduled in-range day with no intake — still actionable so
+  // the user can log a one-off assumption ("oggi l'ho preso anche se
+  // non era previsto").
+  if (!opts.scheduled) return "optional";
+  if (opts.isToday) return "pending";
+  return "missed"; // past scheduled day with no intake row
 }
 
 function IntakeStrip({
@@ -1169,7 +1187,6 @@ function IntakeStrip({
             key={d.iso}
             d={d}
             status={status}
-            scheduled={scheduled}
             isToday={isToday}
             medName={med.name}
             currentTaken={intake?.taken ?? null}
@@ -1184,7 +1201,6 @@ function IntakeStrip({
 function DayCell({
   d,
   status,
-  scheduled,
   isToday,
   medName,
   currentTaken,
@@ -1192,7 +1208,6 @@ function DayCell({
 }: {
   d: { iso: string; date: Date };
   status: IntakeDayStatus;
-  scheduled: boolean;
   isToday: boolean;
   medName: string;
   currentTaken: boolean | null;
@@ -1220,9 +1235,10 @@ function DayCell({
   });
   const tooltip = `${fullLabel} — ${STATUS_LABEL[status]}`;
 
-  // Off days don't get a popover — they're not actionable. Keep them as
-  // a non-interactive placeholder that still reserves grid space.
-  if (!scheduled || status === "off") {
+  // Truly out-of-range days (before startDate / after endDate) stay
+  // non-interactive. Non-scheduled in-range days now fall through to
+  // the popover so the user can log a one-off assumption.
+  if (status === "off") {
     return (
       <div
         aria-disabled
