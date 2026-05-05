@@ -8,6 +8,7 @@ import {
   Loader2,
   Moon,
   NotebookPen,
+  Pencil,
   Plus,
   Smile,
   X,
@@ -118,6 +119,10 @@ export default function PatientSymptomsPage() {
   const [symptoms, setSymptoms] = React.useState<string[]>([]);
   const [symptomInput, setSymptomInput] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  // Days with an existing entry default to read-only summary; the user
+  // opts into editing by hitting "Modifica". Days without an entry
+  // implicitly stay in edit mode so the form is there to fill in.
+  const [editingDate, setEditingDate] = React.useState<string | null>(null);
 
   const { data, isLoading } = useQuery<{ items: SymptomLog[] }>({
     queryKey: ["symptom-logs"],
@@ -174,9 +179,30 @@ export default function PatientSymptomsPage() {
     onSuccess: () => {
       toast.success(entryForDate ? "Diario aggiornato" : "Diario salvato");
       qc.invalidateQueries({ queryKey: ["symptom-logs"] });
+      setEditingDate(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const isEditing = editingDate === date || !entryForDate;
+
+  function startEdit(d: string) {
+    setDate(d);
+    setEditingDate(d);
+  }
+
+  function cancelEdit() {
+    setEditingDate(null);
+    // Drop unsaved local edits so a later "Modifica" reopens with the
+    // canonical saved values, not stale typed text.
+    if (entryForDate) {
+      setMood(entryForDate.mood);
+      setEnergy(entryForDate.energy);
+      setSleepQuality(entryForDate.sleepQuality);
+      setSymptoms(entryForDate.symptoms);
+      setNotes(entryForDate.notes ?? "");
+    }
+  }
 
   function addSymptomFromInput() {
     const v = symptomInput.trim();
@@ -191,7 +217,7 @@ export default function PatientSymptomsPage() {
     );
   }
 
-  const history = items.filter((i) => dayKey(i.date) !== date).slice(0, 30);
+  const history = items.slice(0, 30);
 
   return (
     <div className="flex flex-col gap-6">
@@ -218,6 +244,54 @@ export default function PatientSymptomsPage() {
             className="h-9 w-auto"
           />
         </CardHeader>
+        {!isEditing && entryForDate ? (
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              {entryForDate.mood != null && (
+                <span className="text-muted-foreground">
+                  <Smile className="mr-1 inline h-3.5 w-3.5" />
+                  Umore {entryForDate.mood}/5
+                </span>
+              )}
+              {entryForDate.energy != null && (
+                <span className="text-muted-foreground">
+                  <Battery className="mr-1 inline h-3.5 w-3.5" />
+                  Energia {entryForDate.energy}/5
+                </span>
+              )}
+              {entryForDate.sleepQuality != null && (
+                <span className="text-muted-foreground">
+                  <Moon className="mr-1 inline h-3.5 w-3.5" />
+                  Sonno {entryForDate.sleepQuality}/5
+                </span>
+              )}
+            </div>
+            {entryForDate.symptoms.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {entryForDate.symptoms.map((s) => (
+                  <Badge key={s} variant="secondary">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {entryForDate.notes && (
+              <p className="text-muted-foreground whitespace-pre-wrap text-sm">
+                {entryForDate.notes}
+              </p>
+            )}
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setEditingDate(date)}
+                className="border-border hover:bg-muted inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Modifica
+              </button>
+            </div>
+          </CardContent>
+        ) : (
         <CardContent className="flex flex-col gap-5">
           <div className="grid gap-5 sm:grid-cols-3">
             <RatingRow
@@ -318,6 +392,16 @@ export default function PatientSymptomsPage() {
           </div>
 
           <div className="flex items-center justify-end gap-2">
+            {entryForDate && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={submit.isPending}
+                className="border-border hover:bg-muted inline-flex h-10 items-center rounded-md border px-3 text-sm font-medium disabled:opacity-50"
+              >
+                Annulla
+              </button>
+            )}
             <button
               type="button"
               onClick={() => submit.mutate()}
@@ -331,6 +415,7 @@ export default function PatientSymptomsPage() {
             </button>
           </div>
         </CardContent>
+        )}
       </Card>
 
       <Card>
@@ -351,55 +436,64 @@ export default function PatientSymptomsPage() {
             </div>
           ) : (
             <ul className="divide-border divide-y">
-              {history.map((h) => (
-                <li
-                  key={h.id}
-                  className="hover:bg-muted/40 flex flex-col gap-1 px-4 py-3 text-sm"
-                  onClick={() => setDate(dayKey(h.date))}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setDate(dayKey(h.date));
-                  }}
-                >
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-medium">{fmtDay(h.date)}</span>
-                    {h.mood != null && (
-                      <span className="text-muted-foreground">
-                        Umore {h.mood}/5
+              {history.map((h) => {
+                const k = dayKey(h.date);
+                const isToday = k === todayIso();
+                return (
+                  <li
+                    key={h.id}
+                    className="hover:bg-muted/40 flex flex-col gap-1 px-4 py-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-medium">
+                        {isToday ? "Oggi" : fmtDay(h.date)}
                       </span>
-                    )}
-                    {h.energy != null && (
-                      <span className="text-muted-foreground">
-                        Energia {h.energy}/5
-                      </span>
-                    )}
-                    {h.sleepQuality != null && (
-                      <span className="text-muted-foreground">
-                        Sonno {h.sleepQuality}/5
-                      </span>
-                    )}
-                  </div>
-                  {h.symptoms.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {h.symptoms.slice(0, 6).map((s) => (
-                        <Badge
-                          key={s}
-                          variant="outline"
-                          className="text-[10px]"
-                        >
-                          {s}
-                        </Badge>
-                      ))}
+                      {h.mood != null && (
+                        <span className="text-muted-foreground">
+                          Umore {h.mood}/5
+                        </span>
+                      )}
+                      {h.energy != null && (
+                        <span className="text-muted-foreground">
+                          Energia {h.energy}/5
+                        </span>
+                      )}
+                      {h.sleepQuality != null && (
+                        <span className="text-muted-foreground">
+                          Sonno {h.sleepQuality}/5
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => startEdit(k)}
+                        className="border-border hover:bg-muted ml-auto inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-medium"
+                        aria-label={`Modifica diario del ${fmtDay(h.date)}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Modifica
+                      </button>
                     </div>
-                  )}
-                  {h.notes && (
-                    <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
-                      {h.notes}
-                    </p>
-                  )}
-                </li>
-              ))}
+                    {h.symptoms.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {h.symptoms.slice(0, 6).map((s) => (
+                          <Badge
+                            key={s}
+                            variant="outline"
+                            className="text-[10px]"
+                          >
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {h.notes && (
+                      <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                        {h.notes}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
