@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   OVERVIEW_DEFAULT,
   OVERVIEW_MAX,
@@ -9,17 +10,15 @@ import {
 } from "@/lib/overview-metric-keys";
 
 /**
- * UI-only preference for which metrics the patient wants pinned at the
- * top of the dashboard home. Capped at 4 visible cards. Stored in
- * localStorage — purely presentational, no cross-device sync needed.
+ * The patient's tracked-metrics list — what the dashboard, the health
+ * page, and the rilevazione form filter against. Initial value comes
+ * from the server (User.selectedMetrics, set during onboarding); user
+ * mutations PATCH /api/me so the same selection follows them across
+ * devices.
  *
- * Mirrors the convention in `useHealthCategoryPrefs`: hydrated flag so
- * the first paint matches the SSR fallback (default selection), then
- * swaps to the user's choice on the client.
- *
- * Constants live in `lib/overview-metric-keys.ts` so server code (Zod
- * validators, API routes) can import them without crossing the
- * `"use client"` boundary.
+ * Empty initial array = legacy account (onboarded before this feature
+ * shipped) — fall back to OVERVIEW_DEFAULT so the dashboard has
+ * something to render until the user edits from the profile.
  */
 export {
   OVERVIEW_DEFAULT,
@@ -28,68 +27,75 @@ export {
   type OverviewMetricKey,
 };
 
-const STORAGE_KEY = "sdf.overview.selected.v1";
-
-function readInitial(): OverviewMetricKey[] {
-  if (typeof window === "undefined") return OVERVIEW_DEFAULT;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return OVERVIEW_DEFAULT;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return OVERVIEW_DEFAULT;
-    const valid = parsed.filter((k): k is OverviewMetricKey =>
-      (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
-    );
-    return valid.length > 0 ? valid.slice(0, OVERVIEW_MAX) : OVERVIEW_DEFAULT;
-  } catch {
-    return OVERVIEW_DEFAULT;
-  }
+function sanitize(input: readonly string[] | undefined): OverviewMetricKey[] {
+  if (!input || input.length === 0) return [...OVERVIEW_DEFAULT];
+  const valid = input.filter((k): k is OverviewMetricKey =>
+    (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
+  );
+  return valid.length > 0 ? valid : [...OVERVIEW_DEFAULT];
 }
 
-export function useOverviewPrefs() {
-  const [selected, setSelected] = React.useState<OverviewMetricKey[]>(OVERVIEW_DEFAULT);
-  const [hydrated, setHydrated] = React.useState(false);
+export function useOverviewPrefs(initialSelected?: readonly string[]) {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = React.useState<OverviewMetricKey[]>(() =>
+    sanitize(initialSelected),
+  );
 
+  // If a fresher server value lands later (e.g. profile cache refetch),
+  // sync it in. Compared by JSON to avoid loops on identical arrays.
+  const lastSeen = React.useRef<string | null>(null);
   React.useEffect(() => {
-    setSelected(readInitial());
-    setHydrated(true);
-  }, []);
+    if (!initialSelected) return;
+    const k = JSON.stringify(initialSelected);
+    if (lastSeen.current === k) return;
+    lastSeen.current = k;
+    setSelected(sanitize(initialSelected));
+  }, [initialSelected]);
 
-  const persist = (next: OverviewMetricKey[]) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // localStorage disabled / quota — selection stays in-memory.
-    }
-  };
-
-  const toggle = React.useCallback((key: OverviewMetricKey) => {
-    setSelected((prev) => {
-      let next: OverviewMetricKey[];
-      if (prev.includes(key)) {
-        // Refuse to drop below 1 — an empty overview row reads as broken.
-        if (prev.length <= 1) return prev;
-        next = prev.filter((k) => k !== key);
-      } else {
-        if (prev.length >= OVERVIEW_MAX) return prev;
-        next = [...prev, key];
+  const persist = React.useCallback(
+    async (next: OverviewMetricKey[]) => {
+      try {
+        await fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selectedMetrics: next }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      } catch {
+        // Network blip — local state stays optimistic; next mutation
+        // re-tries with the latest array.
       }
-      persist(next);
-      return next;
-    });
-  }, []);
+    },
+    [queryClient],
+  );
 
-  const setOrder = React.useCallback((next: OverviewMetricKey[]) => {
-    // Defensive: drop unknown keys, clamp at the cap. Keeps legacy
-    // localStorage values from breaking the UI if the registry ever
-    // shrinks.
-    const filtered = next.filter((k): k is OverviewMetricKey =>
-      (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
-    );
-    const clamped = filtered.slice(0, OVERVIEW_MAX);
-    setSelected(clamped);
-    persist(clamped);
-  }, []);
+  const toggle = React.useCallback(
+    (key: OverviewMetricKey) => {
+      setSelected((prev) => {
+        let next: OverviewMetricKey[];
+        if (prev.includes(key)) {
+          if (prev.length <= 1) return prev; // never empty — broken UX
+          next = prev.filter((k) => k !== key);
+        } else {
+          next = [...prev, key];
+        }
+        void persist(next);
+        return next;
+      });
+    },
+    [persist],
+  );
 
-  return { selected, hydrated, toggle, setOrder, max: OVERVIEW_MAX };
+  const setOrder = React.useCallback(
+    (next: OverviewMetricKey[]) => {
+      const filtered = next.filter((k): k is OverviewMetricKey =>
+        (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
+      );
+      setSelected(filtered);
+      void persist(filtered);
+    },
+    [persist],
+  );
+
+  return { selected, hydrated: true, toggle, setOrder, max: OVERVIEW_MAX };
 }

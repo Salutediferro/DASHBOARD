@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Settings, Target, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { SlidersHorizontal, Target, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -13,18 +14,9 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Sex } from "@prisma/client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { SortableCard } from "@/components/sortable-card";
 import { cn } from "@/lib/utils";
 import {
-  OVERVIEW_DEFAULT,
   OVERVIEW_METRIC_KEYS,
   useOverviewPrefs,
   type OverviewMetricKey,
@@ -62,6 +54,10 @@ interface PatientOverviewProps {
   /** Server-fetched targets used to seed React Query so cards render
    * with their grade colour on first paint. */
   initialTargets?: MetricTargetsMap;
+  /** Server-rendered list of metrics the user has chosen to track —
+   * filters the cards rendered here. Empty array means "first-onboarding
+   * default", handled inside `useOverviewPrefs`. */
+  initialSelectedMetrics?: readonly string[];
 }
 
 type MetricDef = {
@@ -341,20 +337,6 @@ const REGISTRY: Record<OverviewMetricKey, MetricDef> = {
   },
 };
 
-// Stable display order for the dialog: groups in the order users learn
-// them (general → composition → measurements → vitals → metabolic →
-// sleep → activity → wellbeing).
-const CATEGORY_ORDER = [
-  "Generale",
-  "Composizione corporea",
-  "Circonferenze",
-  "Pressione e cuore",
-  "Metabolico",
-  "Sonno",
-  "Attività",
-  "Benessere",
-] as const;
-
 // Compact chip text for the on-card target indicator. Reuses the same
 // units the editor's input shows to avoid surprise mismatches.
 function formatTargetChip(
@@ -386,7 +368,9 @@ function formatTargetChip(
 }
 
 // Tailwind needs the literal class strings to be present somewhere it
-// can statically scan, otherwise `lg:grid-cols-3` etc. get purged.
+// can statically scan, otherwise `lg:grid-cols-3` etc. get purged. We
+// cap the per-row count at 4 visually; selection is unbounded so a row
+// of 6 just wraps to two rows.
 const LG_COLS: Record<number, string> = {
   1: "lg:grid-cols-1",
   2: "lg:grid-cols-2",
@@ -394,19 +378,20 @@ const LG_COLS: Record<number, string> = {
   4: "lg:grid-cols-4",
 };
 
-export function PatientOverview({ kpis, profile, initialTargets }: PatientOverviewProps) {
-  const { selected, hydrated, toggle, setOrder, max } = useOverviewPrefs();
+export function PatientOverview({
+  kpis,
+  profile,
+  initialTargets,
+  initialSelectedMetrics,
+}: PatientOverviewProps) {
+  const { selected, toggle, setOrder } = useOverviewPrefs(initialSelectedMetrics);
   const { targets, hydrated: targetsHydrated } = useMetricTargets({ initialData: initialTargets });
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [editorKey, setEditorKey] = React.useState<OverviewMetricKey | null>(null);
 
-  // Honour the user's drag-reordered sequence. Before hydration we fall
-  // back to the canonical default order to keep SSR matching.
-  const baseSelection = hydrated ? selected : OVERVIEW_DEFAULT;
-  const visible = baseSelection.filter((k) =>
+  const visible = selected.filter((k) =>
     (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
   ) as OverviewMetricKey[];
-  const cols = LG_COLS[Math.min(visible.length, max)] ?? LG_COLS[max];
+  const cols = LG_COLS[Math.min(visible.length, 4)] ?? LG_COLS[4];
 
   // Shared context for `gradeMetric` (sex-specific bands, target weight
   // for trend-aware weight grading).
@@ -468,79 +453,14 @@ export function PatientOverview({ kpis, profile, initialTargets }: PatientOvervi
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-end">
-        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogTrigger
-            className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors"
-            aria-label="Personalizza metriche"
-            title="Personalizza metriche"
-          >
-            <Settings className="h-3.5 w-3.5" aria-hidden />
-            Personalizza
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Metriche in evidenza</DialogTitle>
-              <DialogDescription>
-                Scegli fino a {max} metriche da mostrare in cima alla dashboard. Quelle non
-                selezionate restano accessibili dalle altre sezioni.
-              </DialogDescription>
-            </DialogHeader>
-            {/* Many metrics — keep the dialog itself fixed and scroll only
-                the list, so the header / footer stay anchored. */}
-            <div className="-mx-6 max-h-[55vh] overflow-y-auto px-6">
-              {CATEGORY_ORDER.map((category) => {
-                const keysInCat = OVERVIEW_METRIC_KEYS.filter(
-                  (k) => REGISTRY[k].category === category,
-                );
-                if (keysInCat.length === 0) return null;
-                return (
-                  <section key={category} className="flex flex-col">
-                    <h3 className="text-muted-foreground mt-4 mb-1 text-[10px] font-semibold tracking-wide uppercase first:mt-0">
-                      {category}
-                    </h3>
-                    <ul className="divide-border/60 flex flex-col divide-y">
-                      {keysInCat.map((key) => {
-                        const meta = REGISTRY[key];
-                        const isSelected = selected.includes(key);
-                        const atCap = !isSelected && selected.length >= max;
-                        const isLast = isSelected && selected.length <= 1;
-                        return (
-                          <li
-                            key={key}
-                            className="flex items-center justify-between gap-3 py-2.5"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium">{meta.label}</p>
-                              <p className="text-muted-foreground text-xs">
-                                {meta.description}
-                              </p>
-                            </div>
-                            <label className="inline-flex shrink-0 cursor-pointer items-center gap-2">
-                              <input
-                                type="checkbox"
-                                className="focus-ring border-input accent-primary h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
-                                checked={isSelected}
-                                disabled={atCap || isLast}
-                                onChange={() => toggle(key)}
-                                aria-label={`Mostra ${meta.label}`}
-                              />
-                              <span className="text-muted-foreground text-xs">
-                                {isSelected ? "Visibile" : "Nascosta"}
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                );
-              })}
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              Selezionate {selected.length}/{max}. La preferenza è salvata su questo dispositivo.
-            </p>
-          </DialogContent>
-        </Dialog>
+        <Link
+          href="/dashboard/patient/profile#metriche"
+          className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors"
+          aria-label="Modifica metriche tracciate"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+          Modifica metriche
+        </Link>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

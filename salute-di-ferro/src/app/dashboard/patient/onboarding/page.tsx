@@ -21,6 +21,8 @@ import {
 import { Stepper } from "@/components/onboarding/stepper";
 import { CompletionAnimation } from "@/components/onboarding/completion-animation";
 import { useClientOnboarding } from "@/lib/stores/onboarding";
+import { MetricSelector } from "@/components/profile/metric-selector";
+import type { OverviewMetricKey } from "@/lib/overview-metric-keys";
 
 type StepDef = {
   key: string;
@@ -64,6 +66,13 @@ const STEPS: StepDef[] = [
     copy: "Allergie, patologie e supplementi attivi sono importanti per medico e coach. Solo i professionisti collegati potranno vederli.",
     optional: true,
     canAdvance: () => true,
+  },
+  {
+    key: "metrics",
+    label: "Metriche",
+    title: "Cosa vuoi monitorare",
+    copy: "Scegli le metriche che vuoi tenere d'occhio. Filtreranno la dashboard, la pagina Dati salute e il modulo di rilevazione. Puoi cambiare in ogni momento dal profilo.",
+    canAdvance: (d) => d.selectedMetrics.length >= 1,
   },
   {
     key: "consents",
@@ -161,7 +170,8 @@ export default function PatientOnboardingPage() {
           {step === 2 && <MeasuresStep data={data} update={update} />}
           {step === 3 && <GoalsStep data={data} update={update} />}
           {step === 4 && <HealthStep data={data} update={update} />}
-          {step === 5 && <ConsentsStep data={data} update={update} />}
+          {step === 5 && <MetricsStep data={data} update={update} />}
+          {step === 6 && <ConsentsStep data={data} update={update} />}
         </section>
       </div>
 
@@ -439,6 +449,33 @@ function HealthStep({
           className="focus-ring"
         />
       </Field>
+    </div>
+  );
+}
+
+function MetricsStep({
+  data,
+  update,
+}: {
+  data: ClientData;
+  update: (p: Partial<ClientData>) => void;
+}) {
+  const toggle = (key: OverviewMetricKey) => {
+    const current = data.selectedMetrics;
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    update({ selectedMetrics: next });
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-muted-foreground text-xs">
+        Selezionate {data.selectedMetrics.length} metriche. Tieni almeno una
+        metrica attiva.
+      </p>
+      <div className="-mx-1 max-h-[55vh] overflow-y-auto pr-1">
+        <MetricSelector selected={data.selectedMetrics} onToggle={toggle} />
+      </div>
     </div>
   );
 }

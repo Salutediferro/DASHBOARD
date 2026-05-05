@@ -35,6 +35,9 @@ export type UserProfile = {
   // IANA timezone (e.g. "Europe/Rome"). Drives server-side reminder
   // scheduling so HH:MM is interpreted in the patient's local zone.
   timezone: string;
+  // Metrics the patient wants to track. Empty array = first onboarding,
+  // OVERVIEW_DEFAULT applied client-side. See overview-metric-keys.ts.
+  selectedMetrics: string[];
 };
 
 export function useUser() {

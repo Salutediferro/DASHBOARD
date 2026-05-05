@@ -32,6 +32,7 @@ const USER_SELECT = {
   bio: true,
   specialties: true,
   timezone: true,
+  selectedMetrics: true,
 } as const;
 
 type DbUser = {
@@ -57,6 +58,7 @@ type DbUser = {
   bio: string | null;
   specialties: string | null;
   timezone: string;
+  selectedMetrics: string[];
 };
 
 function serializeUser(u: DbUser) {
@@ -117,6 +119,8 @@ export async function PATCH(req: Request) {
   if (data.bio !== undefined) updates.bio = data.bio;
   if (data.specialties !== undefined) updates.specialties = data.specialties;
   if (data.timezone !== undefined) updates.timezone = data.timezone;
+  if (data.selectedMetrics !== undefined)
+    updates.selectedMetrics = data.selectedMetrics;
 
   // Keep fullName in sync when first/last name changes
   if (data.firstName !== undefined || data.lastName !== undefined) {

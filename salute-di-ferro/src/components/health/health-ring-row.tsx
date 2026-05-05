@@ -1,20 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import type { BiometricLogDTO } from "@/lib/hooks/use-biometrics";
 import { SectionHeader } from "../brand";
 import { SortableCard } from "../sortable-card";
 import { MetricRingCard, type RingMetric } from "./metric-ring-card";
 import type { PatientProfile, PrimaryKey } from "./health-tabs";
-import { useCallback, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
-import { Edit, Trash2 } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { useLocalStorageState } from "ahooks";
 import {
   DndContext,
@@ -121,6 +114,12 @@ interface HealthRingRowProps {
   targets: MetricTargetsMap;
   /** When set, each ring becomes clickable and opens the editor. */
   onCardClick?: (key: OverviewMetricKey, label: string) => void;
+  /** Patient's tracked-metrics list (overview vocabulary). When given,
+   * a ring is shown only if its biometric field maps to a tracked
+   * metric — keeps the ring row consistent with the rest of the
+   * filtering. Pass `null` (e.g. read-only professional view) to
+   * disable the filter. */
+  trackedMetrics?: ReadonlySet<string> | null;
 }
 
 export type MetricConfig = { label: string; unit?: string };
@@ -167,15 +166,35 @@ export const METRICS: Record<string, Partial<Record<PrimaryKey, MetricConfig>>> 
   },
 } as const;
 
-export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRingRowProps) {
-  const [editing, setEditing] = useState(false);
+export function HealthRingRow({
+  items,
+  profile,
+  targets,
+  onCardClick,
+  trackedMetrics,
+}: HealthRingRowProps) {
   const [metrics, setMetrics] = useLocalStorageState<PrimaryKey[]>("tracked-metrics", {
     defaultValue: ["weight", "bmi", "waistCm", "bodyFatPercentage"],
   });
 
+  // Intersect the user's locally-pinned ring list with the global
+  // tracked-metrics selection — a ring whose underlying overview key
+  // isn't tracked anywhere else shouldn't surface here either.
+  const visibleMetrics = useMemo(() => {
+    const list = metrics ?? [];
+    if (!trackedMetrics) return list;
+    return list.filter((k) => {
+      const overviewKey = FIELD_TO_OVERVIEW_KEY[k];
+      // Helper fields without an overview mapping (none in this set
+      // today) would fall through; treat them as always visible.
+      if (!overviewKey) return true;
+      return trackedMetrics.has(overviewKey);
+    });
+  }, [metrics, trackedMetrics]);
+
   const rings = useMemo(
-    () => computeRingMetrics(items, profile, metrics ?? [], targets),
-    [items, profile, metrics, targets],
+    () => computeRingMetrics(items, profile, visibleMetrics, targets),
+    [items, profile, visibleMetrics, targets],
   );
 
   // Grading context — same shape MetricsGrid uses, including trend-aware
@@ -192,17 +211,6 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
       previousWeightKg: prevWeight?.value ?? null,
     };
   }, [items, profile.sex, profile.targetWeightKg]);
-
-  const onToggle = useCallback(
-    (key: PrimaryKey) =>
-      setMetrics((m) => {
-        if (typeof m === "undefined") return [];
-
-        if (m.includes(key)) return m.filter((k) => k !== key);
-        return [...m, key];
-      }),
-    [setMetrics],
-  );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -246,50 +254,14 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
       <div className="flex flex-row items-center justify-between">
         <SectionHeader title="Panoramica" subtitle="Le tue metriche chiave a portata di mano." />
 
-        <Dialog open={editing} onOpenChange={setEditing}>
-          <DialogTrigger className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors">
-            <Edit className="h-4 w-4" aria-hidden />
-            Modifica
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md md:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Modifica Layout</DialogTitle>
-              <DialogDescription>Seleziona quali metriche ti interessano.</DialogDescription>
-            </DialogHeader>
-
-            {Object.entries(METRICS).map(([sezione, values]) => (
-              <div key={sezione}>
-                <label htmlFor={sezione} className="text-xl font-medium">
-                  {sezione}
-                </label>
-
-                <ul id={sezione} className="divide-border/60 flex flex-col divide-y">
-                  {Object.entries(values).map(([key, map]) => (
-                    <li key={key} className="flex items-center justify-between gap-3 py-3">
-                      <div>
-                        <p className="text-sm font-medium">{map.label}</p>
-                        {map.unit && <p className="text-muted-foreground text-xs">{map.unit}</p>}
-                      </div>
-
-                      <label className="inline-flex cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="focus-ring border-input accent-primary h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
-                          checked={(metrics ?? []).includes(key as PrimaryKey)}
-                          onChange={() => onToggle(key as PrimaryKey)}
-                          aria-label={`Mostra ${map.label}`}
-                        />
-                        <span className="text-muted-foreground text-xs">
-                          {(metrics ?? []).includes(key as PrimaryKey) ? "Visibile" : "Nascosto"}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </DialogContent>
-        </Dialog>
+        <Link
+          href="/dashboard/patient/profile#metriche"
+          aria-label="Modifica metriche tracciate"
+          className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden />
+          Modifica metriche
+        </Link>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

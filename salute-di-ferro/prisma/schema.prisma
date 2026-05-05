@@ -173,6 +173,13 @@ model User {
   // and rendered as progress bar vs. latest biometric weight).
   targetWeightKg Float?
 
+  // Metrics the patient wants to track. Members of OVERVIEW_METRIC_KEYS
+  // (see src/lib/overview-metric-keys.ts). Drives what shows on the
+  // dashboard, the health page, and the "Aggiungi rilevazione" form.
+  // Empty array = first-onboarding default (OVERVIEW_DEFAULT applied
+  // client-side).
+  selectedMetrics String[] @default([])
+
   // Public professional profile (visible to linked patients).
   // Free-text; specialties is a comma-separated list rendered as tags.
   bio         String?

@@ -33,6 +33,13 @@ type Props = {
    * render `<ProfileHero>` above the form pass this to avoid showing
    * the same identity + avatar twice. */
   hideHeader?: boolean;
+  /** Extra section rendered inside the form, between the last card
+   * and the sticky save bar. Use this to slot in independent sections
+   * (e.g. metric preferences) that should appear above the save row
+   * rather than below the entire form. The slot owns its own state
+   * and side effects; the form save bar still only commits the
+   * react-hook-form fields. */
+  bottomSection?: React.ReactNode;
 };
 
 // Curated list of timezones we expect actual users to live in. Italy
@@ -83,6 +90,7 @@ export function ProfileForm({
   showClinical = false,
   showProfessional = false,
   hideHeader = false,
+  bottomSection,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -553,6 +561,8 @@ export function ProfileForm({
             </CardContent>
           </Card>
         )}
+
+        {bottomSection}
 
         <div className="border-border bg-background/80 sticky -bottom-8 -mx-px flex flex-wrap items-center justify-end gap-3 border-t py-3 pr-2.5 backdrop-blur">
           <button

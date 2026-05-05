@@ -1,5 +1,10 @@
 import { create } from "zustand";
 
+import {
+  OVERVIEW_DEFAULT,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
+
 // ══════════════════════════════════════════════════════════════════════
 // COACH
 // ══════════════════════════════════════════════════════════════════════
@@ -90,6 +95,9 @@ export type ClientOnboardingData = {
   medications: string;
   consentDataProcessing: boolean;
   consentMarketing: boolean;
+  // Metrics the user wants to track. Seeded with OVERVIEW_DEFAULT so a
+  // user who skips the step still gets a sensible dashboard.
+  selectedMetrics: OverviewMetricKey[];
 };
 
 type ClientState = {
@@ -117,6 +125,7 @@ const clientInitial: ClientOnboardingData = {
   medications: "",
   consentDataProcessing: false,
   consentMarketing: false,
+  selectedMetrics: [...OVERVIEW_DEFAULT],
 };
 
 export const useClientOnboarding = create<ClientState>((set) => ({

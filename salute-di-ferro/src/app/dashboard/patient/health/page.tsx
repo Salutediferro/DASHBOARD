@@ -23,6 +23,7 @@ export default async function PatientHealthPage() {
       targetWeightKg: true,
       heightCm: true,
       sex: true,
+      selectedMetrics: true,
     },
   });
   if (!me) redirect("/login");
@@ -38,6 +39,7 @@ export default async function PatientHealthPage() {
         sex: me.sex,
       }}
       initialTargets={metricTargets}
+      initialSelectedMetrics={me.selectedMetrics}
     />
   );
 }

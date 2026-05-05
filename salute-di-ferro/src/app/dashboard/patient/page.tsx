@@ -42,6 +42,7 @@ export default async function PatientDashboardPage() {
       sex: true,
       heightCm: true,
       targetWeightKg: true,
+      selectedMetrics: true,
     },
   });
   if (!me) redirect("/login");
@@ -67,6 +68,7 @@ export default async function PatientDashboardPage() {
           targetWeightKg: me.targetWeightKg,
         }}
         initialTargets={metricTargets}
+        initialSelectedMetrics={me.selectedMetrics}
       />
 
       <section className="flex flex-col gap-4">

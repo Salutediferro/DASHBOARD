@@ -1,19 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Plus, Settings, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Sex } from "@prisma/client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -25,31 +18,29 @@ import {
   useHealthCategoryPrefs,
   type HealthCategoryKey,
 } from "@/lib/hooks/use-health-category-prefs";
+import { useOverviewPrefs } from "@/lib/hooks/use-overview-prefs";
 
 import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
 import { MetricChart } from "@/components/health/metric-chart";
-import { MetricForm, type MetricField } from "@/components/health/metric-form";
 import HealthEmptyState from "@/components/health/health-empty-state";
+import { AddBiometricDialog } from "@/components/health/add-biometric-dialog";
+import { CATEGORIES, FIELDS, type CategoryKey } from "@/components/health/metric-fields";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
 import { SKINFOLD_SITES, SKINFOLD_LABELS, gradeSkinfold } from "@/lib/health/skinfold-thresholds";
 import {
   METRIC_GRADE_LABELS,
   findLatestNumeric,
-  findPreviousNumeric,
-  type MetricContext,
   type MetricGrade,
 } from "@/lib/health/metric-thresholds";
 import { HealthRingRow } from "./health-ring-row";
 import { MetricEditorDialog } from "@/components/dashboard/metric-editor-dialog";
-import { EDITOR_CONFIG } from "@/components/dashboard/metric-editor-config";
 import {
   FIELD_TO_OVERVIEW_KEY,
   type OverviewMetricKey,
 } from "@/lib/overview-metric-keys";
 import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
-import { gradeForHealthCard } from "@/lib/health/grade-with-target";
 
 export type PatientProfile = {
   targetWeightKg: number | null;
@@ -67,129 +58,15 @@ type Props = {
   /** Server-fetched personal targets (drives card grading). Seeds React
    * Query so first paint already reflects the user's targets. */
   initialTargets?: MetricTargetsMap;
+  /** Server-rendered list of metrics the user wants to track — filters
+   * tabs, cards, and the rilevazione form. */
+  initialSelectedMetrics?: readonly string[];
 };
 
 const EMPTY_PROFILE: PatientProfile = {
   targetWeightKg: null,
   heightCm: null,
   sex: null,
-};
-
-// ── Categories & fields ─────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { key: "body", label: "Corporei" },
-  { key: "circumferences", label: "Circonferenze" },
-  { key: "skinfolds", label: "Plicometrie" },
-  { key: "cardiovascular", label: "Cardiovascolare" },
-  { key: "metabolic", label: "Metabolica" },
-  { key: "sleep", label: "Sonno" },
-  { key: "activity", label: "Attività" },
-] as const;
-
-type CategoryKey = (typeof CATEGORIES)[number]["key"];
-
-// Min/max here MUST mirror the server-side Zod ranges in
-// `src/lib/validators/biometric.ts`. Before we carried them through to
-// the UI, the user could type SpO2=32 / quality=24 / BP=5, the form
-// sent it, and Prisma → Zod rejected it with a generic "Errore
-// salvataggio". Keeping the limits co-located with the labels lets the
-// browser reject absurd values up front.
-const FIELDS: Record<CategoryKey, MetricField[]> = {
-  body: [
-    {
-      name: "weight",
-      label: "Peso",
-      unit: "kg",
-      step: "0.1",
-      placeholder: "75.0",
-      min: 20,
-      max: 300,
-    },
-    { name: "bodyFatPercentage", label: "% grasso", unit: "%", step: "0.1", min: 3, max: 60 },
-    { name: "muscleMassKg", label: "Massa muscolare", unit: "kg", step: "0.1", min: 10, max: 120 },
-    { name: "bodyWaterPct", label: "Acqua corporea", unit: "%", step: "0.1", min: 20, max: 80 },
-  ],
-  circumferences: [
-    { name: "waistCm", label: "Vita", unit: "cm", step: "0.5", min: 30, max: 200 },
-    { name: "hipsCm", label: "Fianchi", unit: "cm", step: "0.5", min: 30, max: 200 },
-    { name: "chestCm", label: "Petto", unit: "cm", step: "0.5", min: 30, max: 200 },
-    { name: "armsCm", label: "Braccia", unit: "cm", step: "0.5", min: 10, max: 80 },
-    { name: "thighCm", label: "Coscia", unit: "cm", step: "0.5", min: 20, max: 120 },
-    { name: "calvesCm", label: "Polpaccio", unit: "cm", step: "0.5", min: 15, max: 80 },
-  ],
-  skinfolds: [
-    { name: "chestSkinfoldMm", label: "Pettorale", unit: "mm", step: "0.5", min: 1, max: 80 },
-    { name: "abdominalSkinfoldMm", label: "Addominale", unit: "mm", step: "0.5", min: 1, max: 80 },
-    { name: "thighSkinfoldMm", label: "Coscia", unit: "mm", step: "0.5", min: 1, max: 80 },
-    {
-      name: "suprailiacSkinfoldMm",
-      label: "Soprailiaca",
-      unit: "mm",
-      step: "0.5",
-      min: 1,
-      max: 80,
-    },
-    {
-      name: "subscapularSkinfoldMm",
-      label: "Sottoscapolare",
-      unit: "mm",
-      step: "0.5",
-      min: 1,
-      max: 80,
-    },
-    { name: "midaxillarySkinfoldMm", label: "Ascellare", unit: "mm", step: "0.5", min: 1, max: 80 },
-    { name: "tricepsSkinfoldMm", label: "Tricipite", unit: "mm", step: "0.5", min: 1, max: 80 },
-    { name: "calfSkinfoldMm", label: "Polpaccio", unit: "mm", step: "0.5", min: 1, max: 80 },
-  ],
-  cardiovascular: [
-    { name: "systolicBP", label: "PA sistolica", unit: "mmHg", step: "1", min: 60, max: 260 },
-    { name: "diastolicBP", label: "PA diastolica", unit: "mmHg", step: "1", min: 30, max: 160 },
-    { name: "restingHR", label: "FC riposo", unit: "bpm", step: "1", min: 25, max: 220 },
-    { name: "spo2", label: "SpO2", unit: "%", step: "0.1", min: 50, max: 100 },
-    { name: "hrv", label: "HRV", unit: "ms", step: "1", min: 0, max: 300 },
-  ],
-  metabolic: [
-    {
-      name: "glucoseFasting",
-      label: "Glicemia digiuno",
-      unit: "mg/dL",
-      step: "1",
-      min: 30,
-      max: 500,
-    },
-    {
-      name: "glucosePostMeal",
-      label: "Glicemia post-pasto",
-      unit: "mg/dL",
-      step: "1",
-      min: 30,
-      max: 600,
-    },
-    { name: "ketones", label: "Chetoni", unit: "mmol/L", step: "0.1", min: 0, max: 10 },
-    { name: "bodyTempC", label: "Temperatura", unit: "°C", step: "0.1", min: 30, max: 45 },
-  ],
-  sleep: [
-    { name: "sleepBedtime", label: "A letto", type: "time", placeholder: "23:30" },
-    { name: "sleepWakeTime", label: "Sveglia", type: "time", placeholder: "07:00" },
-    {
-      name: "sleepHours",
-      label: "Ore dormite",
-      unit: "h",
-      step: "0.25",
-      min: 0,
-      max: 16,
-      hint: "Calcolate automaticamente da 'A letto' e 'Sveglia', oppure inseriscile a mano.",
-    },
-    { name: "sleepQuality", label: "Qualità (1-10)", step: "1", min: 1, max: 10 },
-    { name: "sleepAwakenings", label: "Risvegli", step: "1", min: 0, max: 20 },
-  ],
-  activity: [
-    { name: "steps", label: "Passi", step: "1", min: 0, max: 100000 },
-    { name: "caloriesBurned", label: "Kcal bruciate", step: "1", min: 0, max: 10000 },
-    { name: "activeMinutes", label: "Minuti attivi", unit: "min", step: "1", min: 0, max: 1440 },
-    { name: "distanceKm", label: "Distanza", unit: "km", step: "0.1", min: 0, max: 200 },
-  ],
 };
 
 export type PrimaryKey = keyof BiometricLogDTO;
@@ -221,12 +98,46 @@ type PeriodKey = (typeof PERIODS)[number]["key"];
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initialTargets }: Props) {
+export function HealthTabs({
+  profile = EMPTY_PROFILE,
+  patientId,
+  readOnly,
+  initialTargets,
+  initialSelectedMetrics,
+}: Props) {
   const { targets } = useMetricTargets({ initialData: initialTargets });
+  // Patient's tracked-metrics list. For professional read-only views we
+  // skip the filter — the doctor/coach must see every metric they may
+  // need to discuss, regardless of the patient's UI preference.
+  const { selected: trackedMetrics } = useOverviewPrefs(initialSelectedMetrics);
+  const trackedSet = React.useMemo(
+    () => (readOnly ? null : new Set<string>(trackedMetrics)),
+    [readOnly, trackedMetrics],
+  );
+  // True if a field maps to a tracked OverviewMetricKey, OR has no
+  // mapping (helper input like sleepBedtime). Returning `true` for
+  // unmapped fields keeps inputs visible when the user picks the
+  // related metric (e.g. sleepBedtime stays alongside sleepHours).
+  // A category is visible only when the user actually tracks at least
+  // one of its mapped fields. Specialty categories like skinfolds —
+  // which have no entries in the overview vocabulary — are therefore
+  // hidden by default, since the new selection model can't surface
+  // them. Read-only views (professional) bypass the filter entirely.
+  const categoryHasTracked = React.useCallback(
+    (key: CategoryKey): boolean => {
+      if (!trackedSet) return true;
+      const mapped = FIELDS[key].filter((f) => FIELD_TO_OVERVIEW_KEY[f.name]);
+      if (mapped.length === 0) return false;
+      return mapped.some((f) => {
+        const overviewKey = FIELD_TO_OVERVIEW_KEY[f.name];
+        return overviewKey ? trackedSet.has(overviewKey) : false;
+      });
+    },
+    [trackedSet],
+  );
   const [category, setCategory] = React.useState<CategoryKey>("body");
   const [period, setPeriod] = React.useState<PeriodKey>(30);
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [formCategory, setFormCategory] = React.useState<CategoryKey>("body");
   // Per-card click-to-edit dialog. `null` = closed; otherwise the
   // overview-card key whose editor is open.
@@ -237,10 +148,14 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initi
     setEditorLabel(label);
   }, []);
 
-  const { hidden, hydrated, toggle } = useHealthCategoryPrefs();
+  const { hidden, hydrated } = useHealthCategoryPrefs();
   const visibleCategories = React.useMemo(
-    () => CATEGORIES.filter((c) => !hidden.has(c.key as HealthCategoryKey)),
-    [hidden],
+    () =>
+      CATEGORIES.filter(
+        (c) =>
+          !hidden.has(c.key as HealthCategoryKey) && categoryHasTracked(c.key),
+      ),
+    [hidden, categoryHasTracked],
   );
   // Fall back to the full list before hydration so the first paint of
   // the tabs matches what the server rendered (nothing hidden yet).
@@ -275,17 +190,6 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initi
     return items.filter((r) => new Date(r.date).getTime() >= cutoff);
   }, [items, period]);
 
-  // Context for traffic-light grading. Weight needs the current and prior
-  // readings so its grade reflects trend direction, not just distance.
-  const latestWeight = findLatestNumeric(items, "weight");
-  const prevWeight = latestWeight ? findPreviousNumeric(items, "weight", latestWeight.date) : null;
-  const metricCtx: MetricContext = {
-    sex: profile.sex,
-    targetWeightKg: profile.targetWeightKg,
-    currentWeightKg: latestWeight?.value ?? null,
-    previousWeightKg: prevWeight?.value ?? null,
-  };
-
   const openDialogFor = (c: CategoryKey) => {
     setFormCategory(c);
     setDialogOpen(true);
@@ -300,70 +204,22 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initi
         actions={
           !readOnly && (
             <div className="flex items-center gap-2">
-              <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <DialogTrigger
-                  className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
-                  aria-label="Personalizza parametri"
-                  title="Personalizza parametri"
-                >
-                  <Settings className="h-4 w-4" aria-hidden />
-                  Personalizza
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Parametri da tracciare</DialogTitle>
-                    <DialogDescription>
-                      Scegli quali categorie vuoi vedere nelle tue schermate di Dati Salute. Quelle
-                      nascoste restano disponibili ma non occupano spazio.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <CategoryPrefsList
-                    hidden={hidden}
-                    onToggle={(k) => toggle(k as HealthCategoryKey)}
-                  />
-                </DialogContent>
-              </Dialog>
+              <Link
+                href="/dashboard/patient/profile#metriche"
+                className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
+                aria-label="Modifica metriche tracciate"
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Modifica metriche
+              </Link>
 
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors">
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Aggiungi rilevazione
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md md:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Nuova rilevazione</DialogTitle>
-                    <DialogDescription>
-                      Inserisci uno o più valori. I campi vuoti vengono ignorati.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="border-border/60 flex flex-wrap gap-1 border-b pb-3">
-                    {effectiveCategories.map((c) => (
-                      <button
-                        key={c.key}
-                        type="button"
-                        onClick={() => setFormCategory(c.key)}
-                        className={cn(
-                          "focus-ring rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                          formCategory === c.key
-                            ? "bg-primary-500/15 text-primary-500"
-                            : "text-muted-foreground hover:bg-muted",
-                        )}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="max-h-[60vh] overflow-y-auto">
-                    <MetricForm
-                      key={formCategory}
-                      category={formCategory}
-                      fields={FIELDS[formCategory]}
-                      dense
-                      onSaved={() => setDialogOpen(false)}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <AddBiometricDialog
+                initialSelectedMetrics={initialSelectedMetrics}
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                category={formCategory}
+                onCategoryChange={setFormCategory}
+              />
             </div>
           )
         }
@@ -390,6 +246,7 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initi
             profile={profile}
             targets={targets}
             onCardClick={readOnly ? undefined : openEditor}
+            trackedMetrics={trackedSet}
           />
 
           {/* Category tabs ───────────────────────── */}
@@ -405,16 +262,8 @@ export function HealthTabs({ profile = EMPTY_PROFILE, patientId, readOnly, initi
 
               {effectiveCategories.map((c) => (
                 <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-4">
-                  {c.key === "skinfolds" ? (
+                  {c.key === "skinfolds" && (
                     <SkinfoldsGrid items={items} sex={profile.sex} />
-                  ) : (
-                    <MetricsGrid
-                      items={items}
-                      fields={FIELDS[c.key]}
-                      ctx={metricCtx}
-                      targets={targets}
-                      onCardClick={readOnly ? undefined : openEditor}
-                    />
                   )}
                   <CategoryPanel
                     category={c.key}
@@ -808,12 +657,6 @@ const GRADE_LABEL_OVERRIDE: Partial<Record<string, Record<MetricGrade, string>>>
   weight: { green: "Vicino al target", yellow: "In progresso", red: "Fermo o lontano" },
 };
 
-function decimalsFromStep(step: string | undefined): number {
-  if (!step) return 0;
-  const idx = step.indexOf(".");
-  return idx >= 0 ? step.length - idx - 1 : 0;
-}
-
 function MetricGradeCard({
   label,
   unit,
@@ -932,60 +775,6 @@ function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | nu
   );
 }
 
-// ── Generic metrics grid (every other category) ────────────────────────────
-
-function MetricsGrid({
-  items,
-  fields,
-  ctx,
-  targets,
-  onCardClick,
-}: {
-  items: BiometricLogDTO[];
-  fields: MetricField[];
-  ctx: MetricContext;
-  targets: MetricTargetsMap;
-  /** When set, cards with a known overview-key become clickable. */
-  onCardClick?: (key: OverviewMetricKey, label: string) => void;
-}) {
-  // Time-typed fields (e.g. sleepBedtime) have no numeric grade.
-  const numeric = fields.filter((f) => (f.type ?? "number") === "number");
-  return (
-    <section className="flex flex-col gap-2">
-      <p className="text-muted-foreground text-xs">
-        Verde = nel range · giallo = attenzione · rosso = fuori range. Le metriche senza soglia
-        restano neutre. Tocca una card per registrare un valore o impostare l&apos;obiettivo.
-      </p>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {numeric.map((f) => {
-          const key = f.name as keyof BiometricLogDTO;
-          const latest = findLatestNumeric(items, key);
-          const grade = latest ? gradeForHealthCard(f.name, latest.value, ctx, targets) : null;
-          const overviewKey = FIELD_TO_OVERVIEW_KEY[f.name];
-          const editable =
-            !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
-          return (
-            <MetricGradeCard
-              key={f.name}
-              label={f.label}
-              unit={f.unit}
-              decimals={decimalsFromStep(f.step)}
-              latest={latest}
-              grade={grade}
-              gradeKey={f.name}
-              onClick={
-                editable
-                  ? () => onCardClick!(overviewKey as OverviewMetricKey, f.label)
-                  : undefined
-              }
-            />
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 
 // ── Loading state ──────────────────────────────────────────────────────────
 
@@ -997,56 +786,3 @@ function LoadingState() {
   );
 }
 
-// ── Preferences dialog body ────────────────────────────────────────────────
-
-function CategoryPrefsList({
-  hidden,
-  onToggle,
-}: {
-  hidden: Set<HealthCategoryKey>;
-  onToggle: (key: HealthCategoryKey) => void;
-}) {
-  // Block the user from hiding the last visible category — an empty
-  // tab row would be confusing and has no useful state.
-  const visibleCount = CATEGORIES.length - hidden.size;
-
-  return (
-    <ul className="divide-border/60 flex flex-col divide-y">
-      {CATEGORIES.map((c) => {
-        const isHidden = hidden.has(c.key as HealthCategoryKey);
-        const isOnlyVisible = !isHidden && visibleCount <= 1;
-        return (
-          <li key={c.key} className="flex items-center justify-between gap-3 py-3">
-            <div>
-              <p className="text-sm font-medium">{c.label}</p>
-              <p className="text-muted-foreground text-xs">{CATEGORY_DESCRIPTIONS[c.key]}</p>
-            </div>
-            <label className="inline-flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                className="focus-ring border-input accent-primary h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-50"
-                checked={!isHidden}
-                disabled={isOnlyVisible}
-                onChange={() => onToggle(c.key as HealthCategoryKey)}
-                aria-label={`Mostra ${c.label}`}
-              />
-              <span className="text-muted-foreground text-xs">
-                {isHidden ? "Nascosto" : "Visibile"}
-              </span>
-            </label>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-const CATEGORY_DESCRIPTIONS: Record<CategoryKey, string> = {
-  body: "Peso, massa grassa, massa muscolare, acqua.",
-  circumferences: "Vita, fianchi, petto, braccia, coscia, polpaccio.",
-  skinfolds: "Pliche cutanee — pettorale, addominale, coscia, soprailiaca, ecc.",
-  cardiovascular: "Pressione, frequenza cardiaca, SpO2, HRV.",
-  metabolic: "Glicemia, chetoni, temperatura corporea.",
-  sleep: "Ore, qualità, orari, risvegli.",
-  activity: "Passi, calorie, minuti attivi, distanza.",
-};

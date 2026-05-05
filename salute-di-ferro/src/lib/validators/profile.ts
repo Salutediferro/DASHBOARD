@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { OVERVIEW_METRIC_KEYS } from "@/lib/overview-metric-keys";
+
 /**
  * Lenient nullable string: accepts empty strings from the UI and normalizes
  * them to `null` so PATCH semantics stay clean (empty = cleared).
@@ -81,6 +83,14 @@ export const profilePatchSchema = z.object({
     .min(1)
     .max(64)
     .regex(/^[A-Za-z]+\/[A-Za-z_+\-0-9/]+$|^UTC$/, "Timezone IANA non valida")
+    .optional(),
+
+  // Member of OVERVIEW_METRIC_KEYS — drives what the patient sees on
+  // the dashboard, the health page, and the rilevazione form. Order is
+  // preserved (used by drag-to-reorder on the dashboard).
+  selectedMetrics: z
+    .array(z.enum(OVERVIEW_METRIC_KEYS))
+    .max(OVERVIEW_METRIC_KEYS.length)
     .optional(),
 });
 

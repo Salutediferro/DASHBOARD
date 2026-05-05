@@ -16,6 +16,7 @@ import type { NavBadgeSource, NavItem } from "@/lib/nav-items";
 import { UserMenu } from "@/components/auth/user-menu";
 import { useUser } from "@/lib/hooks/use-user";
 import Logo from "@/components/brand/logo";
+import { AddBiometricDialog } from "@/components/health/add-biometric-dialog";
 import {
   Avatar,
   AvatarFallback,
@@ -137,7 +138,30 @@ function SidebarHeader({ collapsed, mounted, onToggle }: { collapsed: boolean, m
         </div>
 
       {!collapsed && role && <RoleBadge role={role} />}
+      {role === "PATIENT" && <AddBiometricShortcut collapsed={collapsed} />}
     </div>
+  );
+}
+
+// Quick-access "Aggiungi rilevazione" button — lives under the role
+// badge so the patient can record a metric from anywhere in the app.
+// Reuses the same dialog as the health page; selectedMetrics are read
+// off the cached profile so the dialog filters correctly. No tooltip
+// wrapper in collapsed mode: the AddBiometricDialog renders a Radix
+// Dialog whose Trigger doesn't compose cleanly with Tooltip's render
+// API — the icon-only button gets its accessible name from aria-label.
+function AddBiometricShortcut({ collapsed }: { collapsed: boolean }) {
+  const { profile } = useUser();
+  return (
+    <AddBiometricDialog
+      initialSelectedMetrics={profile?.selectedMetrics}
+      triggerClassName={cn(
+        "h-8 text-xs",
+        collapsed ? "w-full justify-center px-0" : "w-full justify-start px-2",
+      )}
+      triggerLabel={collapsed ? "" : "Aggiungi rilevazione"}
+      triggerAriaLabel="Aggiungi rilevazione"
+    />
   );
 }
 
