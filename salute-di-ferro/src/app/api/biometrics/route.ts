@@ -137,6 +137,39 @@ export async function POST(req: Request) {
     data.bmi = Number((weight / (hM * hM)).toFixed(2));
   }
 
+  // Upsert by calendar day: if a log already exists for the same day,
+  // merge the new fields onto it instead of creating a duplicate. The
+  // form prefills with today's values, so the user sees what they
+  // already entered and can edit it — a second save overwrites rather
+  // than creating a parallel measurement.
+  const logDate =
+    data.date instanceof Date ? data.date : new Date(data.date as string);
+  const dayStart = new Date(logDate);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const existing = await prisma.biometricLog.findFirst({
+    where: {
+      patientId: me.id,
+      date: { gte: dayStart, lt: dayEnd },
+    },
+    orderBy: { date: "desc" },
+    select: { id: true },
+  });
+
+  if (existing) {
+    // Preserve the original timestamp on update — the day already
+    // matches, and "when was this first logged today" lives on the row.
+    const patch: Record<string, unknown> = { ...data };
+    delete patch.date;
+    const updated = await prisma.biometricLog.update({
+      where: { id: existing.id },
+      data: patch as never,
+    });
+    return NextResponse.json(updated);
+  }
+
   const created = await prisma.biometricLog.create({
     data: {
       ...data,

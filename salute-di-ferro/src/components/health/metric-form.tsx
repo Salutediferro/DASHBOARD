@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useCreateBiometric } from "@/lib/hooks/use-biometrics";
+import { useBiometrics, useCreateBiometric } from "@/lib/hooks/use-biometrics";
 import type { BiometricInput } from "@/lib/validators/biometric";
 
 type Category =
@@ -68,6 +68,49 @@ export function MetricForm({
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [notes, setNotes] = React.useState("");
   const create = useCreateBiometric();
+
+  // Prefill the form with whatever's already logged for the selected
+  // day, so a second save merges into the existing measurement instead
+  // of creating a duplicate. Server-side POST also upserts by day, but
+  // showing the existing values prevents the user from re-typing weight
+  // every time they reopen the dialog to add a different field.
+  const existingQuery = useBiometrics({
+    from: `${date}T00:00:00.000Z`,
+    to: `${date}T23:59:59.999Z`,
+  });
+  const existingLog = existingQuery.data?.items?.[0] ?? null;
+  const prefilledKeyRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    prefilledKeyRef.current = null;
+    setValues({});
+    setNotes("");
+  }, [date]);
+
+  React.useEffect(() => {
+    if (!existingQuery.data) return;
+    const key = existingLog ? `log:${existingLog.id}` : `none:${date}`;
+    if (prefilledKeyRef.current === key) return;
+    prefilledKeyRef.current = key;
+    if (!existingLog) return;
+
+    const next: Record<string, string> = {};
+    for (const f of fields) {
+      const raw = (existingLog as unknown as Record<string, unknown>)[f.name];
+      if (raw == null) continue;
+      if (f.type === "time") {
+        const d = new Date(raw as string);
+        if (Number.isNaN(d.getTime())) continue;
+        const hh = String(d.getUTCHours()).padStart(2, "0");
+        const mm = String(d.getUTCMinutes()).padStart(2, "0");
+        next[f.name] = `${hh}:${mm}`;
+      } else {
+        next[f.name] = String(raw);
+      }
+    }
+    setValues(next);
+    setNotes(existingLog.notes ?? "");
+  }, [existingQuery.data, existingLog, date, fields]);
 
   // Auto-compute sleep hours from bedtime + wake time (handles midnight crossing).
   const sleepBedtime = values.sleepBedtime;
@@ -147,6 +190,12 @@ export function MetricForm({
     try {
       await create.mutateAsync(input);
       toast.success("Rilevazione salvata");
+      // Allow the prefill effect to re-apply once the refetched data
+      // arrives — the upsert keeps the same log id, so without this
+      // reset the guard would short-circuit and the form would stay
+      // showing the just-submitted values without confirming the
+      // server's canonical state (incl. server-computed BMI).
+      prefilledKeyRef.current = null;
       setValues({});
       setNotes("");
       onSaved?.();

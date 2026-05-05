@@ -9,9 +9,7 @@ import type { MetricDirection } from "@/lib/health/metric-direction";
 // loading skeleton render without pulling ~100KB of chart code upfront.
 const MetricChartBody = dynamic(() => import("./metric-chart-body"), {
   ssr: false,
-  loading: () => (
-    <div className="bg-muted/40 h-48 w-full animate-pulse rounded-md" />
-  ),
+  loading: () => <div className="bg-muted/40 h-48 w-full animate-pulse rounded-md" />,
 });
 
 type Point = { date: string; value: number | null };
@@ -41,25 +39,19 @@ export function MetricChart({
   target,
   direction,
 }: Props) {
-  const points = data.filter(
-    (p): p is { date: string; value: number } => p.value != null,
-  );
+  const points = data.filter((p): p is { date: string; value: number } => p.value != null);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">
           {title}
-          {unit && (
-            <span className="text-muted-foreground ml-1 text-xs">({unit})</span>
-          )}
+          {unit && <span className="text-muted-foreground ml-1 text-xs">({unit})</span>}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {points.length === 0 ? (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            {emptyLabel}
-          </p>
+          <p className="text-muted-foreground py-8 text-center text-sm">{emptyLabel}</p>
         ) : (
           <MetricChartBody
             title={title}
