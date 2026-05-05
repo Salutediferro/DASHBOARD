@@ -22,6 +22,7 @@ import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortab
 import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
 import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
 import { effectiveTargetFor, gradeForHealthCard } from "@/lib/health/grade-with-target";
+import { directionForPrimary } from "@/lib/health/metric-direction";
 import {
   findLatestNumeric,
   findPreviousNumeric,
@@ -38,49 +39,6 @@ function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
   return null;
 }
 
-// Direction the metric "wants" to move relative to its target.
-//   lower         → current ≤ target = full ring (e.g. body fat: going
-//                   below target is still success, not over-correction)
-//   higher        → current ≥ target = full ring (e.g. muscle mass,
-//                   steps, SpO₂)
-//   bidirectional → distance-from-target on either side reduces the
-//                   ring (e.g. weight goal: at 60 kg with target 65 kg
-//                   the user has 5 kg to gain, ring should NOT be full)
-//   closeness     → tight band around the target; deviation in either
-//                   direction is bad (BP, body temperature, sleep
-//                   hours)
-type RingDirection = "lower" | "higher" | "bidirectional" | "closeness";
-
-const DIRECTION: Record<string, RingDirection> = {
-  weight: "bidirectional",
-  bmi: "bidirectional",
-  bodyFatPercentage: "lower",
-  muscleMassKg: "higher",
-  bodyWaterPct: "higher",
-  waistCm: "lower",
-  hipsCm: "bidirectional",
-  chestCm: "bidirectional",
-  armsCm: "bidirectional",
-  thighCm: "bidirectional",
-  calvesCm: "bidirectional",
-  systolicBP: "closeness",
-  diastolicBP: "closeness",
-  restingHR: "lower",
-  spo2: "higher",
-  hrv: "higher",
-  glucoseFasting: "lower",
-  glucosePostMeal: "lower",
-  ketones: "bidirectional",
-  bodyTempC: "closeness",
-  sleepHours: "closeness",
-  sleepQuality: "higher",
-  sleepAwakenings: "lower",
-  steps: "higher",
-  caloriesBurned: "higher",
-  activeMinutes: "higher",
-  distanceKm: "higher",
-};
-
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(1, n));
@@ -92,7 +50,7 @@ function progressForRing(
   target: number | null,
 ): number {
   if (current == null || target == null || target === 0) return 0;
-  const dir = DIRECTION[key] ?? "lower";
+  const dir = directionForPrimary(key);
   switch (dir) {
     case "lower":
       return current <= target ? 1 : clamp01(target / current);

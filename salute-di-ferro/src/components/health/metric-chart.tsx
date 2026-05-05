@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { MetricDirection } from "@/lib/health/metric-direction";
 
 // Dynamic-import the recharts-heavy body so the card shell and its
 // loading skeleton render without pulling ~100KB of chart code upfront.
@@ -21,6 +22,14 @@ type Props = {
   data: Point[];
   emptyLabel?: string;
   color?: string;
+  /** When set, the chart paints a horizontal dashed reference line at
+   * this Y and the trend line + area shift through red → yellow →
+   * green based on distance to the target. Without it, the chart
+   * stays on the brand colour. */
+  target?: number | null;
+  /** How "good" relates to the target — drives the gradient shape.
+   * Defaults to bidirectional when omitted (symmetric on both sides). */
+  direction?: MetricDirection;
 };
 
 export function MetricChart({
@@ -29,6 +38,8 @@ export function MetricChart({
   data,
   emptyLabel = "Nessun dato disponibile",
   color = "#b22222",
+  target,
+  direction,
 }: Props) {
   const points = data.filter(
     (p): p is { date: string; value: number } => p.value != null,
@@ -55,6 +66,8 @@ export function MetricChart({
             unit={unit}
             color={color}
             data={points}
+            target={target ?? null}
+            direction={direction ?? "bidirectional"}
           />
         )}
       </CardContent>

@@ -38,6 +38,8 @@ import { HealthRingRow } from "./health-ring-row";
 import { MetricEditorDialog } from "@/components/dashboard/metric-editor-dialog";
 import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
 import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
+import { directionForPrimary } from "@/lib/health/metric-direction";
+import { glossaryFor } from "@/lib/health/metric-glossary";
 
 export type PatientProfile = {
   targetWeightKg: number | null;
@@ -265,6 +267,8 @@ export function HealthTabs({
                     onPeriodChange={setPeriod}
                     onAdd={() => openDialogFor(c.key)}
                     readOnly={readOnly}
+                    targets={targets}
+                    profile={profile}
                   />
                 </TabsContent>
               ))}
@@ -315,6 +319,8 @@ function CategoryPanel({
   onPeriodChange,
   onAdd,
   readOnly,
+  targets,
+  profile,
 }: {
   category: CategoryKey;
   items: BiometricLogDTO[];
@@ -323,8 +329,51 @@ function CategoryPanel({
   onPeriodChange: (p: PeriodKey) => void;
   onAdd: () => void;
   readOnly?: boolean;
+  targets: MetricTargetsMap;
+  profile: PatientProfile;
 }) {
   const primary = PRIMARY[category];
+  // Resolve a numeric target for this category's primary field. The
+  // chart plots a single line per panel, so for blood pressure (the
+  // only composite) we pick the systolic side — the cardiovascular
+  // tab's primary is `systolicBP`. Falls back to `targetWeightKg` for
+  // weight so the gradient lights up before the user adds a server
+  // MetricTarget. Skinfolds aren't in the overview vocabulary, so
+  // their tab keeps the brand-red chart (the SkinfoldsGrid above
+  // handles their per-site bands separately).
+  const overviewKey = FIELD_TO_OVERVIEW_KEY[primary.key];
+  const chartTarget: number | null = (() => {
+    if (!overviewKey) return null;
+    const t = targets[overviewKey];
+    if (typeof t === "number") return t;
+    if (t && typeof t === "object") {
+      if (primary.key === "systolicBP") return t.systolic;
+      if (primary.key === "diastolicBP") return t.diastolic;
+      return null;
+    }
+    if (primary.key === "weight") return profile.targetWeightKg;
+    return null;
+  })();
+  const chartDirection = directionForPrimary(primary.key);
+  const glossary = glossaryFor(primary.key);
+  // SectionHeader subtitle accepts ReactNode — append a small italic
+  // explanation when the metric is the kind a user might wonder
+  // about ("HRV", "FC riposo", glycaemia, …). The unit line stays as
+  // before so the visual rhythm of the page doesn't change.
+  const subtitleNode = (
+    <>
+      <span>
+        {primary.unit
+          ? `Parametro in analisi · unità di misura: ${primary.unit}`
+          : "Parametro in analisi"}
+      </span>
+      {glossary?.description && (
+        <span className="text-muted-foreground mt-1 block text-xs italic">
+          {glossary.description}
+        </span>
+      )}
+    </>
+  );
   const numericValues = items
     .map((r) => r[primary.key])
     .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
@@ -359,14 +408,7 @@ function CategoryPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <SectionHeader
-        title={primary.label}
-        subtitle={
-          primary.unit
-            ? `Parametro in analisi · unità di misura: ${primary.unit}`
-            : "Parametro in analisi"
-        }
-      />
+      <SectionHeader title={primary.label} subtitle={subtitleNode} />
 
       {sleepSummary && <SleepScoreCard summary={sleepSummary} />}
 
@@ -382,6 +424,8 @@ function CategoryPanel({
         unit={primary.unit}
         data={series}
         emptyLabel="Nessuna rilevazione in questo periodo."
+        target={chartTarget}
+        direction={chartDirection}
       />
 
       <StatsGrid

@@ -1,4 +1,5 @@
 import type { MetricField } from "@/components/health/metric-form";
+import { METRIC_GLOSSARY } from "@/lib/health/metric-glossary";
 
 // Health-page categories shown in the tabs and in the "Aggiungi
 // rilevazione" form. Lives outside `health-tabs.tsx` so it can be
@@ -119,3 +120,14 @@ export const FIELDS: Record<CategoryKey, MetricField[]> = {
     { name: "distanceKm", label: "Distanza", unit: "km", step: "0.1", min: 0, max: 200 },
   ],
 };
+
+// Augment each field with the "how/when to measure" hint from the
+// glossary, so the rilevazione form shows a small grey note under the
+// input ("Pressione dopo 5–15 min di riposo, …"). Explicit per-field
+// hints (e.g. sleepHours' auto-fill note) win — only fields without
+// an existing hint pull from the glossary.
+for (const c of CATEGORIES) {
+  FIELDS[c.key] = FIELDS[c.key].map((f) =>
+    f.hint != null ? f : { ...f, hint: METRIC_GLOSSARY[f.name]?.measure },
+  );
+}
