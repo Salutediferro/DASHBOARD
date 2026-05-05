@@ -1,6 +1,11 @@
 import { MetricRing } from "../brand";
+import { GRADE_TONE } from "@/lib/health/grade-with-target";
+import type { MetricGrade } from "@/lib/health/metric-thresholds";
+import { cn } from "@/lib/utils";
+import type { PrimaryKey } from "./health-tabs";
 
 export type RingMetric = {
+  key: PrimaryKey;
   name: string;
   label: string;
   unit: string;
@@ -9,7 +14,13 @@ export type RingMetric = {
   progress: number; // 0..1
 };
 
-export function MetricRingCard({ metric }: { metric: RingMetric }) {
+export function MetricRingCard({
+  metric,
+  grade,
+}: {
+  metric: RingMetric;
+  grade?: MetricGrade | null;
+}) {
   const pct = Math.round(metric.progress * 100);
   const hasValue = metric.value != null;
   const label = hasValue
@@ -21,7 +32,12 @@ export function MetricRingCard({ metric }: { metric: RingMetric }) {
       : "no target";
 
   return (
-    <div className="surface-1 flex flex-col items-center gap-2 rounded-xl p-4">
+    <div
+      className={cn(
+        "surface-1 flex flex-col items-center gap-2 rounded-xl p-4",
+        grade && GRADE_TONE[grade],
+      )}
+    >
       <MetricRing
         value={metric.progress}
         size={110}

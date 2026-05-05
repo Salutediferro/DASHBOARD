@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
-import { Edit } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { useLocalStorageState } from "ahooks";
 import {
   DndContext,
@@ -26,23 +26,15 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 
-import {
-  FIELD_TO_OVERVIEW_KEY,
-  type OverviewMetricKey,
-} from "@/lib/overview-metric-keys";
+import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
 import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
-import {
-  GRADE_TONE,
-  effectiveTargetFor,
-  gradeForHealthCard,
-} from "@/lib/health/grade-with-target";
+import { effectiveTargetFor, gradeForHealthCard } from "@/lib/health/grade-with-target";
 import {
   findLatestNumeric,
   findPreviousNumeric,
   type MetricContext,
   type MetricGrade,
 } from "@/lib/health/metric-thresholds";
-import { cn } from "@/lib/utils";
 import { EDITOR_CONFIG } from "@/components/dashboard/metric-editor-config";
 
 function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
@@ -111,6 +103,7 @@ function computeRingMetrics(
     }
 
     return {
+      key,
       name: key as string,
       unit: mapping?.unit ?? "",
       label: mapping?.label ?? key[0].toUpperCase() + key.slice(1),
@@ -189,7 +182,9 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
   // weight grading via the previous reading.
   const metricCtx: MetricContext = useMemo(() => {
     const latestWeight = findLatestNumeric(items, "weight");
-    const prevWeight = latestWeight ? findPreviousNumeric(items, "weight", latestWeight.date) : null;
+    const prevWeight = latestWeight
+      ? findPreviousNumeric(items, "weight", latestWeight.date)
+      : null;
     return {
       sex: profile.sex,
       targetWeightKg: profile.targetWeightKg,
@@ -209,9 +204,7 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
     [setMetrics],
   );
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
@@ -227,6 +220,23 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
     },
     [setMetrics],
   );
+
+  const toggle = useCallback((key: PrimaryKey) => {
+    setMetrics((prev) => {
+      let next: PrimaryKey[];
+
+      if (typeof prev === "undefined") return [key];
+      else if (prev.includes(key)) {
+        // Refuse to drop below 1 — an empty overview row reads as broken.
+        if (prev.length <= 1) return prev;
+        next = prev.filter((k) => k !== key);
+      } else {
+        next = [...prev, key];
+      }
+
+      return next;
+    });
+  }, []);
 
   return (
     <section className="flex flex-col gap-3">
@@ -287,26 +297,36 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
               const grade: MetricGrade | null =
                 r.value != null ? gradeForHealthCard(fieldName, r.value, metricCtx, targets) : null;
               const overviewKey = FIELD_TO_OVERVIEW_KEY[fieldName];
-              const editable =
-                !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
+              const editable = !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
+              const canRemove = metrics.length > 1;
+
               return (
                 <SortableCard key={r.name} id={r.name}>
+                  {canRemove && (
+                    <button
+                      type="button"
+                      aria-label={`Rimuovi ${r.label}`}
+                      title="Rimuovi dalla dashboard"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(r.key as PrimaryKey);
+                      }}
+                      className="text-destructive/70 hover:bg-destructive/10 hover:text-destructive absolute top-1.5 right-7 z-10 inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  )}
                   {editable ? (
                     <button
                       type="button"
                       onClick={() => onCardClick!(overviewKey as OverviewMetricKey, r.label)}
                       aria-label={`Modifica ${r.label}`}
-                      className={cn(
-                        "focus-ring block size-full cursor-pointer rounded-xl text-left transition-all hover:brightness-[1.04] hover:ring-1 hover:ring-primary/30 active:scale-[0.99]",
-                        grade && GRADE_TONE[grade],
-                      )}
+                      className="focus-ring hover:ring-primary/30 block size-full cursor-pointer rounded-xl text-left transition-all hover:ring-1 hover:brightness-[1.04] active:scale-[0.99]"
                     >
-                      <MetricRingCard metric={r} />
+                      <MetricRingCard metric={r} grade={grade} />
                     </button>
                   ) : (
-                    <div className={cn("rounded-xl", grade && GRADE_TONE[grade])}>
-                      <MetricRingCard metric={r} />
-                    </div>
+                    <MetricRingCard metric={r} grade={grade} />
                   )}
                 </SortableCard>
               );

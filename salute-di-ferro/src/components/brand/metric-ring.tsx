@@ -56,7 +56,7 @@ export default function MetricRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--muted)"
+          stroke="var(--border)"
           strokeWidth={strokeWidth}
           opacity={0.5}
         />
@@ -77,7 +77,7 @@ export default function MetricRing({
             <span className="text-display text-xl tabular-nums">{label}</span>
           )}
           {sublabel !== undefined && (
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <span className="text-muted-foreground text-[10px] tracking-wide uppercase">
               {sublabel}
             </span>
           )}
