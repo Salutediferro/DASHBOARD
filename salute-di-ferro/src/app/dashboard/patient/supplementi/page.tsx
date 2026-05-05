@@ -41,6 +41,11 @@ import {
   useTherapyReminders,
 } from "@/lib/hooks/use-therapy-reminders";
 import { AssumptionDialog } from "@/components/dashboard/assumption-dialog";
+import {
+  SUPPLEMENT_CATALOG,
+  findSupplement,
+  isKnownSupplement,
+} from "@/lib/health/supplements-catalog";
 
 export type TherapySelfItem = {
   id: string;
@@ -511,6 +516,13 @@ export default function PatientSupplementiPage() {
       toast.error("Nome del supplemento obbligatorio");
       return;
     }
+    // Custom supplements (anything not in the catalog) must carry an
+    // explicit dose — known supplements pre-fill it, so a user who
+    // clears the field there has done so deliberately.
+    if (!form.dose.trim() && !isKnownSupplement(form.name)) {
+      toast.error("Indica la dose del supplemento personalizzato");
+      return;
+    }
     if (form.reminderEnabled && !form.reminderTime) {
       toast.error("Imposta un orario per il promemoria");
       return;
@@ -581,19 +593,55 @@ export default function PatientSupplementiPage() {
                 <Label htmlFor="name">Nome *</Label>
                 <Input
                   id="name"
-                  placeholder="Es. Melatonina"
+                  list="supplement-catalog"
+                  placeholder="Es. Vitamina D3 — o digita un nome personalizzato"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    // Picking a known supplement (or typing its exact
+                    // name) auto-fills dose. Custom names just update
+                    // the name; dose stays as the user left it.
+                    const match = findSupplement(next);
+                    if (match) {
+                      setForm({ ...form, name: match.name, dose: match.dose });
+                    } else {
+                      setForm({ ...form, name: next });
+                    }
+                  }}
                 />
+                {/* Browser-native autocomplete. The `<option>` content
+                    is shown by most browsers next to the value, so the
+                    user sees "Vitamina D3 — 2000 UI · vitamine" while
+                    scrolling the dropdown. */}
+                <datalist id="supplement-catalog">
+                  {SUPPLEMENT_CATALOG.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.dose} · {s.category}
+                    </option>
+                  ))}
+                </datalist>
+                <p className="text-muted-foreground text-xs">
+                  Scegli da elenco o digita un nome personalizzato.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dose">Dose</Label>
+                <Label htmlFor="dose">
+                  Dose
+                  {!isKnownSupplement(form.name) && (
+                    <span className="ml-1 text-primary-500">*</span>
+                  )}
+                </Label>
                 <Input
                   id="dose"
                   placeholder="Es. 1 mg"
                   value={form.dose}
                   onChange={(e) => setForm({ ...form, dose: e.target.value })}
                 />
+                <p className="text-muted-foreground text-xs">
+                  {isKnownSupplement(form.name)
+                    ? "Compilata in automatico — modificabile."
+                    : "Obbligatoria per supplementi personalizzati."}
+                </p>
               </div>
               <div className="flex flex-col gap-1.5 md:col-span-2">
                 <Label htmlFor="frequency">Frequenza (nota)</Label>
