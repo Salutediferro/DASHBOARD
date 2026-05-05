@@ -97,17 +97,21 @@ export function CheckEmailContent() {
       </ul>
 
       <div className="flex w-full flex-col gap-2">
-        {email && (
-          <a
-            href={openInboxHref(email)}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring inline-flex h-11 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden />
-            Apri la tua mail
-          </a>
-        )}
+        {(() => {
+          const webmail = email ? webmailFor(email) : null;
+          if (!webmail) return null;
+          return (
+            <a
+              href={webmail.url}
+              target="_blank"
+              rel="noreferrer"
+              className="focus-ring inline-flex h-11 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Apri {webmail.name}
+            </a>
+          );
+        })()}
         <Button
           type="button"
           variant="outline"
@@ -148,26 +152,41 @@ function maskEmail(email: string): string {
   return `${masked}${domain}`;
 }
 
-// Best-effort webmail deep links for the most common providers.
-const WEBMAIL: Array<{ match: RegExp; url: string }> = [
-  { match: /gmail\.com$/i, url: "https://mail.google.com" },
-  { match: /googlemail\.com$/i, url: "https://mail.google.com" },
-  { match: /outlook\.com$/i, url: "https://outlook.live.com" },
-  { match: /hotmail\.com$/i, url: "https://outlook.live.com" },
-  { match: /live\.com$/i, url: "https://outlook.live.com" },
-  { match: /icloud\.com$/i, url: "https://www.icloud.com/mail" },
-  { match: /me\.com$/i, url: "https://www.icloud.com/mail" },
-  { match: /yahoo\.(com|it)$/i, url: "https://mail.yahoo.com" },
-  { match: /libero\.it$/i, url: "https://mail.libero.it" },
-  { match: /tiscali\.it$/i, url: "https://mail.tiscali.it" },
-  { match: /virgilio\.it$/i, url: "https://mail.virgilio.it" },
+// Best-effort webmail deep links for the most common providers. The
+// previous implementation fell back to `mailto:` for unknown domains,
+// which opens a *compose* window addressed to the user — they expected
+// their inbox. Returning `null` for unrecognised domains lets the
+// caller hide the CTA entirely, which is more honest than offering a
+// link that won't reach the inbox.
+const WEBMAIL: Array<{ match: RegExp; name: string; url: string }> = [
+  { match: /gmail\.com$/i, name: "Gmail", url: "https://mail.google.com" },
+  { match: /googlemail\.com$/i, name: "Gmail", url: "https://mail.google.com" },
+  { match: /outlook\.(com|it)$/i, name: "Outlook", url: "https://outlook.live.com" },
+  { match: /hotmail\.(com|it)$/i, name: "Outlook", url: "https://outlook.live.com" },
+  { match: /live\.(com|it)$/i, name: "Outlook", url: "https://outlook.live.com" },
+  { match: /msn\.com$/i, name: "Outlook", url: "https://outlook.live.com" },
+  { match: /icloud\.com$/i, name: "iCloud Mail", url: "https://www.icloud.com/mail" },
+  { match: /me\.com$/i, name: "iCloud Mail", url: "https://www.icloud.com/mail" },
+  { match: /mac\.com$/i, name: "iCloud Mail", url: "https://www.icloud.com/mail" },
+  { match: /yahoo\.(com|it)$/i, name: "Yahoo Mail", url: "https://mail.yahoo.com" },
+  { match: /aol\.com$/i, name: "AOL Mail", url: "https://mail.aol.com" },
+  { match: /proton(mail)?\.(com|me|ch)$/i, name: "Proton Mail", url: "https://mail.proton.me" },
+  { match: /pm\.me$/i, name: "Proton Mail", url: "https://mail.proton.me" },
+  { match: /fastmail\.(com|fm)$/i, name: "Fastmail", url: "https://app.fastmail.com" },
+  { match: /gmx\.(com|net|de|it)$/i, name: "GMX", url: "https://www.gmx.com/mail" },
+  { match: /libero\.it$/i, name: "Libero Mail", url: "https://mail.libero.it" },
+  { match: /tiscali\.it$/i, name: "Tiscali Mail", url: "https://mail.tiscali.it" },
+  { match: /virgilio\.it$/i, name: "Virgilio Mail", url: "https://mail.virgilio.it" },
+  { match: /alice\.it$/i, name: "Alice Mail", url: "https://mail.alice.it" },
+  { match: /tim\.it$/i, name: "TIM Mail", url: "https://mail.tim.it" },
+  { match: /email\.it$/i, name: "Email.it", url: "https://webmail.email.it" },
 ];
 
-function openInboxHref(email: string): string {
+function webmailFor(email: string): { name: string; url: string } | null {
   const domain = email.split("@")[1] ?? "";
-  for (const { match, url } of WEBMAIL) {
-    if (match.test(domain)) return url;
+  if (!domain) return null;
+  for (const { match, name, url } of WEBMAIL) {
+    if (match.test(domain)) return { name, url };
   }
-  // Fallback: mailto protocol opens the user's default mail client.
-  return `mailto:${email}`;
+  return null;
 }
