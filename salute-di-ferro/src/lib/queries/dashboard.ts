@@ -26,16 +26,14 @@ export type QuickLink = {
   href: string;
 };
 
-export type NextEvent =
-  | {
-      kind: "appointment";
-      id: string;
-      title: string;
-      whenLabel: string;
-      daysAway: number;
-      href: string;
-    }
-  | null;
+export type NextEvent = {
+  kind: "appointment";
+  id: string;
+  title: string;
+  whenLabel: string;
+  daysAway: number;
+  href: string;
+} | null;
 
 // ---------- Date helpers ---------- //
 
@@ -82,9 +80,7 @@ export function buildDailySeries(
   for (const p of points) {
     if (p.value == null) continue;
     const d = startOfDay(p.date);
-    const idx = Math.floor(
-      (d.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const idx = Math.floor((d.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     if (idx < 0 || idx >= days) continue;
     series[idx] += p.value;
     counts[idx] += 1;
@@ -172,17 +168,12 @@ const EMPTY_METRIC: MetricSeries = {
   hasData: false,
 };
 
-function buildMetricSeries(
-  points: Array<{ date: Date; value: number | null }>,
-): MetricSeries {
-  const filtered = points.filter(
-    (p): p is { date: Date; value: number } => p.value != null,
-  );
+function buildMetricSeries(points: Array<{ date: Date; value: number | null }>): MetricSeries {
+  const filtered = points.filter((p): p is { date: Date; value: number } => p.value != null);
   if (filtered.length === 0) return EMPTY_METRIC;
   const series = buildDailySeries(filtered);
   const current = filtered[filtered.length - 1].value;
-  const delta14d =
-    filtered.length > 1 ? current - filtered[0].value : null;
+  const delta14d = filtered.length > 1 ? current - filtered[0].value : null;
   return { current, delta14d, series, hasData: true };
 }
 
@@ -191,79 +182,75 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
   const weekStart = startOfIsoWeek(now);
   const twoWeeksAgo = addDays(startOfDay(now), -14);
 
-  const [biometrics, symptoms, checkInsWeekCount, checkInsRecent, nextApp] =
-    await Promise.all([
-      prisma.biometricLog.findMany({
-        where: { patientId, date: { gte: twoWeeksAgo } },
-        orderBy: { date: "asc" },
-        select: {
-          date: true,
-          weight: true,
-          bmi: true,
-          bodyFatPercentage: true,
-          muscleMassKg: true,
-          bodyWaterPct: true,
-          waistCm: true,
-          hipsCm: true,
-          chestCm: true,
-          armsCm: true,
-          thighCm: true,
-          calvesCm: true,
-          systolicBP: true,
-          diastolicBP: true,
-          restingHR: true,
-          spo2: true,
-          hrv: true,
-          glucoseFasting: true,
-          glucosePostMeal: true,
-          ketones: true,
-          bodyTempC: true,
-          sleepHours: true,
-          sleepQuality: true,
-          sleepAwakenings: true,
-          steps: true,
-          caloriesBurned: true,
-          activeMinutes: true,
-          distanceKm: true,
-          energyLevel: true,
-        },
-      }),
-      prisma.symptomLog.findMany({
-        where: { patientId, date: { gte: twoWeeksAgo } },
-        orderBy: { date: "asc" },
-        select: { date: true, mood: true, energy: true },
-      }),
-      prisma.checkIn.count({
-        where: { patientId, date: { gte: weekStart } },
-      }),
-      prisma.checkIn.findMany({
-        where: { patientId, date: { gte: twoWeeksAgo } },
-        orderBy: { date: "asc" },
-        select: { date: true, rating: true },
-      }),
-      prisma.appointment.findFirst({
-        where: {
-          patientId,
-          startTime: { gte: now },
-          status: { not: "CANCELED" },
-        },
-        orderBy: { startTime: "asc" },
-        select: {
-          id: true,
-          startTime: true,
-          type: true,
-          professional: { select: { fullName: true } },
-        },
-      }),
-    ]);
+  const [biometrics, symptoms, checkInsWeekCount, checkInsRecent, nextApp] = await Promise.all([
+    prisma.biometricLog.findMany({
+      where: { patientId, date: { gte: twoWeeksAgo } },
+      orderBy: { date: "asc" },
+      select: {
+        date: true,
+        weight: true,
+        bmi: true,
+        bodyFatPercentage: true,
+        muscleMassKg: true,
+        bodyWaterPct: true,
+        waistCm: true,
+        hipsCm: true,
+        chestCm: true,
+        armsCm: true,
+        thighCm: true,
+        calvesCm: true,
+        systolicBP: true,
+        diastolicBP: true,
+        restingHR: true,
+        spo2: true,
+        hrv: true,
+        glucoseFasting: true,
+        glucosePostMeal: true,
+        ketones: true,
+        bodyTempC: true,
+        sleepHours: true,
+        sleepQuality: true,
+        sleepAwakenings: true,
+        steps: true,
+        caloriesBurned: true,
+        activeMinutes: true,
+        distanceKm: true,
+        energyLevel: true,
+      },
+    }),
+    prisma.symptomLog.findMany({
+      where: { patientId, date: { gte: twoWeeksAgo } },
+      orderBy: { date: "asc" },
+      select: { date: true, mood: true, energy: true },
+    }),
+    prisma.checkIn.count({
+      where: { patientId, date: { gte: weekStart } },
+    }),
+    prisma.checkIn.findMany({
+      where: { patientId, date: { gte: twoWeeksAgo } },
+      orderBy: { date: "asc" },
+      select: { date: true, rating: true },
+    }),
+    prisma.appointment.findFirst({
+      where: {
+        patientId,
+        startTime: { gte: now },
+        status: { not: "CANCELED" },
+      },
+      orderBy: { startTime: "asc" },
+      select: {
+        id: true,
+        startTime: true,
+        type: true,
+        professional: { select: { fullName: true } },
+      },
+    }),
+  ]);
 
   // Map every Prisma field to a PatientMetricKey via a per-key extractor.
   // Listing these inline (rather than chasing dynamic field access) keeps
   // the types honest with no `as any` cast.
-  const extractors: Record<
-    PatientMetricKey,
-    (i: number) => number | null
-  > = {
+  const extractors: Record<PatientMetricKey, (i: number) => number | null> = {
     weight: (i) => biometrics[i].weight,
     bmi: (i) => biometrics[i].bmi,
     bodyFat: (i) => biometrics[i].bodyFatPercentage,
@@ -304,12 +291,8 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
       biometrics.map((b, i) => ({ date: b.date, value: extractors[key](i) })),
     );
   }
-  metrics.mood = buildMetricSeries(
-    symptoms.map((s) => ({ date: s.date, value: s.mood })),
-  );
-  metrics.energy = buildMetricSeries(
-    symptoms.map((s) => ({ date: s.date, value: s.energy })),
-  );
+  metrics.mood = buildMetricSeries(symptoms.map((s) => ({ date: s.date, value: s.mood })));
+  metrics.energy = buildMetricSeries(symptoms.map((s) => ({ date: s.date, value: s.energy })));
 
   // Legacy fields kept verbatim so the hero signal and existing cards
   // keep working without reaching into `metrics`.
@@ -318,9 +301,7 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
   const lastBmi = metrics.bmi.current;
   const weightSeries = metrics.weight.hasData ? metrics.weight.series : null;
   const bmiSeries = metrics.bmi.hasData ? metrics.bmi.series : null;
-  const checkInSeries = buildDailySeries(
-    checkInsRecent.map((c) => ({ date: c.date, value: 1 })),
-  );
+  const checkInSeries = buildDailySeries(checkInsRecent.map((c) => ({ date: c.date, value: 1 })));
 
   const nextAppointment: NextEvent = nextApp
     ? {
@@ -354,151 +335,6 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
     },
     metrics,
   };
-}
-
-export async function getPatientActivity(
-  patientId: string,
-  limit = 5,
-): Promise<TimelineEntry[]> {
-  const [checkIns, biometrics, appointments, reports, medications, symptoms] =
-    await Promise.all([
-      prisma.checkIn.findMany({
-        where: { patientId },
-        orderBy: { date: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          date: true,
-          weight: true,
-          rating: true,
-          status: true,
-        },
-      }),
-      prisma.biometricLog.findMany({
-        where: { patientId },
-        orderBy: { date: "desc" },
-        take: 6,
-        select: { id: true, date: true, weight: true, bmi: true },
-      }),
-      prisma.appointment.findMany({
-        where: { patientId },
-        orderBy: { startTime: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          startTime: true,
-          type: true,
-          professional: { select: { fullName: true } },
-        },
-      }),
-      prisma.medicalReport.findMany({
-        where: { patientId },
-        orderBy: { uploadedAt: "desc" },
-        take: 6,
-        select: { id: true, title: true, category: true, uploadedAt: true },
-      }),
-      prisma.therapyItem.findMany({
-        where: { patientId },
-        orderBy: { createdAt: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          name: true,
-          dose: true,
-          startDate: true,
-          createdAt: true,
-          active: true,
-        },
-      }),
-      prisma.symptomLog.findMany({
-        where: { patientId },
-        orderBy: { date: "desc" },
-        take: 6,
-        select: {
-          id: true,
-          date: true,
-          mood: true,
-          energy: true,
-        },
-      }),
-    ]);
-
-  const events: TimelineEntry[] = [];
-  for (const c of checkIns) {
-    events.push({
-      id: `checkin:${c.id}`,
-      kind: "CHECK_IN",
-      date: c.date.toISOString(),
-      title: c.status === "REVIEWED" ? "Check-in revisionato" : "Check-in inviato",
-      description: c.weight != null ? `${c.weight.toFixed(1)} kg` : null,
-      href: "/dashboard/patient/appointments",
-    });
-  }
-  for (const b of biometrics) {
-    events.push({
-      id: `bio:${b.id}`,
-      kind: "BIOMETRIC",
-      date: b.date.toISOString(),
-      title: "Biometria registrata",
-      description: [
-        b.weight != null ? `${b.weight.toFixed(1)} kg` : null,
-        b.bmi != null ? `BMI ${b.bmi.toFixed(1)}` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ") || null,
-      href: "/dashboard/patient/health",
-    });
-  }
-  for (const a of appointments) {
-    events.push({
-      id: `app:${a.id}`,
-      kind: "APPOINTMENT",
-      date: a.startTime.toISOString(),
-      title: a.professional?.fullName
-        ? `${a.type} con ${a.professional.fullName}`
-        : a.type,
-      description: null,
-      href: "/dashboard/patient/appointments",
-    });
-  }
-  for (const r of reports) {
-    events.push({
-      id: `rep:${r.id}`,
-      kind: "REPORT",
-      date: r.uploadedAt.toISOString(),
-      title: r.title,
-      description: `Referto · ${r.category}`,
-      href: "/dashboard/patient/medical-records",
-    });
-  }
-  for (const m of medications) {
-    events.push({
-      id: `med:${m.id}`,
-      kind: "MEDICATION",
-      date: (m.startDate ?? m.createdAt).toISOString(),
-      title: m.active ? `Supplemento avviato: ${m.name}` : `Supplemento archiviato: ${m.name}`,
-      description: m.dose,
-      href: "/dashboard/patient/supplementi",
-    });
-  }
-  for (const s of symptoms) {
-    events.push({
-      id: `sym:${s.id}`,
-      kind: "SYMPTOM",
-      date: s.date.toISOString(),
-      title: "Diario salute",
-      description: [
-        s.mood != null ? `umore ${s.mood}/5` : null,
-        s.energy != null ? `energia ${s.energy}/5` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ") || null,
-      href: "/dashboard/patient/symptoms",
-    });
-  }
-
-  events.sort((a, b) => b.date.localeCompare(a.date));
-  return events.slice(0, limit);
 }
 
 // ---------- COACH / DOCTOR (shared shape) ---------- //
@@ -541,30 +377,29 @@ async function countUnreadMessages(userId: string): Promise<number> {
 
 export async function getCoachKpis(coachId: string): Promise<ProfessionalKpis> {
   const now = new Date();
-  const [activeClients, appointmentsToday, checkInsPending, unreadMessages] =
-    await Promise.all([
-      prisma.careRelationship.count({
-        where: {
-          professionalId: coachId,
-          professionalRole: "COACH",
-          status: "ACTIVE",
-        },
-      }),
-      prisma.appointment.count({
-        where: {
-          professionalId: coachId,
-          startTime: { gte: startOfDay(now), lte: endOfDay(now) },
-          status: { not: "CANCELED" },
-        },
-      }),
-      prisma.checkIn.count({
-        where: {
-          professionalId: coachId,
-          status: "PENDING",
-        },
-      }),
-      countUnreadMessages(coachId),
-    ]);
+  const [activeClients, appointmentsToday, checkInsPending, unreadMessages] = await Promise.all([
+    prisma.careRelationship.count({
+      where: {
+        professionalId: coachId,
+        professionalRole: "COACH",
+        status: "ACTIVE",
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        professionalId: coachId,
+        startTime: { gte: startOfDay(now), lte: endOfDay(now) },
+        status: { not: "CANCELED" },
+      },
+    }),
+    prisma.checkIn.count({
+      where: {
+        professionalId: coachId,
+        status: "PENDING",
+      },
+    }),
+    countUnreadMessages(coachId),
+  ]);
   return {
     activeClients,
     appointmentsToday,
@@ -696,9 +531,7 @@ export async function getProfessionalActivity(
   return events.slice(0, limit);
 }
 
-export async function getProfessionalNextEvent(
-  professionalId: string,
-): Promise<NextEvent> {
+export async function getProfessionalNextEvent(professionalId: string): Promise<NextEvent> {
   const now = new Date();
   const next = await prisma.appointment.findFirst({
     where: {
@@ -718,9 +551,7 @@ export async function getProfessionalNextEvent(
   return {
     kind: "appointment",
     id: next.id,
-    title: next.patient?.fullName
-      ? `${next.type} · ${next.patient.fullName}`
-      : next.type,
+    title: next.patient?.fullName ? `${next.type} · ${next.patient.fullName}` : next.type,
     whenLabel: next.startTime.toLocaleString("it-IT", {
       weekday: "long",
       day: "numeric",
@@ -790,9 +621,7 @@ export async function getAdminKpis(): Promise<AdminKpis> {
     appointments7d,
     activeOrganizations,
     sparklines: {
-      signups: buildDailySeries(
-        signupsRecent.map((u) => ({ date: u.createdAt, value: 1 })),
-      ),
+      signups: buildDailySeries(signupsRecent.map((u) => ({ date: u.createdAt, value: 1 }))),
       appointments: buildDailySeries(
         appointmentsRecent.map((a) => ({ date: a.startTime, value: 1 })),
       ),

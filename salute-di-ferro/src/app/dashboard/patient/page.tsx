@@ -3,10 +3,6 @@ import { redirect } from "next/navigation";
 import {
   CalendarClock,
   CheckCircle2,
-  ClipboardList,
-  HeartPulse,
-  NotebookPen,
-  Pill,
   SlidersHorizontal,
   TrendingDown,
   TrendingUp,
@@ -15,11 +11,11 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { greeting } from "@/lib/greeting";
-import { getPatientActivity, getPatientKpis } from "@/lib/queries/dashboard";
+import { getPatientKpis } from "@/lib/queries/dashboard";
 import { getMetricTargets } from "@/lib/queries/metric-targets";
 import SectionHeader from "@/components/brand/section-header";
 import { AppointmentsEmptyState } from "@/components/empty-states";
-import QuickLinkCard, { formatItalianDate } from "@/components/dashboard/quick-link-card";
+import { formatItalianDate } from "@/components/dashboard/quick-link-card";
 import { cn } from "@/lib/utils";
 import { PatientOverview } from "@/components/dashboard/patient-overview";
 
@@ -49,11 +45,7 @@ export default async function PatientDashboardPage() {
   if (!me) redirect("/login");
   if (me.role !== "PATIENT") redirect("/dashboard");
 
-  const [kpis, activity, metricTargets] = await Promise.all([
-    getPatientKpis(me.id),
-    getPatientActivity(me.id, 5),
-    getMetricTargets(me.id),
-  ]);
+  const [kpis, metricTargets] = await Promise.all([getPatientKpis(me.id), getMetricTargets(me.id)]);
 
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
@@ -104,36 +96,6 @@ export default async function PatientDashboardPage() {
         ) : (
           <AppointmentsEmptyState />
         )}
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <SectionHeader title="Suggeriti" subtitle="Scorciatoie utili." />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickLinkCard
-            href="/dashboard/patient/health"
-            icon={HeartPulse}
-            title="Dati salute"
-            description="Traccia peso, pressione e biometrie."
-          />
-          <QuickLinkCard
-            href="/dashboard/patient/medical-records"
-            icon={ClipboardList}
-            title="Cartella del cliente"
-            description="Referti e documenti condivisi."
-          />
-          <QuickLinkCard
-            href="/dashboard/patient/symptoms"
-            icon={NotebookPen}
-            title="Diario"
-            description="Umore, energia, sintomi del giorno."
-          />
-          <QuickLinkCard
-            href="/dashboard/patient/supplementi"
-            icon={Pill}
-            title="Supplementi"
-            description="Tutto quello che prendi regolarmente."
-          />
-        </div>
       </section>
     </div>
   );
