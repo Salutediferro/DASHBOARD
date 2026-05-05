@@ -45,10 +45,13 @@ export default function MetricRing({
         aria-hidden
       >
         <defs>
+          {/* Neutral gray gradient — same hue at two opacities so the
+              ring keeps a subtle sense of depth without competing with
+              the grade-coloured card it sits inside. Theme-aware via
+              the muted-foreground token. */}
           <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#c0c0c0" />
-            <stop offset="55%" stopColor="#8a8a8a" />
-            <stop offset="100%" stopColor="#b22222" />
+            <stop offset="0%" stopColor="var(--muted-foreground)" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="var(--muted-foreground)" stopOpacity="1" />
           </linearGradient>
         </defs>
         <circle

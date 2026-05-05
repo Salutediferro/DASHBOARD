@@ -72,10 +72,14 @@ export function MetricPreferencesCard() {
 
   const onToggle = React.useCallback(
     (key: OverviewMetricKey) => {
+      // No min-1 floor here: the canonical editor lets the user clear
+      // the list entirely if they want — the dashboard and health
+      // page render a `<NoTrackedMetricsState />` in that case rather
+      // than an empty grid. Trash buttons on individual cards still
+      // refuse to drop below 1 to avoid an accidental wipe.
       setSelected((prev) => {
         let next: OverviewMetricKey[];
         if (prev.includes(key)) {
-          if (prev.length <= 1) return prev;
           next = prev.filter((k) => k !== key);
         } else {
           next = [...prev, key];
@@ -135,7 +139,11 @@ export function MetricPreferencesCard() {
           pagina Dati salute e il modulo di rilevazione.
         </p>
       </header>
-      <MetricSelector selected={selected} onToggle={onToggle} />
+      <MetricSelector
+        selected={selected}
+        onToggle={onToggle}
+        minSelected={0}
+      />
     </section>
   );
 }

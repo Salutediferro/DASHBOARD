@@ -23,6 +23,7 @@ import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
 import { MetricChart } from "@/components/health/metric-chart";
 import HealthEmptyState from "@/components/health/health-empty-state";
+import { NoTrackedMetricsState } from "@/components/health/no-tracked-metrics-state";
 import { AddBiometricDialog } from "@/components/health/add-biometric-dialog";
 import { CATEGORIES, FIELDS, type CategoryKey } from "@/components/health/metric-fields";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
@@ -105,7 +106,8 @@ export function HealthTabs({
   // Patient's tracked-metrics list. For professional read-only views we
   // skip the filter — the doctor/coach must see every metric they may
   // need to discuss, regardless of the patient's UI preference.
-  const { selected: trackedMetrics } = useOverviewPrefs(initialSelectedMetrics);
+  const { selected: trackedMetrics, toggle: toggleTracked } =
+    useOverviewPrefs(initialSelectedMetrics);
   const trackedSet = React.useMemo(
     () => (readOnly ? null : new Set<string>(trackedMetrics)),
     [readOnly, trackedMetrics],
@@ -211,6 +213,13 @@ export function HealthTabs({
 
       {list.isLoading ? (
         <LoadingState />
+      ) : !readOnly && effectiveCategories.length === 0 ? (
+        // No tracked metric maps to a category with biometric fields —
+        // either the user cleared the list or their selection only
+        // covers computed/aggregate keys (BMI, check-ins, …) that
+        // don't surface here. Skip the rings + tabs and explain the
+        // state instead of rendering an empty page.
+        <NoTrackedMetricsState />
       ) : !hasAnyData ? (
         <HealthEmptyState
           action={
@@ -231,6 +240,7 @@ export function HealthTabs({
             targets={targets}
             onCardClick={readOnly ? undefined : openEditor}
             trackedMetrics={trackedSet}
+            onUntrack={readOnly ? undefined : toggleTracked}
           />
 
           {/* Category tabs ───────────────────────── */}
@@ -627,9 +637,9 @@ function rowLabelFor(category: CategoryKey, r: BiometricLogDTO): string | null {
 // ── Traffic-light grids ────────────────────────────────────────────────────
 
 const GRADE_TONE: Record<MetricGrade, string> = {
-  green: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  yellow: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  red: "border-red-500/60 bg-red-500/15 text-red-700 dark:text-red-300",
+  green: "border-emerald-500/60 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300",
+  yellow: "border-amber-500/60 bg-amber-500/20 text-amber-700 dark:text-amber-300",
+  red: "border-red-500/75 bg-red-500/25 text-red-700 dark:text-red-300",
 };
 
 const GRADE_LABEL_OVERRIDE: Partial<Record<string, Record<MetricGrade, string>>> = {

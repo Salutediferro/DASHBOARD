@@ -21,6 +21,7 @@ import {
   type OverviewMetricKey,
 } from "@/lib/hooks/use-overview-prefs";
 import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
+import { NoTrackedMetricsState } from "@/components/health/no-tracked-metrics-state";
 import type { PatientKpis, PatientMetricKey } from "@/lib/queries/dashboard";
 import type { MetricContext, MetricGrade } from "@/lib/health/metric-thresholds";
 import {
@@ -383,7 +384,7 @@ export function PatientOverview({
   initialTargets,
   initialSelectedMetrics,
 }: PatientOverviewProps) {
-  const { selected, toggle, setOrder } = useOverviewPrefs(initialSelectedMetrics);
+  const { selected, setOrder, toggle } = useOverviewPrefs(initialSelectedMetrics);
   const { targets, hydrated: targetsHydrated } = useMetricTargets({ initialData: initialTargets });
   const [editorKey, setEditorKey] = React.useState<OverviewMetricKey | null>(null);
 
@@ -449,6 +450,14 @@ export function PatientOverview({
     setOrder(arrayMove(visible, from, to));
   }
 
+  if (visible.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <NoTrackedMetricsState />
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-3">
 
@@ -465,14 +474,16 @@ export function PatientOverview({
               const targetLabel = formatTargetChip(key, target);
               return (
                 <SortableCard key={key} id={key}>
-                  {/* Trash button — sits next to the drag grip (right-1.5)
-                      at right-7 so they don't overlap. Reveals on hover via
-                      the SortableCard's `group` wrapper. */}
+                  {/* Trash button — un-tracks the metric in the user's
+                      selectedMetrics (server-backed via useOverviewPrefs).
+                      The metric also disappears from the health page and
+                      the rilevazione form, so the title spells that out
+                      rather than implying a dashboard-only effect. */}
                   {canRemove && (
                     <button
                       type="button"
-                      aria-label={`Rimuovi ${def.label}`}
-                      title="Rimuovi dalla dashboard"
+                      aria-label={`Smetti di tracciare ${def.label}`}
+                      title={`Smetti di tracciare ${def.label}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggle(key);

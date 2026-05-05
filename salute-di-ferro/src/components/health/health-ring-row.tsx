@@ -189,6 +189,11 @@ interface HealthRingRowProps {
    * filtering. Pass `null` (e.g. read-only professional view) to
    * disable the filter. */
   trackedMetrics?: ReadonlySet<string> | null;
+  /** Callback invoked when the user clicks the trash button on a ring.
+   * Should toggle (remove) the given overview-key from the patient's
+   * server-backed selectedMetrics. When omitted (e.g. read-only view)
+   * the trash button is hidden. */
+  onUntrack?: (key: OverviewMetricKey) => void;
 }
 
 export type MetricConfig = { label: string; unit?: string };
@@ -241,6 +246,7 @@ export function HealthRingRow({
   targets,
   onCardClick,
   trackedMetrics,
+  onUntrack,
 }: HealthRingRowProps) {
   const [metrics, setMetrics] = useLocalStorageState<PrimaryKey[]>("tracked-metrics", {
     defaultValue: ["weight", "bmi", "waistCm", "bodyFatPercentage"],
@@ -298,26 +304,6 @@ export function HealthRingRow({
     [setMetrics],
   );
 
-  const toggle = useCallback(
-    (key: PrimaryKey) => {
-      setMetrics((prev) => {
-        let next: PrimaryKey[];
-
-        if (typeof prev === "undefined") return [key];
-        else if (prev.includes(key)) {
-          // Refuse to drop below 1 — an empty overview row reads as broken.
-          if (prev.length <= 1) return prev;
-          next = prev.filter((k) => k !== key);
-        } else {
-          next = [...prev, key];
-        }
-
-        return next;
-      });
-    },
-    [setMetrics],
-  );
-
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-row items-center justify-between">
@@ -342,18 +328,22 @@ export function HealthRingRow({
                 r.value != null ? gradeForHealthCard(fieldName, r.value, metricCtx, targets) : null;
               const overviewKey = FIELD_TO_OVERVIEW_KEY[fieldName];
               const editable = !!onCardClick && !!overviewKey && EDITOR_CONFIG[overviewKey] != null;
-              const canRemove = metrics.length > 1;
+              // Trash hides when there's nothing to remove (no overview
+              // mapping, no callback, or only one ring left — emptying
+              // the row reads as broken).
+              const canUntrack =
+                !!onUntrack && !!overviewKey && rings.length > 1;
 
               return (
                 <SortableCard key={r.name} id={r.name}>
-                  {canRemove && (
+                  {canUntrack && (
                     <button
                       type="button"
-                      aria-label={`Rimuovi ${r.label}`}
-                      title="Rimuovi dalla dashboard"
+                      aria-label={`Smetti di tracciare ${r.label}`}
+                      title={`Smetti di tracciare ${r.label}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggle(r.key as PrimaryKey);
+                        onUntrack!(overviewKey as OverviewMetricKey);
                       }}
                       className="text-destructive/70 hover:bg-destructive/10 hover:text-destructive absolute top-1.5 right-7 z-10 inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                     >

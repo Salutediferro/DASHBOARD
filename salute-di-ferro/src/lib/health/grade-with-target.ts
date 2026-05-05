@@ -16,13 +16,12 @@ import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
  * colours between dashboard and `/dashboard/patient/health`.
  */
 export const GRADE_TONE: Record<MetricGrade, string> = {
-  green: "ring-1 ring-emerald-500/50 bg-emerald-500/[0.08]",
-  yellow: "ring-1 ring-amber-500/50 bg-amber-500/[0.08]",
+  green: "ring-1 ring-emerald-500/70 bg-emerald-500/[0.18]",
+  yellow: "ring-1 ring-amber-500/70 bg-amber-500/[0.18]",
   // Switched from rose-500 (pinkish) to red-500 — same hue family as the
-  // app's `--destructive` token, reads as a vivid alarm red rather than
-  // the previous muted pink. Slightly higher ring + bg opacity so it
-  // stands out at a glance against the other tones.
-  red: "ring-1 ring-red-500/70 bg-red-500/[0.14]",
+  // app's `--destructive` token. Pushed higher than the other two so a
+  // red card unmistakably reads as "out of range" at a glance.
+  red: "ring-1 ring-red-500/85 bg-red-500/[0.22]",
 };
 
 /**
