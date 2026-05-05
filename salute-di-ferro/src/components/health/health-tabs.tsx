@@ -36,10 +36,7 @@ import {
 } from "@/lib/health/metric-thresholds";
 import { HealthRingRow } from "./health-ring-row";
 import { MetricEditorDialog } from "@/components/dashboard/metric-editor-dialog";
-import {
-  FIELD_TO_OVERVIEW_KEY,
-  type OverviewMetricKey,
-} from "@/lib/overview-metric-keys";
+import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
 import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
 
 export type PatientProfile = {
@@ -152,8 +149,7 @@ export function HealthTabs({
   const visibleCategories = React.useMemo(
     () =>
       CATEGORIES.filter(
-        (c) =>
-          !hidden.has(c.key as HealthCategoryKey) && categoryHasTracked(c.key),
+        (c) => !hidden.has(c.key as HealthCategoryKey) && categoryHasTracked(c.key),
       ),
     [hidden, categoryHasTracked],
   );
@@ -200,27 +196,16 @@ export function HealthTabs({
       <PageHeader
         title="La mia salute"
         description="Monitora peso, circonferenze, cuore, metabolismo, sonno e attività."
-        className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
+        className="-mx-4 -mt-4 w-[calc(100%+54px)] md:-mx-8 md:-mt-8"
         actions={
           !readOnly && (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/dashboard/patient/profile#metriche"
-                className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
-                aria-label="Modifica metriche tracciate"
-              >
-                <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                Modifica metriche
-              </Link>
-
-              <AddBiometricDialog
-                initialSelectedMetrics={initialSelectedMetrics}
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                category={formCategory}
-                onCategoryChange={setFormCategory}
-              />
-            </div>
+            <AddBiometricDialog
+              initialSelectedMetrics={initialSelectedMetrics}
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+              category={formCategory}
+              onCategoryChange={setFormCategory}
+            />
           )
         }
       />
@@ -262,9 +247,7 @@ export function HealthTabs({
 
               {effectiveCategories.map((c) => (
                 <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-4">
-                  {c.key === "skinfolds" && (
-                    <SkinfoldsGrid items={items} sex={profile.sex} />
-                  )}
+                  {c.key === "skinfolds" && <SkinfoldsGrid items={items} sex={profile.sex} />}
                   <CategoryPanel
                     category={c.key}
                     items={periodItems}
@@ -704,7 +687,12 @@ function MetricGradeCard({
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={className} aria-label={`Modifica ${label}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={className}
+        aria-label={`Modifica ${label}`}
+      >
         {body}
       </button>
     );
@@ -775,7 +763,6 @@ function SkinfoldsGrid({ items, sex }: { items: BiometricLogDTO[]; sex: Sex | nu
   );
 }
 
-
 // ── Loading state ──────────────────────────────────────────────────────────
 
 function LoadingState() {
@@ -785,4 +772,3 @@ function LoadingState() {
     </div>
   );
 }
-

@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { SlidersHorizontal, Target, Trash2 } from "lucide-react";
+import { Target, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -452,16 +451,6 @@ export function PatientOverview({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-end">
-        <Link
-          href="/dashboard/patient/profile#metriche"
-          className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors"
-          aria-label="Modifica metriche tracciate"
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-          Modifica metriche
-        </Link>
-      </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={visible} strategy={rectSortingStrategy}>

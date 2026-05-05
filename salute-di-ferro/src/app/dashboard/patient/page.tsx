@@ -7,6 +7,7 @@ import {
   HeartPulse,
   NotebookPen,
   Pill,
+  SlidersHorizontal,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -57,8 +58,21 @@ export default async function PatientDashboardPage() {
   const firstName = me.firstName ?? me.fullName.split(" ")[0];
 
   return (
-    <div className="page-in-stagger flex flex-col gap-6 pb-6 md:gap-8">
-      <PatientHero firstName={firstName} kpis={kpis} />
+    <div className="page-in-stagger flex flex-col gap-4 pb-6 md:gap-6">
+      <PatientHero
+        firstName={firstName}
+        kpis={kpis}
+        rightSlot={
+          <Link
+            href="/dashboard/patient/profile#metriche"
+            className="focus-ring border-border/50 bg-card/70 text-muted-foreground hover:bg-muted hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors"
+            aria-label="Modifica metriche tracciate"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Modifica metriche
+          </Link>
+        }
+      />
 
       <PatientOverview
         kpis={kpis}
@@ -139,15 +153,21 @@ export default async function PatientDashboardPage() {
 function PatientHero({
   firstName,
   kpis,
+  rightSlot,
 }: {
   firstName: string;
   kpis: Awaited<ReturnType<typeof getPatientKpis>>;
+  /** Optional CTA placed opposite the signal pill on the same row.
+   * Lets the parent share the hero's visual band without forcing a
+   * second section between hero and the cards below. */
+  rightSlot?: React.ReactNode;
 }) {
   const signal = pickHeroSignal(kpis);
+  const hasFooterRow = signal != null || rightSlot != null;
   return (
     <section
       className={cn(
-        "page-header-glass border-border/60 relative -mx-4 -mt-4 overflow-hidden border-b px-6 py-6 md:-mx-8 md:-mt-8 md:py-8",
+        "page-header-glass relative -mx-4 -mt-4 overflow-hidden px-6 pt-6 pb-5 md:-mx-8 md:-mt-8 md:pt-8 md:pb-6",
       )}
     >
       {/* Soft brand-red radial bloom from the left — visual anchor without
@@ -167,10 +187,20 @@ function PatientHero({
         <h1 className="text-display text-2xl leading-tight md:text-3xl">
           {greeting()}, <span className="text-primary-500">{firstName}</span>
         </h1>
-        {signal && (
-          <div className="border-border/50 bg-card/70 mt-2 inline-flex max-w-max items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
-            <signal.Icon className={cn("h-4 w-4 shrink-0", signal.tone)} aria-hidden />
-            <span className="text-foreground">{signal.text}</span>
+        {hasFooterRow && (
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            {/* Always render two flex children so `justify-between`
+                pushes the slot to the right edge even when the signal
+                pill is absent. */}
+            {signal ? (
+              <div className="border-border/50 bg-card/70 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
+                <signal.Icon className={cn("h-4 w-4 shrink-0", signal.tone)} aria-hidden />
+                <span className="text-foreground">{signal.text}</span>
+              </div>
+            ) : (
+              <span aria-hidden />
+            )}
+            {rightSlot}
           </div>
         )}
       </div>

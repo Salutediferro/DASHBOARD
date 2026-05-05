@@ -38,10 +38,79 @@ function latestOf(items: BiometricLogDTO[], key: PrimaryKey): number | null {
   return null;
 }
 
-function progressLowerBetter(current: number | null, target: number | null): number {
+// Direction the metric "wants" to move relative to its target.
+//   lower         → current ≤ target = full ring (e.g. body fat: going
+//                   below target is still success, not over-correction)
+//   higher        → current ≥ target = full ring (e.g. muscle mass,
+//                   steps, SpO₂)
+//   bidirectional → distance-from-target on either side reduces the
+//                   ring (e.g. weight goal: at 60 kg with target 65 kg
+//                   the user has 5 kg to gain, ring should NOT be full)
+//   closeness     → tight band around the target; deviation in either
+//                   direction is bad (BP, body temperature, sleep
+//                   hours)
+type RingDirection = "lower" | "higher" | "bidirectional" | "closeness";
+
+const DIRECTION: Record<string, RingDirection> = {
+  weight: "bidirectional",
+  bmi: "bidirectional",
+  bodyFatPercentage: "lower",
+  muscleMassKg: "higher",
+  bodyWaterPct: "higher",
+  waistCm: "lower",
+  hipsCm: "bidirectional",
+  chestCm: "bidirectional",
+  armsCm: "bidirectional",
+  thighCm: "bidirectional",
+  calvesCm: "bidirectional",
+  systolicBP: "closeness",
+  diastolicBP: "closeness",
+  restingHR: "lower",
+  spo2: "higher",
+  hrv: "higher",
+  glucoseFasting: "lower",
+  glucosePostMeal: "lower",
+  ketones: "bidirectional",
+  bodyTempC: "closeness",
+  sleepHours: "closeness",
+  sleepQuality: "higher",
+  sleepAwakenings: "lower",
+  steps: "higher",
+  caloriesBurned: "higher",
+  activeMinutes: "higher",
+  distanceKm: "higher",
+};
+
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+function progressForRing(
+  key: PrimaryKey,
+  current: number | null,
+  target: number | null,
+): number {
   if (current == null || target == null || target === 0) return 0;
-  if (current <= target) return 1;
-  return Math.max(0, Math.min(1, target / current));
+  const dir = DIRECTION[key] ?? "lower";
+  switch (dir) {
+    case "lower":
+      return current <= target ? 1 : clamp01(target / current);
+    case "higher":
+      return current >= target ? 1 : clamp01(current / target);
+    case "bidirectional":
+      // Symmetric: smaller-of-the-two over larger. Approaching the
+      // target from either side fills the ring; passing it doesn't
+      // over-fill.
+      return clamp01(Math.min(current, target) / Math.max(current, target));
+    case "closeness": {
+      // Within ±10% of target = full; degrades linearly to 0 at ±50%.
+      const dev = Math.abs(current - target) / target;
+      if (dev <= 0.1) return 1;
+      if (dev >= 0.5) return 0;
+      return clamp01(1 - (dev - 0.1) / 0.4);
+    }
+  }
 }
 
 export function getMapping(key: PrimaryKey): MetricConfig | undefined {
@@ -102,7 +171,7 @@ function computeRingMetrics(
       label: mapping?.label ?? key[0].toUpperCase() + key.slice(1),
       target,
       value,
-      progress: progressLowerBetter(value, target),
+      progress: progressForRing(key, value, target),
     };
   });
 }
