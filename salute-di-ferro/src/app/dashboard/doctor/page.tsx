@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  CalendarClock,
-  FileText,
-  Stethoscope,
-  Users,
-} from "lucide-react";
+import { CalendarClock, FileText, Stethoscope, Users } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
@@ -19,10 +14,8 @@ import PageHeader from "@/components/brand/page-header";
 import SectionHeader from "@/components/brand/section-header";
 import StatCard from "@/components/brand/stat-card";
 import EmptyState from "@/components/brand/empty-state";
+import QuickLinkCard, { formatItalianDate } from "@/components/dashboard/quick-link-card";
 import RecentActivity from "@/components/dashboard/recent-activity";
-import QuickLinkCard, {
-  formatItalianDate,
-} from "@/components/dashboard/quick-link-card";
 
 export const metadata = { title: "Dashboard medico — Salute di Ferro" };
 export const dynamic = "force-dynamic";
@@ -58,37 +51,26 @@ export default async function DoctorDashboardPage() {
         className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
       />
 
-      <section className="grid gap-4 grid-cols-2 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Clienti assegnati" value={kpis.activeClients} />
-        <StatCard
-          label="Visite questa settimana"
-          value={kpis.visitsThisWeek ?? 0}
-        />
-        <StatCard
-          label="Referti nuovi (30g)"
-          value={kpis.newReports30d ?? 0}
-        />
+        <StatCard label="Visite questa settimana" value={kpis.visitsThisWeek ?? 0} />
+        <StatCard label="Referti nuovi (30g)" value={kpis.newReports30d ?? 0} />
         <StatCard label="Messaggi non letti" value={kpis.unreadMessages} />
       </section>
 
       <section className="flex flex-col gap-4">
-        <SectionHeader
-          title="Prossimo"
-          subtitle="La visita più vicina sull'agenda clinica."
-        />
+        <SectionHeader title="Prossimo" subtitle="La visita più vicina sull'agenda clinica." />
         {nextEvent ? (
           <Link
             href="/dashboard/doctor/calendar"
-            className="surface-2 focus-ring flex flex-col gap-1 rounded-xl px-5 py-4 transition-colors hover:bg-muted/30"
+            className="surface-2 focus-ring hover:bg-muted/30 flex flex-col gap-1 rounded-xl px-5 py-4 transition-colors"
           >
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <span className="text-muted-foreground inline-flex items-center gap-2 text-xs tracking-wide uppercase">
               <CalendarClock className="h-3.5 w-3.5" />
               Prossima visita
             </span>
             <span className="text-display text-xl">{nextEvent.title}</span>
-            <span className="text-sm text-muted-foreground capitalize">
-              {nextEvent.whenLabel}
-            </span>
+            <span className="text-muted-foreground text-sm capitalize">{nextEvent.whenLabel}</span>
           </Link>
         ) : (
           <EmptyState
@@ -98,7 +80,7 @@ export default async function DoctorDashboardPage() {
             action={
               <Link
                 href="/dashboard/doctor/availability"
-                className="focus-ring inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors"
               >
                 Imposta disponibilità
               </Link>
@@ -114,7 +96,7 @@ export default async function DoctorDashboardPage() {
           action={
             <Link
               href="/dashboard/doctor/reports"
-              className="focus-ring rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="focus-ring text-muted-foreground hover:text-foreground rounded text-xs transition-colors"
             >
               Tutti i referti →
             </Link>

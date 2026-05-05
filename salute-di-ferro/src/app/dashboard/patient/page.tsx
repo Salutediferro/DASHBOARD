@@ -18,6 +18,7 @@ import { getPatientActivity, getPatientKpis } from "@/lib/queries/dashboard";
 import { getMetricTargets } from "@/lib/queries/metric-targets";
 import SectionHeader from "@/components/brand/section-header";
 import { AppointmentsEmptyState } from "@/components/empty-states";
+import RecentActivity from "@/components/dashboard/recent-activity";
 import QuickLinkCard, { formatItalianDate } from "@/components/dashboard/quick-link-card";
 import { cn } from "@/lib/utils";
 import { PatientOverview } from "@/components/dashboard/patient-overview";
@@ -88,6 +89,34 @@ export default async function PatientDashboardPage() {
         ) : (
           <AppointmentsEmptyState />
         )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Attività recente"
+          subtitle="Le ultime 5 voci della tua timeline."
+          action={
+            <Link
+              href="/dashboard/patient/timeline"
+              className="focus-ring text-muted-foreground hover:text-foreground rounded text-xs transition-colors"
+            >
+              Vedi tutto →
+            </Link>
+          }
+        />
+        <RecentActivity
+          items={activity}
+          emptyTitle="Nessuna attività recente"
+          emptyDescription="Le voci della tua timeline appariranno qui man mano che usi la piattaforma."
+          emptyAction={
+            <Link
+              href="/dashboard/patient/check-in/new"
+              className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors"
+            >
+              Registra un check-in
+            </Link>
+          }
+        />
       </section>
 
       <section className="flex flex-col gap-4">

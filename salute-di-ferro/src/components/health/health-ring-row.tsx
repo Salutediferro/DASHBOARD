@@ -221,22 +221,25 @@ export function HealthRingRow({ items, profile, targets, onCardClick }: HealthRi
     [setMetrics],
   );
 
-  const toggle = useCallback((key: PrimaryKey) => {
-    setMetrics((prev) => {
-      let next: PrimaryKey[];
+  const toggle = useCallback(
+    (key: PrimaryKey) => {
+      setMetrics((prev) => {
+        let next: PrimaryKey[];
 
-      if (typeof prev === "undefined") return [key];
-      else if (prev.includes(key)) {
-        // Refuse to drop below 1 — an empty overview row reads as broken.
-        if (prev.length <= 1) return prev;
-        next = prev.filter((k) => k !== key);
-      } else {
-        next = [...prev, key];
-      }
+        if (typeof prev === "undefined") return [key];
+        else if (prev.includes(key)) {
+          // Refuse to drop below 1 — an empty overview row reads as broken.
+          if (prev.length <= 1) return prev;
+          next = prev.filter((k) => k !== key);
+        } else {
+          next = [...prev, key];
+        }
 
-      return next;
-    });
-  }, []);
+        return next;
+      });
+    },
+    [setMetrics],
+  );
 
   return (
     <section className="flex flex-col gap-3">
