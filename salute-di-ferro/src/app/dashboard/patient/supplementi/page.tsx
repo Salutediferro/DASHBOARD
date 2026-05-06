@@ -594,6 +594,11 @@ export default function PatientSupplementiPage() {
                 <Input
                   id="name"
                   list="supplement-catalog"
+                  // Suppress the browser's saved-form-values autofill so the
+                  // dropdown only shows entries from `<datalist>` and not
+                  // values the user typed into unrelated inputs on other
+                  // sites. The datalist suggestions still render with off.
+                  autoComplete="off"
                   placeholder="Es. Vitamina D3 — o digita un nome personalizzato"
                   value={form.name}
                   onChange={(e) => {
