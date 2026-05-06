@@ -4,11 +4,7 @@ import * as React from "react";
 import { Check, Loader2, Search, SearchX, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,10 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  useGrantProfessional,
-  useProfessionalSearch,
-} from "@/lib/hooks/use-professionals";
+import { useGrantProfessional, useProfessionalSearch } from "@/lib/hooks/use-professionals";
 import { PROFESSIONAL_SPECIALTIES } from "@/lib/professional-specialties";
 
 type Props = {
@@ -62,10 +55,7 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
     return () => clearTimeout(t);
   }, [query]);
 
-  const search = useProfessionalSearch(
-    debounced,
-    specialty === SPECIALTY_ALL ? "" : specialty,
-  );
+  const search = useProfessionalSearch(debounced, specialty === SPECIALTY_ALL ? "" : specialty);
 
   React.useEffect(() => {
     if (!open) {
@@ -92,28 +82,25 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Cerca un professionista</DialogTitle>
           <DialogDescription>
-            Aggiungerlo concede subito accesso ai tuoi dati di nutrizione.
-            Puoi revocarlo quando vuoi.
+            Aggiungerlo concede subito accesso ai tuoi dati di nutrizione. Puoi revocarlo quando
+            vuoi.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               id="prof-search"
               placeholder="Cerca per nome…"
-              className="pl-9"
+              className="pl-9!"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
               autoFocus
             />
           </div>
-          <Select
-            value={specialty}
-            onValueChange={(v) => setSpecialty(v ?? SPECIALTY_ALL)}
-          >
+          <Select value={specialty} onValueChange={(v) => setSpecialty(v ?? SPECIALTY_ALL)}>
             <SelectTrigger
               id="prof-specialty"
               aria-label="Filtra per specialità"
@@ -155,9 +142,7 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
           {empty && (
             <div className="flex flex-col items-center gap-2 px-2 py-10 text-center">
               <SearchX className="text-muted-foreground/40 h-8 w-8" />
-              <p className="text-muted-foreground text-xs">
-                Nessun professionista trovato.
-              </p>
+              <p className="text-muted-foreground text-xs">Nessun professionista trovato.</p>
             </div>
           )}
           {items.length > 0 && (
@@ -173,50 +158,34 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
                   )}
                 >
                   <Avatar className="h-10 w-10 shrink-0">
-                    {p.avatarUrl && (
-                      <AvatarImage src={p.avatarUrl} alt={p.fullName} />
-                    )}
+                    {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.fullName} />}
                     <AvatarFallback className="bg-primary/15 text-primary text-xs">
                       {initials(p.fullName)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
-                      {p.fullName}
-                    </p>
+                    <p className="truncate text-sm font-semibold">{p.fullName}</p>
                     {p.specialties.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {p.specialties.slice(0, 3).map((s) => (
-                          <Badge
-                            key={s}
-                            variant="outline"
-                            className="text-[10px]"
-                          >
+                          <Badge key={s} variant="outline" className="text-[10px]">
                             {s}
                           </Badge>
                         ))}
                         {p.specialties.length > 3 && (
-                          <Badge
-                            variant="outline"
-                            className="text-muted-foreground text-[10px]"
-                          >
+                          <Badge variant="outline" className="text-muted-foreground text-[10px]">
                             +{p.specialties.length - 3}
                           </Badge>
                         )}
                       </div>
                     )}
                     {p.bio && (
-                      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                        {p.bio}
-                      </p>
+                      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">{p.bio}</p>
                     )}
                   </div>
                   <div className="shrink-0">
                     {p.linked ? (
-                      <Badge
-                        variant="secondary"
-                        className="text-success gap-1"
-                      >
+                      <Badge variant="secondary" className="text-success gap-1">
                         <Check className="h-3 w-3" /> Collegato
                       </Badge>
                     ) : (
