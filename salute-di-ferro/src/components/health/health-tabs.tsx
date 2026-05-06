@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Sex } from "@prisma/client";
 
@@ -25,6 +25,7 @@ import { MetricChart } from "@/components/health/metric-chart";
 import HealthEmptyState from "@/components/health/health-empty-state";
 import { NoTrackedMetricsState } from "@/components/health/no-tracked-metrics-state";
 import { AddBiometricDialog } from "@/components/health/add-biometric-dialog";
+import { EditMetricsButton } from "@/components/profile/edit-metrics-button";
 import { CATEGORIES, type CategoryKey } from "@/components/health/metric-fields";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
@@ -112,8 +113,11 @@ export function HealthTabs({
   // Patient's tracked-metrics list. For professional read-only views we
   // skip the filter — the doctor/coach must see every metric they may
   // need to discuss, regardless of the patient's UI preference.
-  const { selected: trackedMetrics, toggle: toggleTracked } =
-    useOverviewPrefs(initialSelectedMetrics);
+  const {
+    selected: trackedMetrics,
+    toggle: toggleTracked,
+    setOrder: setTrackedOrder,
+  } = useOverviewPrefs(initialSelectedMetrics);
   const trackedSet = React.useMemo(
     () => (readOnly ? null : new Set<string>(trackedMetrics)),
     [readOnly, trackedMetrics],
@@ -204,16 +208,27 @@ export function HealthTabs({
         className="-mx-4 -mt-4 w-[calc(100%+54px)] md:-mx-8 md:-mt-8"
         actions={
           !readOnly && (
-            <AddBiometricDialog
-              initialSelectedMetrics={initialSelectedMetrics}
-              open={dialogOpen}
-              onOpenChange={setDialogOpen}
-              category={formCategory}
-              onCategoryChange={setFormCategory}
-            />
+            <EditMetricsButton
+              aria-label="Modifica metriche tracciate"
+              className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Modifica metriche
+            </EditMetricsButton>
           )
         }
       />
+
+      {!readOnly && (
+        <AddBiometricDialog
+          initialSelectedMetrics={initialSelectedMetrics}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          category={formCategory}
+          onCategoryChange={setFormCategory}
+          hideTrigger
+        />
+      )}
 
       {list.isLoading ? (
         <LoadingState />
@@ -243,8 +258,10 @@ export function HealthTabs({
             profile={profile}
             targets={targets}
             onCardClick={readOnly ? undefined : openEditor}
-            trackedMetrics={trackedSet}
+            trackedMetrics={readOnly ? null : trackedMetrics}
             onUntrack={readOnly ? undefined : toggleTracked}
+            onReorder={readOnly ? undefined : setTrackedOrder}
+            onAdd={readOnly ? undefined : () => setDialogOpen(true)}
           />
 
           {/* Category tabs ───────────────────────── */}

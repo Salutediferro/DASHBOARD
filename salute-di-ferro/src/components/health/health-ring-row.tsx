@@ -4,11 +4,9 @@ import type { BiometricLogDTO } from "@/lib/hooks/use-biometrics";
 import { SectionHeader } from "../brand";
 import { SortableCard } from "../sortable-card";
 import { MetricRingCard, type RingMetric } from "./metric-ring-card";
-import { EditMetricsButton } from "@/components/profile/edit-metrics-button";
 import type { PatientProfile, PrimaryKey } from "./health-tabs";
 import { useCallback, useMemo } from "react";
-import { SlidersHorizontal, Trash2 } from "lucide-react";
-import { useLocalStorageState } from "ahooks";
+import { Plus, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -19,7 +17,11 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 
-import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
+import {
+  FIELD_TO_OVERVIEW_KEY,
+  OVERVIEW_KEY_TO_PRIMARY_FIELD,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
 import type { MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
 import { effectiveTargetFor, gradeForHealthCard } from "@/lib/health/grade-with-target";
 import { directionForPrimary } from "@/lib/health/metric-direction";
@@ -141,18 +143,35 @@ interface HealthRingRowProps {
   targets: MetricTargetsMap;
   /** When set, each ring becomes clickable and opens the editor. */
   onCardClick?: (key: OverviewMetricKey, label: string) => void;
-  /** Patient's tracked-metrics list (overview vocabulary). When given,
-   * a ring is shown only if its biometric field maps to a tracked
-   * metric — keeps the ring row consistent with the rest of the
-   * filtering. Pass `null` (e.g. read-only professional view) to
-   * disable the filter. */
-  trackedMetrics?: ReadonlySet<string> | null;
+  /** Patient's tracked-metrics list (overview vocabulary), in the
+   * server-backed display order. Drives BOTH which rings are visible
+   * and the order they appear in. Pass `null` (e.g. read-only
+   * professional view) to fall back to a default ring set. */
+  trackedMetrics?: readonly OverviewMetricKey[] | null;
   /** Callback invoked when the user clicks the trash button on a ring.
    * Should toggle (remove) the given overview-key from the patient's
    * server-backed selectedMetrics. When omitted (e.g. read-only view)
    * the trash button is hidden. */
   onUntrack?: (key: OverviewMetricKey) => void;
+  /** Drag-to-reorder handler. Receives the new full overview-key list
+   * with ring positions updated; non-ring keys (mood, checkIns, …)
+   * keep their original spots in the parent's `trackedMetrics` array.
+   * Omit for read-only views. */
+  onReorder?: (next: OverviewMetricKey[]) => void;
+  /** Opens the "Aggiungi rilevazione" dialog. When omitted (e.g.
+   * read-only view) the action button is hidden. */
+  onAdd?: () => void;
 }
+
+// Read-only fallback: when no tracked-metrics list is provided (pro
+// view), default to the same starter set the patient first onboarded
+// with so the rings never render empty.
+const READONLY_FALLBACK: PrimaryKey[] = [
+  "weight",
+  "bmi",
+  "waistCm",
+  "bodyFatPercentage",
+];
 
 export type MetricConfig = { label: string; unit?: string };
 
@@ -205,25 +224,26 @@ export function HealthRingRow({
   onCardClick,
   trackedMetrics,
   onUntrack,
+  onReorder,
+  onAdd,
 }: HealthRingRowProps) {
-  const [metrics, setMetrics] = useLocalStorageState<PrimaryKey[]>("tracked-metrics", {
-    defaultValue: ["weight", "bmi", "waistCm", "bodyFatPercentage"],
-  });
-
-  // Intersect the user's locally-pinned ring list with the global
-  // tracked-metrics selection — a ring whose underlying overview key
-  // isn't tracked anywhere else shouldn't surface here either.
-  const visibleMetrics = useMemo(() => {
-    const list = metrics ?? [];
-    if (!trackedMetrics) return list;
-    return list.filter((k) => {
-      const overviewKey = FIELD_TO_OVERVIEW_KEY[k];
-      // Helper fields without an overview mapping (none in this set
-      // today) would fall through; treat them as always visible.
-      if (!overviewKey) return true;
-      return trackedMetrics.has(overviewKey);
-    });
-  }, [metrics, trackedMetrics]);
+  // Single source of truth: the server-backed overview-key list. Map
+  // each one to its canonical biometric-field primary key. Dashboard-
+  // only keys (mood, checkIns, …) fall through and are skipped.
+  const visibleMetrics: PrimaryKey[] = useMemo(() => {
+    if (!trackedMetrics) return READONLY_FALLBACK;
+    const out: PrimaryKey[] = [];
+    const seen = new Set<PrimaryKey>();
+    for (const overviewKey of trackedMetrics) {
+      const field = OVERVIEW_KEY_TO_PRIMARY_FIELD[overviewKey];
+      if (!field) continue;
+      const k = field as PrimaryKey;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(k);
+    }
+    return out;
+  }, [trackedMetrics]);
 
   const rings = useMemo(
     () => computeRingMetrics(items, profile, visibleMetrics, targets),
@@ -251,15 +271,30 @@ export function HealthRingRow({
     (e: DragEndEvent) => {
       const { active, over } = e;
       if (!over || active.id === over.id) return;
-      setMetrics((m) => {
-        const arr = m ?? [];
-        const from = arr.indexOf(active.id as PrimaryKey);
-        const to = arr.indexOf(over.id as PrimaryKey);
-        if (from < 0 || to < 0) return arr;
-        return arrayMove(arr, from, to);
-      });
+      if (!onReorder || !trackedMetrics) return;
+      // Translate the dragged ring positions back into overview-key
+      // space, then splice them into the full server list at the
+      // SAME indices the ring keys originally occupied — non-ring
+      // keys (mood, checkIns, …) keep their slots untouched.
+      const ringOverviewKeys = visibleMetrics
+        .map((k) => FIELD_TO_OVERVIEW_KEY[k])
+        .filter((k): k is OverviewMetricKey => !!k);
+      const fromIdx = ringOverviewKeys.findIndex(
+        (k) => OVERVIEW_KEY_TO_PRIMARY_FIELD[k] === active.id,
+      );
+      const toIdx = ringOverviewKeys.findIndex(
+        (k) => OVERVIEW_KEY_TO_PRIMARY_FIELD[k] === over.id,
+      );
+      if (fromIdx < 0 || toIdx < 0) return;
+      const reorderedRings = arrayMove(ringOverviewKeys, fromIdx, toIdx);
+      const ringSet = new Set(ringOverviewKeys);
+      let cursor = 0;
+      const next = trackedMetrics.map((k) =>
+        ringSet.has(k) ? reorderedRings[cursor++] : k,
+      );
+      onReorder(next);
     },
-    [setMetrics],
+    [onReorder, trackedMetrics, visibleMetrics],
   );
 
   return (
@@ -267,13 +302,17 @@ export function HealthRingRow({
       <div className="flex flex-row items-center justify-between">
         <SectionHeader title="Panoramica" subtitle="Le tue metriche chiave a portata di mano." />
 
-        <EditMetricsButton
-          aria-label="Modifica metriche tracciate"
-          className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
-        >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden />
-          Modifica metriche
-        </EditMetricsButton>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="Aggiungi rilevazione"
+            className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Aggiungi rilevazione
+          </button>
+        )}
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

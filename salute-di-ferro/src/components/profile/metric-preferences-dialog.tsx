@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { CheckCircle2, Loader2, SlidersHorizontal } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -12,12 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useUser } from "@/lib/hooks/use-user";
-import {
-  OVERVIEW_DEFAULT,
-  OVERVIEW_METRIC_KEYS,
-  type OverviewMetricKey,
-} from "@/lib/overview-metric-keys";
+import { useOverviewPrefs } from "@/lib/hooks/use-overview-prefs";
 import { MetricSelector } from "./metric-selector";
 
 type Props = {
@@ -27,77 +20,24 @@ type Props = {
 
 /**
  * Shared dialog version of `MetricPreferencesCard` — same MetricSelector,
- * same PATCH /api/me persistence, same React Query invalidation, but
- * surfaced from anywhere instead of forcing a navigation to the profile
- * page. Triggers live on the dashboard hero, the health page ring row,
- * the empty-state CTA, and the add-rilevazione dialog footer.
+ * same persistence, surfaced from anywhere instead of forcing a
+ * navigation to the profile page. Triggers live on the dashboard hero,
+ * the health page ring row, the empty-state CTA, and the add-rilevazione
+ * dialog footer.
+ *
+ * State + server sync go through the shared `useOverviewPrefs` hook so
+ * the dialog, the profile card, and the dashboard cards never disagree
+ * about which metrics are tracked.
  */
 export function MetricPreferencesDialog({ open, onOpenChange }: Props) {
-  const { profile } = useUser();
-  const queryClient = useQueryClient();
-  const [pending, setPending] = React.useState(false);
-  const [savedAt, setSavedAt] = React.useState<number | null>(null);
-
-  const initial = React.useMemo<OverviewMetricKey[]>(() => {
-    const valid = OVERVIEW_METRIC_KEYS as readonly string[];
-    const fromServer = (profile?.selectedMetrics ?? []).filter(
-      (k): k is OverviewMetricKey => valid.includes(k),
-    );
-    return fromServer.length > 0 ? fromServer : [...OVERVIEW_DEFAULT];
-  }, [profile?.selectedMetrics]);
-
-  const [selected, setSelected] = React.useState<OverviewMetricKey[]>(initial);
-  const lastSeen = React.useRef<string>(JSON.stringify(initial));
-
-  React.useEffect(() => {
-    const k = JSON.stringify(initial);
-    if (lastSeen.current === k) return;
-    lastSeen.current = k;
-    setSelected(initial);
-  }, [initial]);
+  const { selected, toggle, pending, savedAt, clearSavedAt } =
+    useOverviewPrefs();
 
   // Reset the "Salvato" pill when the dialog opens, so the previous
   // session's confirmation doesn't linger on a fresh edit.
   React.useEffect(() => {
-    if (open) setSavedAt(null);
-  }, [open]);
-
-  const persist = React.useCallback(
-    async (next: OverviewMetricKey[]) => {
-      setPending(true);
-      try {
-        const res = await fetch("/api/me", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ selectedMetrics: next }),
-        });
-        if (!res.ok) throw new Error();
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        setSavedAt(Date.now());
-      } catch {
-        toast.error("Errore nel salvataggio");
-      } finally {
-        setPending(false);
-      }
-    },
-    [queryClient],
-  );
-
-  const onToggle = React.useCallback(
-    (key: OverviewMetricKey) => {
-      setSelected((prev) => {
-        let next: OverviewMetricKey[];
-        if (prev.includes(key)) {
-          next = prev.filter((k) => k !== key);
-        } else {
-          next = [...prev, key];
-        }
-        void persist(next);
-        return next;
-      });
-    },
-    [persist],
-  );
+    if (open) clearSavedAt();
+  }, [open, clearSavedAt]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,11 +66,7 @@ export function MetricPreferencesDialog({ open, onOpenChange }: Props) {
           ) : null}
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
-          <MetricSelector
-            selected={selected}
-            onToggle={onToggle}
-            minSelected={0}
-          />
+          <MetricSelector selected={selected} onToggle={toggle} />
         </div>
       </DialogContent>
     </Dialog>

@@ -2,15 +2,8 @@
 
 import * as React from "react";
 import { CheckCircle2, Loader2, SlidersHorizontal } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
-import { useUser } from "@/lib/hooks/use-user";
-import {
-  OVERVIEW_DEFAULT,
-  OVERVIEW_METRIC_KEYS,
-  type OverviewMetricKey,
-} from "@/lib/overview-metric-keys";
+import { useOverviewPrefs } from "@/lib/hooks/use-overview-prefs";
 import { MetricSelector } from "./metric-selector";
 
 /**
@@ -19,77 +12,12 @@ import { MetricSelector } from "./metric-selector";
  * to change selection. The dashboard, health page, and rilevazione
  * dialog all link here.
  *
- * Saves to /api/me PATCH and invalidates the profile query so other
- * components (sidebar, useUser consumers) see the new list.
+ * State + persistence go through `useOverviewPrefs` so this card stays
+ * consistent with `MetricPreferencesDialog`, the dashboard cards, and
+ * the health-page rings.
  */
 export function MetricPreferencesCard() {
-  const { profile } = useUser();
-  const queryClient = useQueryClient();
-  const [pending, setPending] = React.useState(false);
-  const [savedAt, setSavedAt] = React.useState<number | null>(null);
-
-  const initial = React.useMemo<OverviewMetricKey[]>(() => {
-    const valid = OVERVIEW_METRIC_KEYS as readonly string[];
-    const fromServer = (profile?.selectedMetrics ?? []).filter(
-      (k): k is OverviewMetricKey => valid.includes(k),
-    );
-    return fromServer.length > 0 ? fromServer : [...OVERVIEW_DEFAULT];
-  }, [profile?.selectedMetrics]);
-
-  const [selected, setSelected] = React.useState<OverviewMetricKey[]>(initial);
-  const lastSeen = React.useRef<string>(JSON.stringify(initial));
-
-  // Pull in fresher server data on mount/refetch without clobbering
-  // a half-edited list (only sync if the user hasn't touched it yet
-  // since last server snapshot).
-  React.useEffect(() => {
-    const k = JSON.stringify(initial);
-    if (lastSeen.current === k) return;
-    lastSeen.current = k;
-    setSelected(initial);
-  }, [initial]);
-
-  const persist = React.useCallback(
-    async (next: OverviewMetricKey[]) => {
-      setPending(true);
-      try {
-        const res = await fetch("/api/me", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ selectedMetrics: next }),
-        });
-        if (!res.ok) throw new Error();
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        setSavedAt(Date.now());
-      } catch {
-        toast.error("Errore nel salvataggio");
-      } finally {
-        setPending(false);
-      }
-    },
-    [queryClient],
-  );
-
-  const onToggle = React.useCallback(
-    (key: OverviewMetricKey) => {
-      // No min-1 floor here: the canonical editor lets the user clear
-      // the list entirely if they want — the dashboard and health
-      // page render a `<NoTrackedMetricsState />` in that case rather
-      // than an empty grid. Trash buttons on individual cards still
-      // refuse to drop below 1 to avoid an accidental wipe.
-      setSelected((prev) => {
-        let next: OverviewMetricKey[];
-        if (prev.includes(key)) {
-          next = prev.filter((k) => k !== key);
-        } else {
-          next = [...prev, key];
-        }
-        void persist(next);
-        return next;
-      });
-    },
-    [persist],
-  );
+  const { selected, toggle, pending, savedAt } = useOverviewPrefs();
 
   // Anchor-scroll fix: the profile page is client-rendered and shows a
   // skeleton before this card mounts, so the browser's built-in
@@ -139,11 +67,7 @@ export function MetricPreferencesCard() {
           pagina Dati salute e il modulo di rilevazione.
         </p>
       </header>
-      <MetricSelector
-        selected={selected}
-        onToggle={onToggle}
-        minSelected={0}
-      />
+      <MetricSelector selected={selected} onToggle={toggle} />
     </section>
   );
 }

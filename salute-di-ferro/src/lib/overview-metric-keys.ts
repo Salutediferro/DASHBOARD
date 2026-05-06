@@ -103,6 +103,49 @@ export const FIELD_TO_OVERVIEW_KEY: Partial<Record<string, OverviewMetricKey>> =
 };
 
 /**
+ * Reverse of FIELD_TO_OVERVIEW_KEY: pick the canonical biometric-field
+ * primary key for an overview-card key. Used by the health-page rings
+ * to render in the same order/selection as the dashboard cards
+ * (single source of truth = server `selectedMetrics`).
+ *
+ * Composite metrics (bloodPressure → systolicBP) collapse to one
+ * representative ring; the second component is rendered alongside via
+ * the BP-aware grading branch in metric-ring-card.
+ *
+ * Keys absent from this map (mood, energy, weightDelta, checkIns,
+ * nextAppointment) are dashboard-only and intentionally don't surface
+ * a ring.
+ */
+export const OVERVIEW_KEY_TO_PRIMARY_FIELD: Partial<Record<OverviewMetricKey, string>> = {
+  weight: "weight",
+  bmi: "bmi",
+  bodyFat: "bodyFatPercentage",
+  muscleMass: "muscleMassKg",
+  bodyWater: "bodyWaterPct",
+  waist: "waistCm",
+  hips: "hipsCm",
+  chest: "chestCm",
+  arms: "armsCm",
+  thigh: "thighCm",
+  calves: "calvesCm",
+  bloodPressure: "systolicBP",
+  restingHR: "restingHR",
+  spo2: "spo2",
+  hrv: "hrv",
+  glucoseFasting: "glucoseFasting",
+  glucosePostMeal: "glucosePostMeal",
+  bodyTempC: "bodyTempC",
+  ketones: "ketones",
+  sleepHours: "sleepHours",
+  sleepQuality: "sleepQuality",
+  sleepAwakenings: "sleepAwakenings",
+  steps: "steps",
+  caloriesBurned: "caloriesBurned",
+  activeMinutes: "activeMinutes",
+  distanceKm: "distanceKm",
+};
+
+/**
  * Maps overview-card keys to the health-page category that should be
  * visible when that metric is tracked. Used by the health page to
  * decide which tabs/rings to surface.
