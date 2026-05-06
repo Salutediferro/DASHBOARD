@@ -25,7 +25,7 @@ import { MetricChart } from "@/components/health/metric-chart";
 import HealthEmptyState from "@/components/health/health-empty-state";
 import { NoTrackedMetricsState } from "@/components/health/no-tracked-metrics-state";
 import { AddBiometricDialog } from "@/components/health/add-biometric-dialog";
-import { CATEGORIES, FIELDS, type CategoryKey } from "@/components/health/metric-fields";
+import { CATEGORIES, type CategoryKey } from "@/components/health/metric-fields";
 import { SleepScoreCard } from "@/components/health/sleep-score-card";
 import { summarizeSleep } from "@/lib/health/sleep-score";
 import { SKINFOLD_SITES, SKINFOLD_LABELS, gradeSkinfold } from "@/lib/health/skinfold-thresholds";
@@ -36,7 +36,11 @@ import {
 } from "@/lib/health/metric-thresholds";
 import { HealthRingRow } from "./health-ring-row";
 import { MetricEditorDialog } from "@/components/dashboard/metric-editor-dialog";
-import { FIELD_TO_OVERVIEW_KEY, type OverviewMetricKey } from "@/lib/overview-metric-keys";
+import {
+  FIELD_TO_OVERVIEW_KEY,
+  OVERVIEW_KEY_TO_HEALTH_CATEGORY,
+  type OverviewMetricKey,
+} from "@/lib/overview-metric-keys";
 import { useMetricTargets, type MetricTargetsMap } from "@/lib/hooks/use-metric-targets";
 import { directionForPrimary } from "@/lib/health/metric-direction";
 import { glossaryFor } from "@/lib/health/metric-glossary";
@@ -114,24 +118,22 @@ export function HealthTabs({
     () => (readOnly ? null : new Set<string>(trackedMetrics)),
     [readOnly, trackedMetrics],
   );
-  // True if a field maps to a tracked OverviewMetricKey, OR has no
-  // mapping (helper input like sleepBedtime). Returning `true` for
-  // unmapped fields keeps inputs visible when the user picks the
-  // related metric (e.g. sleepBedtime stays alongside sleepHours).
-  // A category is visible only when the user actually tracks at least
-  // one of its mapped fields. Specialty categories like skinfolds —
-  // which have no entries in the overview vocabulary — are therefore
-  // hidden by default, since the new selection model can't surface
-  // them. Read-only views (professional) bypass the filter entirely.
+  // A category is visible if the user tracks at least one overview
+  // metric that maps to it. We resolve via OVERVIEW_KEY_TO_HEALTH_CATEGORY
+  // (key→category) instead of FIELDS (category→fields) so derived
+  // metrics with no editable input — `bmi` is the canonical one — still
+  // surface their category. Specialty categories like skinfolds have
+  // no overview-vocabulary entries and stay hidden by design.
+  // Read-only views (professional) bypass the filter entirely.
   const categoryHasTracked = React.useCallback(
     (key: CategoryKey): boolean => {
       if (!trackedSet) return true;
-      const mapped = FIELDS[key].filter((f) => FIELD_TO_OVERVIEW_KEY[f.name]);
-      if (mapped.length === 0) return false;
-      return mapped.some((f) => {
-        const overviewKey = FIELD_TO_OVERVIEW_KEY[f.name];
-        return overviewKey ? trackedSet.has(overviewKey) : false;
-      });
+      for (const tracked of trackedSet) {
+        if (OVERVIEW_KEY_TO_HEALTH_CATEGORY[tracked as OverviewMetricKey] === key) {
+          return true;
+        }
+      }
+      return false;
     },
     [trackedSet],
   );

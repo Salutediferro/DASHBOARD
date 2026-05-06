@@ -101,3 +101,50 @@ export const FIELD_TO_OVERVIEW_KEY: Partial<Record<string, OverviewMetricKey>> =
   activeMinutes: "activeMinutes",
   distanceKm: "distanceKm",
 };
+
+/**
+ * Maps overview-card keys to the health-page category that should be
+ * visible when that metric is tracked. Used by the health page to
+ * decide which tabs/rings to surface.
+ *
+ * Why this exists separately from `FIELD_TO_OVERVIEW_KEY`: that map
+ * goes biometric-field → overview-key (driven by editable inputs).
+ * Some overview keys have no editable field (e.g. `bmi` is derived
+ * from weight + height, not entered directly), so reversing the map
+ * would lose them — and the health page would silently hide a
+ * category the dashboard happily displays.
+ *
+ * Keys without an entry (mood, energy, energyLevel, weightDelta,
+ * checkIns, nextAppointment) deliberately don't surface any health
+ * category — they live on the dashboard only.
+ */
+export const OVERVIEW_KEY_TO_HEALTH_CATEGORY: Partial<
+  Record<OverviewMetricKey, "body" | "circumferences" | "cardiovascular" | "metabolic" | "sleep" | "activity">
+> = {
+  weight: "body",
+  bmi: "body",
+  bodyFat: "body",
+  muscleMass: "body",
+  bodyWater: "body",
+  waist: "circumferences",
+  hips: "circumferences",
+  chest: "circumferences",
+  arms: "circumferences",
+  thigh: "circumferences",
+  calves: "circumferences",
+  bloodPressure: "cardiovascular",
+  restingHR: "cardiovascular",
+  spo2: "cardiovascular",
+  hrv: "cardiovascular",
+  glucoseFasting: "metabolic",
+  glucosePostMeal: "metabolic",
+  bodyTempC: "metabolic",
+  ketones: "metabolic",
+  sleepHours: "sleep",
+  sleepQuality: "sleep",
+  sleepAwakenings: "sleep",
+  steps: "activity",
+  caloriesBurned: "activity",
+  activeMinutes: "activity",
+  distanceKm: "activity",
+};

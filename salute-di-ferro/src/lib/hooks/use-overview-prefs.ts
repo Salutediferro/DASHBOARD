@@ -8,6 +8,7 @@ import {
   OVERVIEW_METRIC_KEYS,
   type OverviewMetricKey,
 } from "@/lib/overview-metric-keys";
+import { useUser } from "@/lib/hooks/use-user";
 
 /**
  * The patient's tracked-metrics list — what the dashboard, the health
@@ -37,20 +38,27 @@ function sanitize(input: readonly string[] | undefined): OverviewMetricKey[] {
 
 export function useOverviewPrefs(initialSelected?: readonly string[]) {
   const queryClient = useQueryClient();
+  // Subscribe to the live profile so any consumer of this hook syncs
+  // when MetricPreferencesDialog (or any other PATCH /api/me caller)
+  // invalidates ["profile"]. The server-rendered `initialSelected`
+  // prop still seeds the first paint to keep SSR consistent.
+  const { profile } = useUser();
   const [selected, setSelected] = React.useState<OverviewMetricKey[]>(() =>
     sanitize(initialSelected),
   );
 
-  // If a fresher server value lands later (e.g. profile cache refetch),
-  // sync it in. Compared by JSON to avoid loops on identical arrays.
+  // Re-sync when either the SSR-prop OR the live profile data carries
+  // a fresher list. Compared by JSON to avoid loops on identical arrays.
   const lastSeen = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!initialSelected) return;
-    const k = JSON.stringify(initialSelected);
+    const live = profile?.selectedMetrics;
+    const next = live ?? initialSelected;
+    if (!next) return;
+    const k = JSON.stringify(next);
     if (lastSeen.current === k) return;
     lastSeen.current = k;
-    setSelected(sanitize(initialSelected));
-  }, [initialSelected]);
+    setSelected(sanitize(next));
+  }, [initialSelected, profile?.selectedMetrics]);
 
   const persist = React.useCallback(
     async (next: OverviewMetricKey[]) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Plus, SlidersHorizontal } from "lucide-react";
 
 import {
@@ -18,6 +17,7 @@ import {
   type OverviewMetricKey,
 } from "@/lib/overview-metric-keys";
 import { useOverviewPrefs } from "@/lib/hooks/use-overview-prefs";
+import { MetricPreferencesDialog } from "@/components/profile/metric-preferences-dialog";
 import { CATEGORIES, FIELDS, type CategoryKey } from "./metric-fields";
 import { MetricForm, type MetricField } from "./metric-form";
 
@@ -110,6 +110,12 @@ export function AddBiometricDialog({
     [onOpenChange, openProp],
   );
 
+  // Nested metric-preferences dialog. Stacks on top of this one so the
+  // user can pick metrics and immediately see the rilevazione form
+  // re-filter when they close it (useOverviewPrefs subscribes to the
+  // profile cache, so the change propagates without remounting).
+  const [prefsOpen, setPrefsOpen] = React.useState(false);
+
   const [categoryInternal, setCategoryInternal] = React.useState<CategoryKey>(
     visibleCategories[0]?.key ?? "body",
   );
@@ -197,16 +203,17 @@ export function AddBiometricDialog({
           <span className="text-muted-foreground text-[11px]">
             Vedi solo le metriche che hai scelto di tracciare.
           </span>
-          <Link
-            href="/dashboard/patient/profile#metriche"
+          <button
+            type="button"
+            onClick={() => setPrefsOpen(true)}
             className="focus-ring text-primary-500 hover:text-primary-500/80 inline-flex items-center gap-1 text-xs font-medium"
-            onClick={() => setOpen(false)}
           >
             <SlidersHorizontal className="h-3 w-3" aria-hidden />
             Modifica metriche
-          </Link>
+          </button>
         </div>
       </DialogContent>
+      <MetricPreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
     </Dialog>
   );
 }

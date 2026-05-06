@@ -18,6 +18,7 @@ import { AppointmentsEmptyState } from "@/components/empty-states";
 import { formatItalianDate } from "@/components/dashboard/quick-link-card";
 import { cn } from "@/lib/utils";
 import { PatientOverview } from "@/components/dashboard/patient-overview";
+import { EditMetricsButton } from "@/components/profile/edit-metrics-button";
 
 export const metadata = { title: "Dashboard — Salute di Ferro" };
 export const dynamic = "force-dynamic";
@@ -55,14 +56,13 @@ export default async function PatientDashboardPage() {
         firstName={firstName}
         kpis={kpis}
         rightSlot={
-          <Link
-            href="/dashboard/patient/profile#metriche"
+          <EditMetricsButton
             className="focus-ring border-border/50 bg-card/70 text-muted-foreground hover:bg-muted hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors"
             aria-label="Modifica metriche tracciate"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
             Modifica metriche
-          </Link>
+          </EditMetricsButton>
         }
       />
 

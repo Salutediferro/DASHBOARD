@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import type { BiometricLogDTO } from "@/lib/hooks/use-biometrics";
 import { SectionHeader } from "../brand";
 import { SortableCard } from "../sortable-card";
 import { MetricRingCard, type RingMetric } from "./metric-ring-card";
+import { EditMetricsButton } from "@/components/profile/edit-metrics-button";
 import type { PatientProfile, PrimaryKey } from "./health-tabs";
 import { useCallback, useMemo } from "react";
 import { SlidersHorizontal, Trash2 } from "lucide-react";
@@ -267,14 +267,13 @@ export function HealthRingRow({
       <div className="flex flex-row items-center justify-between">
         <SectionHeader title="Panoramica" subtitle="Le tue metriche chiave a portata di mano." />
 
-        <Link
-          href="/dashboard/patient/profile#metriche"
+        <EditMetricsButton
           aria-label="Modifica metriche tracciate"
           className="focus-ring border-input bg-background text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden />
           Modifica metriche
-        </Link>
+        </EditMetricsButton>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
