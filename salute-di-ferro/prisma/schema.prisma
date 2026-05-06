@@ -119,6 +119,18 @@ enum DayOfWeek {
   SUN
 }
 
+// Unit a food quantity is expressed in inside a meal entry.
+// Most entries use GRAMS; PIECE/SCOOP/TABLESPOON exist so a coach can
+// prescribe "2 uova" or "1 misurino di whey" without forcing the patient
+// to weigh those servings out.
+enum FoodUnit {
+  GRAMS
+  ML
+  PIECE
+  SCOOP
+  TABLESPOON
+}
+
 // ============================================================
 // ORGANIZATION (multi-brand / white-label)
 // ============================================================
@@ -136,6 +148,7 @@ model Organization {
 
   users         User[]
   subscriptions Subscription[]
+  foods         Food[]
 
   @@index([slug])
 }
@@ -228,12 +241,17 @@ model User {
   // the items this user owns as a patient (kind=SELF) and the ones a
   // doctor prescribed for them (kind=PRESCRIBED). `prescribedTherapyItems`
   // is the reverse side for doctors — everything they prescribed.
-  therapyItems           TherapyItem[]             @relation("PatientTherapyItems")
-  prescribedTherapyItems TherapyItem[]             @relation("PrescribedTherapyItems")
-  therapyIntakes         TherapyIntake[]           @relation("PatientTherapyIntakes")
+  therapyItems              TherapyItem[]             @relation("PatientTherapyItems")
+  prescribedTherapyItems    TherapyItem[]             @relation("PrescribedTherapyItems")
+  therapyIntakes            TherapyIntake[]           @relation("PatientTherapyIntakes")
   therapyReminderDeliveries TherapyReminderDelivery[] @relation("PatientReminderDeliveries")
-  symptomLogs            SymptomLog[]
-  metricTargets          MetricTarget[]
+  symptomLogs               SymptomLog[]
+  metricTargets             MetricTarget[]
+
+  // Nutrition plans authored by this user (DOCTOR or COACH).
+  authoredNutritionPlans NutritionPlan[] @relation("AuthorNutritionPlans")
+  // Nutrition plans assigned to this user as the patient.
+  nutritionPlans         NutritionPlan[] @relation("PatientNutritionPlans")
 
   // Soft-delete marker used by GDPR delete (/api/me DELETE). The row is
   // kept until a cleanup job hard-deletes it, so audit trails survive.
@@ -294,14 +312,14 @@ model BiometricLog {
   calvesCm Float?
 
   // Skinfolds (mm)
-  chestSkinfoldMm        Float?
-  abdominalSkinfoldMm    Float?
-  thighSkinfoldMm        Float?
-  suprailiacSkinfoldMm   Float?
-  subscapularSkinfoldMm  Float?
-  midaxillarySkinfoldMm  Float?
-  tricepsSkinfoldMm      Float?
-  calfSkinfoldMm         Float?
+  chestSkinfoldMm       Float?
+  abdominalSkinfoldMm   Float?
+  thighSkinfoldMm       Float?
+  suprailiacSkinfoldMm  Float?
+  subscapularSkinfoldMm Float?
+  midaxillarySkinfoldMm Float?
+  tricepsSkinfoldMm     Float?
+  calfSkinfoldMm        Float?
 
   // Cardiovascular
   systolicBP  Int?
@@ -369,9 +387,9 @@ model TherapyItem {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  patient      User                      @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
-  prescribedBy User?                     @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
-  intakes      TherapyIntake[]
+  patient            User                      @relation("PatientTherapyItems", fields: [patientId], references: [id], onDelete: Cascade)
+  prescribedBy       User?                     @relation("PrescribedTherapyItems", fields: [prescribedById], references: [id], onDelete: SetNull)
+  intakes            TherapyIntake[]
   reminderDeliveries TherapyReminderDelivery[]
 
   @@index([patientId, kind, active])
@@ -391,16 +409,16 @@ model TherapyItem {
 // provider succeeds becomes a FAILED row that humans can retry from
 // the admin panel.
 model TherapyReminderDelivery {
-  id         String           @id @default(uuid()) @db.Uuid
-  itemId     String           @db.Uuid
-  patientId  String           @db.Uuid
+  id         String          @id @default(uuid()) @db.Uuid
+  itemId     String          @db.Uuid
+  patientId  String          @db.Uuid
   // Calendar day in the *patient's* timezone — not the UTC date of
   // sentAt. So a reminder set for 23:30 Europe/Rome on May 3 is keyed
   // as 2026-05-03 even if the actual UTC instant slips into May 4.
-  date       DateTime         @db.Date
+  date       DateTime        @db.Date
   channel    ReminderChannel
   status     ReminderStatus
-  sentAt     DateTime         @default(now())
+  sentAt     DateTime        @default(now())
   provider   String?
   providerId String?
   error      String?
@@ -739,6 +757,124 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ============================================================
+// NUTRITION
+// ============================================================
+//
+// A nutrition plan is the prescription side: a DOCTOR or COACH writes
+// a structured meal plan (with daily macro targets) for one patient.
+// `authorRole` is captured at write-time so the audit trail survives
+// the author later switching roles. ACL is enforced at the service /
+// API layer: the author must have an ACTIVE CareRelationship with the
+// patient. Patients only ever read their own plans.
+//
+// Foods are reference data (a shared 100-item Italian table seeded by
+// `prisma/seed.ts`); per-org custom foods are scoped via
+// `organizationId`. A meal references foods through NutritionMealFood
+// rows so the same food can appear in many plans without duplication.
+
+model Food {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  brand           String?
+  /// Free-text category used for grouping in the food picker and the
+  /// shopping list. Mirrors the Italian taxonomy in `lib/data/foods.ts`
+  /// (CARNI, PESCE, UOVA, …) — kept as a string instead of an enum so
+  /// org admins can add categories without a migration.
+  category        String?
+  caloriesPer100g Float
+  proteinPer100g  Float
+  carbsPer100g    Float
+  fatsPer100g     Float
+  fiberPer100g    Float?
+  allergens       String[] @default([])
+  /// Visible to every organization. Org-private foods (`isGlobal=false`)
+  /// also set `organizationId` and are filtered in the search query.
+  isGlobal        Boolean  @default(true)
+  organizationId  String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mealFoods    NutritionMealFood[]
+
+  @@index([name])
+  @@index([category])
+  @@index([organizationId])
+}
+
+model NutritionPlan {
+  id             String           @id @default(uuid()) @db.Uuid
+  authorId       String           @db.Uuid
+  authorRole     ProfessionalRole
+  patientId      String           @db.Uuid
+  name           String
+  startDate      DateTime         @db.Date
+  endDate        DateTime?        @db.Date
+  /// Daily macro targets the meals should sum to. Stored as Float for
+  /// macros (decimal grams are common) and Int for calories.
+  targetCalories Int?
+  targetProtein  Float?
+  targetCarbs    Float?
+  targetFats     Float?
+  notes          String?
+  /// At most one plan per (patientId, isActive=true) is enforced by the
+  /// service layer — there's no DB-level partial-unique because Postgres
+  /// would need a separate index for it and the rule is cheap to keep
+  /// in code.
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  author  User @relation("AuthorNutritionPlans", fields: [authorId], references: [id], onDelete: Cascade)
+  patient User @relation("PatientNutritionPlans", fields: [patientId], references: [id], onDelete: Cascade)
+
+  meals NutritionMeal[]
+
+  @@index([authorId])
+  @@index([patientId])
+  @@index([patientId, isActive])
+}
+
+model NutritionMeal {
+  id             String   @id @default(uuid()) @db.Uuid
+  planId         String   @db.Uuid
+  name           String
+  /// Position inside the plan (0-based). Used by the builder to order
+  /// meals top-to-bottom; ties are broken by createdAt.
+  orderIndex     Int
+  /// "HH:MM" — display-only, no scheduling/reminder logic hangs off it.
+  time           String?
+  targetCalories Int?
+  targetProtein  Float?
+  targetCarbs    Float?
+  targetFats     Float?
+  createdAt      DateTime @default(now())
+
+  plan  NutritionPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  foods NutritionMealFood[]
+
+  @@index([planId])
+  @@index([planId, orderIndex])
+}
+
+model NutritionMealFood {
+  id        String   @id @default(uuid()) @db.Uuid
+  mealId    String   @db.Uuid
+  foodId    String   @db.Uuid
+  quantity  Float
+  unit      FoodUnit @default(GRAMS)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  meal NutritionMeal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  /// Restrict on Food delete: a food can't disappear out from under a
+  /// plan that's already prescribed. Foods get archived, not deleted.
+  food Food          @relation(fields: [foodId], references: [id], onDelete: Restrict)
+
+  @@index([mealId])
+  @@index([foodId])
 }
 
 // ============================================================

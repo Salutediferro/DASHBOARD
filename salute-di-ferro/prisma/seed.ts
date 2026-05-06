@@ -7,6 +7,7 @@ import {
   type ProfessionalRole,
   type UserRole,
 } from "@prisma/client";
+import { FOODS_SEED } from "../src/lib/data/foods-seed";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createClient, type User as AuthUser } from "@supabase/supabase-js";
 
@@ -604,6 +605,33 @@ async function main() {
     });
   }
   console.log(`  ✓ Notifications: ${welcomeTargets.length}`);
+
+  // ── Foods (global reference table) ─────────────────────────────────
+  // Idempotent upsert keyed on (name, brand=null, isGlobal=true) so
+  // re-runs don't duplicate. Prisma has no compound unique on those
+  // fields, so we look up first and skip if present.
+  let foodsCreated = 0;
+  for (const f of FOODS_SEED) {
+    const existing = await prisma.food.findFirst({
+      where: { name: f.name, brand: null, isGlobal: true, organizationId: null },
+      select: { id: true },
+    });
+    if (existing) continue;
+    await prisma.food.create({
+      data: {
+        name: f.name,
+        category: f.category,
+        caloriesPer100g: f.caloriesPer100g,
+        proteinPer100g: f.proteinPer100g,
+        carbsPer100g: f.carbsPer100g,
+        fatsPer100g: f.fatsPer100g,
+        fiberPer100g: f.fiberPer100g ?? null,
+        isGlobal: true,
+      },
+    });
+    foodsCreated += 1;
+  }
+  console.log(`  ✓ Foods: ${foodsCreated} new (${FOODS_SEED.length} total in seed table)`);
 
   console.log("✅ Seed completato");
   console.log("");
