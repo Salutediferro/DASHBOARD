@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { SlidersHorizontal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { EditMetricsButton } from "@/components/profile/edit-metrics-button";
 
 type Props = {
   className?: string;
@@ -14,8 +14,9 @@ type Props = {
  * patient's `selectedMetrics` is empty — either because they cleared
  * the list themselves or because legacy data didn't survive a vocab
  * change. Both surfaces would otherwise render an empty grid that
- * reads as broken; this state explains the situation and links to the
- * profile editor where the user can pick metrics again.
+ * reads as broken; this state explains the situation and opens the
+ * shared metric-preferences dialog so the user can pick metrics again
+ * without leaving the page.
  */
 export function NoTrackedMetricsState({ className }: Props) {
   return (
@@ -36,13 +37,10 @@ export function NoTrackedMetricsState({ className }: Props) {
           pagina Dati salute e il modulo di rilevazione.
         </p>
       </div>
-      <Link
-        href="/dashboard/patient/profile#metriche"
-        className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors"
-      >
+      <EditMetricsButton className="focus-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors">
         <SlidersHorizontal className="h-4 w-4" aria-hidden />
         Scegli le metriche
-      </Link>
+      </EditMetricsButton>
     </section>
   );
 }

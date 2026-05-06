@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Target, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Target, Trash2 } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -16,6 +16,7 @@ import type { Sex } from "@prisma/client";
 import { SortableCard } from "@/components/sortable-card";
 import { cn } from "@/lib/utils";
 import {
+  OVERVIEW_MAX,
   OVERVIEW_METRIC_KEYS,
   useOverviewPrefs,
   type OverviewMetricKey,
@@ -387,11 +388,18 @@ export function PatientOverview({
   const { selected, setOrder, toggle } = useOverviewPrefs(initialSelectedMetrics);
   const { targets, hydrated: targetsHydrated } = useMetricTargets({ initialData: initialTargets });
   const [editorKey, setEditorKey] = React.useState<OverviewMetricKey | null>(null);
+  // Default to the cap so the dashboard stays scannable; the user can
+  // expand to see everything they track. Only persists for the session
+  // — coming back fresh re-collapses, which is the right default for
+  // "open the app, glance at top-of-mind metrics".
+  const [expanded, setExpanded] = React.useState(false);
 
   const visible = selected.filter((k) =>
     (OVERVIEW_METRIC_KEYS as readonly string[]).includes(k),
   ) as OverviewMetricKey[];
-  const cols = LG_COLS[Math.min(visible.length, 4)] ?? LG_COLS[4];
+  const overflow = Math.max(0, visible.length - OVERVIEW_MAX);
+  const displayed = expanded ? visible : visible.slice(0, OVERVIEW_MAX);
+  const cols = LG_COLS[Math.min(displayed.length, 4)] ?? LG_COLS[4];
 
   // Shared context for `gradeMetric` (sex-specific bands, target weight
   // for trend-aware weight grading).
@@ -462,9 +470,9 @@ export function PatientOverview({
     <section className="flex flex-col gap-3">
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={visible} strategy={rectSortingStrategy}>
+        <SortableContext items={displayed} strategy={rectSortingStrategy}>
           <div className={cn("grid gap-3 grid-cols-1 sm:grid-cols-2", cols)}>
-            {visible.map((key) => {
+            {displayed.map((key) => {
               const def = REGISTRY[key];
               const Component = def.Component;
               const editable = EDITOR_CONFIG[key] != null;
@@ -523,6 +531,29 @@ export function PatientOverview({
           </div>
         </SortableContext>
       </DndContext>
+
+      {overflow > 0 && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="focus-ring text-muted-foreground hover:bg-muted hover:text-foreground inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/70 px-3 py-1.5 text-xs font-medium transition-colors"
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                Mostra meno
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                Mostra tutte ({visible.length})
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {editorKey && (
         <MetricEditorDialog

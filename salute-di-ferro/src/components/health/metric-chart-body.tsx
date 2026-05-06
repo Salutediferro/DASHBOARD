@@ -63,18 +63,46 @@ function clamp01(n: number): number {
 }
 
 /**
- * Build SVG linearGradient stops keyed by chart Y-position. Offset 0%
- * is the top of the chart (highest value) and 100% is the bottom
- * (lowest), so we map each band edge through (yMax - v) / (yMax - yMin)
- * before emitting a stop.
- *
- * Tolerance bands are ±5% of |target| (green) and ±15% (yellow), the
- * same shape used by the ring-progress logic so the chart and the
- * cards agree on what "close enough" means.
+ * Grade a single value against the target/direction. Tolerance bands
+ * are ±5% of |target| (green) and ±15% (yellow) — same shape used by
+ * the ring-progress logic so the chart, cards, and rings agree on
+ * what "close enough" means.
+ */
+function gradeColor(
+  value: number,
+  target: number,
+  direction: MetricDirection,
+): string {
+  const tol5 = Math.abs(target) * 0.05;
+  const tol15 = Math.abs(target) * 0.15;
+  const diff = value - target;
+  const absDiff = Math.abs(diff);
+  if (direction === "lower") {
+    if (diff <= tol5) return GRADE_GREEN;
+    if (diff <= tol15) return GRADE_YELLOW;
+    return GRADE_RED;
+  }
+  if (direction === "higher") {
+    if (-diff <= tol5) return GRADE_GREEN;
+    if (-diff <= tol15) return GRADE_YELLOW;
+    return GRADE_RED;
+  }
+  // bidirectional / closeness — symmetric around the target.
+  if (absDiff <= tol5) return GRADE_GREEN;
+  if (absDiff <= tol15) return GRADE_YELLOW;
+  return GRADE_RED;
+}
+
+/**
+ * Build SVG linearGradient stops keyed by chart X-position. Each point
+ * owns the half-segment to either neighbour; sharp colour transitions
+ * land at midpoints where the grade changes (two stops at the same
+ * offset → no blending). Result: every period reads as a solid red /
+ * yellow / green vertical band whose colour matches that point's
+ * proximity to target.
  */
 function gradientStops(opts: {
-  lo: number;
-  hi: number;
+  data: Point[];
   target: number;
   direction: MetricDirection;
   /** Per-stop opacity. Pass 1 for the stroke gradient and a smaller
@@ -82,54 +110,38 @@ function gradientStops(opts: {
    *  without drowning out the trend line. */
   opacity: number;
 }): { offset: number; color: string; opacity: number }[] {
-  const { lo, hi, target, direction, opacity } = opts;
-  const span = hi - lo;
-  if (span <= 0) {
-    return [{ offset: 0, color: GRADE_GREEN, opacity }];
-  }
-  const offsetFor = (v: number) => clamp01((hi - v) / span);
-  const tol5 = Math.abs(target) * 0.05;
-  const tol15 = Math.abs(target) * 0.15;
+  const { data, target, direction, opacity } = opts;
+  const n = data.length;
+  if (n === 0) return [{ offset: 0, color: GRADE_GREEN, opacity }];
 
-  const raw: { offset: number; color: string }[] = [];
-  if (direction === "lower") {
-    // High = bad (red), at-or-below target = good (green).
-    raw.push({ offset: 0, color: GRADE_RED });
-    raw.push({ offset: offsetFor(target + tol15), color: GRADE_YELLOW });
-    raw.push({ offset: offsetFor(target + tol5), color: GRADE_GREEN });
-    raw.push({ offset: 1, color: GRADE_GREEN });
-  } else if (direction === "higher") {
-    // High = good, far below = bad.
-    raw.push({ offset: 0, color: GRADE_GREEN });
-    raw.push({ offset: offsetFor(target - tol5), color: GRADE_GREEN });
-    raw.push({ offset: offsetFor(target - tol15), color: GRADE_YELLOW });
-    raw.push({ offset: 1, color: GRADE_RED });
-  } else {
-    // bidirectional / closeness — symmetric on both sides of target.
-    raw.push({ offset: 0, color: GRADE_RED });
-    raw.push({ offset: offsetFor(target + tol15), color: GRADE_YELLOW });
-    raw.push({ offset: offsetFor(target + tol5), color: GRADE_GREEN });
-    raw.push({ offset: offsetFor(target - tol5), color: GRADE_GREEN });
-    raw.push({ offset: offsetFor(target - tol15), color: GRADE_YELLOW });
-    raw.push({ offset: 1, color: GRADE_RED });
+  const colors = data.map((d) => gradeColor(d.value, target, direction));
+  if (n === 1) {
+    return [
+      { offset: 0, color: colors[0], opacity },
+      { offset: 1, color: colors[0], opacity },
+    ];
   }
 
-  // Sort + dedupe near-identical offsets (can happen when target
-  // sits at the chart edge or the data range is narrower than the
-  // tolerance bands).
-  return raw
-    .map((s) => ({ ...s, offset: clamp01(s.offset), opacity }))
-    .sort((a, b) => a.offset - b.offset)
-    .filter((s, i, arr) => i === 0 || s.offset - arr[i - 1].offset > 1e-4);
+  const stops: { offset: number; color: string; opacity: number }[] = [];
+  stops.push({ offset: 0, color: colors[0], opacity });
+  for (let i = 0; i < n - 1; i++) {
+    if (colors[i] !== colors[i + 1]) {
+      const mid = clamp01((i + 0.5) / (n - 1));
+      stops.push({ offset: mid, color: colors[i], opacity });
+      stops.push({ offset: mid, color: colors[i + 1], opacity });
+    }
+  }
+  stops.push({ offset: 1, color: colors[n - 1], opacity });
+  return stops;
 }
 
 // Premium area chart body. Two flavours:
 //   • brand mode (target == null): single-hue area + stroke, current
 //     behaviour preserved.
 //   • target mode (target != null): horizontal dashed reference line
-//     at the target Y, plus a vertical red→yellow→green gradient
-//     applied to both stroke and fill so the trend line itself reads
-//     "closer to target" or "drifting away" at a glance.
+//     at the target Y, plus a horizontal (per-period) red/yellow/green
+//     gradient applied to both stroke and fill so each segment reads
+//     "in range" or "out of range" at the time it was recorded.
 export default function MetricChartBody({
   title,
   unit,
@@ -168,16 +180,16 @@ export default function MetricChartBody({
   const fillStops = React.useMemo(
     () =>
       useTargetGradient
-        ? gradientStops({ lo, hi, target: target!, direction, opacity: 0.35 })
+        ? gradientStops({ data, target: target!, direction, opacity: 0.35 })
         : null,
-    [useTargetGradient, lo, hi, target, direction],
+    [useTargetGradient, data, target, direction],
   );
   const strokeStops = React.useMemo(
     () =>
       useTargetGradient
-        ? gradientStops({ lo, hi, target: target!, direction, opacity: 1 })
+        ? gradientStops({ data, target: target!, direction, opacity: 1 })
         : null,
-    [useTargetGradient, lo, hi, target, direction],
+    [useTargetGradient, data, target, direction],
   );
 
   return (
@@ -202,7 +214,7 @@ export default function MetricChartBody({
           <defs>
             {useTargetGradient && fillStops && strokeStops ? (
               <>
-                <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={fillId} x1="0" y1="0" x2="1" y2="0">
                   {fillStops.map((s, i) => (
                     <stop
                       key={`${i}-${s.offset.toFixed(4)}`}
@@ -212,7 +224,7 @@ export default function MetricChartBody({
                     />
                   ))}
                 </linearGradient>
-                <linearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={strokeId} x1="0" y1="0" x2="1" y2="0">
                   {strokeStops.map((s, i) => (
                     <stop
                       key={`${i}-${s.offset.toFixed(4)}`}
