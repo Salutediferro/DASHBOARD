@@ -78,7 +78,7 @@ export type ProfessionalEntry = {
     role: string;
     avatarUrl: string | null;
     bio: string | null;
-    specialties: string | null;
+    specialties: string[];
   };
 };
 
@@ -351,13 +351,13 @@ export function PatientHomeClient({
             {professionals.length === 0 ? (
               <p className="text-muted-foreground text-sm">
                 Nessun professionista collegato. Attendi un invito o chiedilo al
-                tuo medico/coach.
+                tuo professionista/coach.
               </p>
             ) : (
               <>
                 {doctor && (
                   <ProfessionalRow
-                    role="Medico"
+                    role="Professionista"
                     icon={<Stethoscope className="h-4 w-4" />}
                     pro={doctor.professional}
                   />
@@ -501,13 +501,10 @@ function ProfessionalRow({
     fullName: string;
     avatarUrl: string | null;
     bio: string | null;
-    specialties: string | null;
+    specialties: string[];
   };
 }) {
-  const tags = (pro.specialties ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const tags = pro.specialties ?? [];
 
   return (
     <div className="flex items-start gap-3">

@@ -55,7 +55,7 @@ export default function PatientPercorsoPage() {
           Percorso
         </h1>
         <p className="text-muted-foreground text-sm">
-          Indicazioni del tuo medico
+          Indicazioni del tuo professionista
         </p>
       </header>
 
@@ -68,7 +68,7 @@ export default function PatientPercorsoPage() {
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Stethoscope className="text-muted-foreground h-10 w-10" />
             <p className="text-muted-foreground max-w-md text-sm">
-              Nessuna indicazione ancora. Quando il tuo medico aggiungerà una
+              Nessuna indicazione ancora. Quando il tuo professionista aggiungerà una
               terapia al tuo percorso, la vedrai qui.
             </p>
           </CardContent>

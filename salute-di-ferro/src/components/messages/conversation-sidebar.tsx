@@ -228,7 +228,7 @@ function RoleChip({ role }: { role: UserRole }) {
     return (
       <span className="chip chip-silver shrink-0">
         <Stethoscope className="h-3 w-3" aria-hidden />
-        Medico
+        Professionista
       </span>
     );
   }

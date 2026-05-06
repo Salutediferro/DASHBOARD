@@ -358,7 +358,7 @@ function PatientView({ data }: { data: PatientPayload }) {
                 {rel.professional.fullName}
               </span>
               <Badge variant="outline" className="text-xs">
-                {rel.professionalRole === "DOCTOR" ? "Medico" : "Coach"}
+                {rel.professionalRole === "DOCTOR" ? "Professionista" : "Coach"}
               </Badge>
               <span className="text-muted-foreground text-xs">
                 {rel.professional.email}

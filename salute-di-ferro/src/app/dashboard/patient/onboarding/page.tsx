@@ -63,7 +63,7 @@ const STEPS: StepDef[] = [
     key: "health",
     label: "Salute",
     title: "Stato di salute",
-    copy: "Allergie, patologie e supplementi attivi sono importanti per medico e coach. Solo i professionisti collegati potranno vederli.",
+    copy: "Allergie, patologie e supplementi attivi sono importanti per professionista e coach. Solo i professionisti collegati potranno vederli.",
     optional: true,
     canAdvance: () => true,
   },

@@ -68,7 +68,7 @@ const ROLE_META: Record<
     tone: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
   },
   DOCTOR: {
-    label: "Medico",
+    label: "Professionista",
     icon: <Stethoscope className="h-3 w-3" />,
     tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   },

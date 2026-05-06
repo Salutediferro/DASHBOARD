@@ -201,7 +201,7 @@ const roleTheme: Record<
     dot: "bg-accent-500",
   },
   DOCTOR: {
-    label: "Medico",
+    label: "Professionista",
     bg: "bg-warning/10",
     fg: "text-warning",
     border: "border-warning/30",

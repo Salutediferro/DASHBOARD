@@ -56,7 +56,7 @@ type DbUser = {
   injuries: string | null;
   targetWeightKg: number | null;
   bio: string | null;
-  specialties: string | null;
+  specialties: string[];
   timezone: string;
   selectedMetrics: string[];
 };

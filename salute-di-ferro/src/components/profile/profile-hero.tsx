@@ -135,7 +135,7 @@ function RoleChip({ role }: { role: UserRole }) {
       cls: "bg-accent-500/15 text-accent-500 border-accent-500/30",
     },
     DOCTOR: {
-      label: "Medico",
+      label: "Professionista",
       cls: "bg-warning/15 text-warning border-warning/30",
     },
     ADMIN: {

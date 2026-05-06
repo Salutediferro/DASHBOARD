@@ -1,59 +1,108 @@
 import { z } from "zod";
 
-export const calculateSchema = z.object({
-  weightKg: z.number().min(30).max(250),
-  heightCm: z.number().min(120).max(230),
-  age: z.number().int().min(14).max(90),
-  sex: z.enum(["M", "F"]),
-  activityLevel: z.enum([
-    "SEDENTARY",
-    "LIGHT",
-    "MODERATE",
-    "ACTIVE",
-    "VERY_ACTIVE",
-  ]),
-  goal: z.enum(["CUTTING", "MAINTENANCE", "BULKING"]),
+/**
+ * Validators for the nutrition feature: plans (doctor-authored) and
+ * diary entries (patient-authored). Stored types live in @prisma/client;
+ * these zod schemas guard the API boundary.
+ */
+
+const dateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD richiesto");
+
+const isoDateTime = z
+  .string()
+  .refine((s) => !Number.isNaN(new Date(s).getTime()), "Data non valida");
+
+export const MEAL_SLOTS = [
+  "BREAKFAST",
+  "MORNING_SNACK",
+  "LUNCH",
+  "AFTERNOON_SNACK",
+  "DINNER",
+  "EVENING_SNACK",
+] as const;
+
+export type MealSlot = (typeof MEAL_SLOTS)[number];
+
+/**
+ * One entry inside a NutritionPlan.meals JSON column. Doctor-authored;
+ * patient renders read-only. Items are arbitrary food descriptions —
+ * we don't try to enforce a food database.
+ */
+export const planMealSchema = z.object({
+  slot: z.enum(MEAL_SLOTS),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(160),
+        quantity: z.string().trim().max(80).optional().nullable(),
+        notes: z.string().trim().max(400).optional().nullable(),
+      }),
+    )
+    .max(40)
+    .optional()
+    .default([]),
 });
 
-export type CalculateInput = z.infer<typeof calculateSchema>;
+export type PlanMeal = z.infer<typeof planMealSchema>;
 
-export const mealFoodSchema = z.object({
-  id: z.string(),
-  foodId: z.string(),
-  foodName: z.string(),
-  category: z.string(),
-  quantityG: z.number().min(0),
-  calories: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fats: z.number(),
+const optionalInt = (min: number, max: number) =>
+  z.number().int().min(min).max(max).nullable().optional();
+
+const optionalFloat = (min: number, max: number) =>
+  z.number().min(min).max(max).nullable().optional();
+
+/**
+ * Body for creating a new plan. Server selects the patient explicitly so
+ * the doctor cannot accidentally write for someone they aren't linked to —
+ * the API enforces an active CareRelationship.
+ */
+export const planCreateSchema = z.object({
+  patientId: z.string().uuid(),
+  title: z.string().trim().min(1).max(160),
+  notes: z.string().trim().max(8000).nullable().optional(),
+  targetCaloriesKcal: optionalInt(0, 20000),
+  targetProteinG: optionalFloat(0, 2000),
+  targetCarbsG: optionalFloat(0, 2000),
+  targetFatG: optionalFloat(0, 2000),
+  meals: z.array(planMealSchema).max(20).optional().default([]),
+  startDate: dateOnly.nullable().optional(),
+  endDate: dateOnly.nullable().optional(),
 });
 
-export const mealSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  orderIndex: z.number().int(),
-  time: z.string().nullable(),
-  foods: z.array(mealFoodSchema),
+export type PlanCreateInput = z.infer<typeof planCreateSchema>;
+
+/** Body for editing an existing plan. patientId is immutable. */
+export const planUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(160).optional(),
+  notes: z.string().trim().max(8000).nullable().optional(),
+  targetCaloriesKcal: optionalInt(0, 20000),
+  targetProteinG: optionalFloat(0, 2000),
+  targetCarbsG: optionalFloat(0, 2000),
+  targetFatG: optionalFloat(0, 2000),
+  meals: z.array(planMealSchema).max(20).optional(),
+  startDate: dateOnly.nullable().optional(),
+  endDate: dateOnly.nullable().optional(),
 });
 
-export const planSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1),
-  clientId: z.string().nullable(),
-  clientName: z.string().nullable(),
-  startDate: z.string(),
-  endDate: z.string().nullable(),
-  isActive: z.boolean(),
-  createdAt: z.string(),
-  targetCalories: z.number(),
-  targetProtein: z.number(),
-  targetCarbs: z.number(),
-  targetFats: z.number(),
-  meals: z.array(mealSchema),
+export type PlanUpdateInput = z.infer<typeof planUpdateSchema>;
+
+// ---- Diary ----
+
+export const diaryEntryCreateSchema = z.object({
+  consumedAt: isoDateTime,
+  mealSlot: z.enum(MEAL_SLOTS),
+  description: z.string().trim().min(1).max(400),
+  caloriesKcal: z.number().int().min(0).max(20000),
+  proteinG: optionalFloat(0, 2000),
+  carbsG: optionalFloat(0, 2000),
+  fatG: optionalFloat(0, 2000),
 });
 
-export const substituteSchema = z.object({
-  foodId: z.string(),
-  quantityG: z.number().min(1),
-});
+export type DiaryEntryCreateInput = z.infer<typeof diaryEntryCreateSchema>;
+
+export const diaryEntryUpdateSchema = diaryEntryCreateSchema.partial();
+export type DiaryEntryUpdateInput = z.infer<typeof diaryEntryUpdateSchema>;

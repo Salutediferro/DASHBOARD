@@ -296,7 +296,7 @@ function PermissionManagerBody({ reportId }: { reportId: string }) {
           </div>
         ) : professionals.length === 0 ? (
           <p className="surface-1 rounded-xl p-3 text-xs text-muted-foreground">
-            Non hai ancora professionisti collegati. Chiedi al tuo medico o
+            Non hai ancora professionisti collegati. Chiedi al tuo professionista o
             coach di instaurare una relazione di cura per poter condividere i
             referti.
           </p>
@@ -367,7 +367,7 @@ function initials(name: string) {
 function roleLabel(role: string) {
   switch (role.toUpperCase()) {
     case "DOCTOR":
-      return "Medico";
+      return "Professionista";
     case "COACH":
       return "Coach";
     case "ADMIN":

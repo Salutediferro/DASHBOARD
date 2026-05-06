@@ -23,6 +23,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/hooks/use-user";
 import { profileFormSchema, type ProfileFormInput } from "@/lib/validators/profile";
+import { SpecialtyPicker } from "@/components/profile/specialty-picker";
+import type { ProfessionalSpecialty } from "@/lib/professional-specialties";
 
 type Props = {
   /** Whether to show the clinical section (patient-only fields). */
@@ -95,7 +97,7 @@ export function ProfileForm({
   const router = useRouter();
   const supabase = createClient();
   const qc = useQueryClient();
-  const { profile, isLoading } = useUser();
+  const { profile, isLoading, isDoctor } = useUser();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormInput>({
@@ -115,7 +117,7 @@ export function ProfileForm({
       injuries: "",
       targetWeightKg: null,
       bio: "",
-      specialties: "",
+      specialties: [],
       timezone: "Europe/Rome",
     },
   });
@@ -131,6 +133,10 @@ export function ProfileForm({
   const timezone = useWatch({
     control: form.control,
     name: "timezone",
+  });
+  const specialtiesValue = useWatch({
+    control: form.control,
+    name: "specialties",
   });
 
   // Hydrate the form once the profile fetch resolves.
@@ -151,7 +157,7 @@ export function ProfileForm({
       injuries: profile.injuries ?? "",
       targetWeightKg: profile.targetWeightKg ?? null,
       bio: profile.bio ?? "",
-      specialties: profile.specialties ?? "",
+      specialties: profile.specialties ?? [],
       timezone: profile.timezone ?? "Europe/Rome",
     });
   }, [profile, form]);
@@ -486,17 +492,20 @@ export function ProfileForm({
                   {...form.register("bio")}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="specialties">Specializzazioni</Label>
-                <Input
-                  id="specialties"
-                  placeholder="Es. Powerlifting, Riabilitazione, Nutrizione sportiva"
-                  {...form.register("specialties")}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Separa con virgole. Verranno mostrate come tag.
-                </p>
-              </div>
+              {isDoctor && (
+                <div className="flex flex-col gap-1.5">
+                  <Label>Specialità</Label>
+                  <SpecialtyPicker
+                    value={specialtiesValue ?? []}
+                    onChange={(next: ProfessionalSpecialty[]) =>
+                      form.setValue("specialties", next, { shouldDirty: true })
+                    }
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    I pazienti vedranno queste specialità quando ti cercano.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

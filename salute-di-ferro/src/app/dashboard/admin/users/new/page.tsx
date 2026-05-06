@@ -221,7 +221,7 @@ export default function AdminCreateUserPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DOCTOR">Medico (DOCTOR)</SelectItem>
+                  <SelectItem value="DOCTOR">Professionista (DOCTOR)</SelectItem>
                   <SelectItem value="COACH">Coach (COACH)</SelectItem>
                 </SelectContent>
               </Select>

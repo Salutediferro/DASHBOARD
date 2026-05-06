@@ -17,7 +17,7 @@ import EmptyState from "@/components/brand/empty-state";
 import QuickLinkCard, { formatItalianDate } from "@/components/dashboard/quick-link-card";
 import RecentActivity from "@/components/dashboard/recent-activity";
 
-export const metadata = { title: "Dashboard medico — Salute di Ferro" };
+export const metadata = { title: "Dashboard professionista — Salute di Ferro" };
 export const dynamic = "force-dynamic";
 
 export default async function DoctorDashboardPage() {

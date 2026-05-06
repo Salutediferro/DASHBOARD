@@ -91,7 +91,7 @@ function HeroPanel() {
           </h1>
           <p className="max-w-md text-base leading-relaxed text-muted-foreground">
             Un unico spazio per allenarti con il tuo coach e monitorare la tua
-            salute con il tuo medico. Dati cifrati, tu scegli con chi
+            salute con il tuo professionista. Dati cifrati, tu scegli con chi
             condividerli.
           </p>
         </div>

@@ -258,7 +258,7 @@ function ThreadHeader({
 function roleLabel(role: string | undefined) {
   switch (role) {
     case "DOCTOR":
-      return "Medico";
+      return "Professionista";
     case "COACH":
       return "Coach";
     case "ADMIN":

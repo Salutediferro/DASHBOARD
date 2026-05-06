@@ -140,7 +140,7 @@ export default async function AdminDashboardPage() {
             href="/dashboard/admin/users/new"
             icon={UserPlus}
             title="Nuovo professionista"
-            description="Invita medico o coach."
+            description="Invita professionista o coach."
           />
           <QuickLinkCard
             href="/dashboard/admin/invitations"

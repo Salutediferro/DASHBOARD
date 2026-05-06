@@ -54,7 +54,7 @@ export default function PatientAppointmentsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Appuntamenti"
-        description="Visite e sessioni con medico e coach. Prenota un nuovo incontro in pochi passaggi."
+        description="Visite e sessioni con professionista e coach. Prenota un nuovo incontro in pochi passaggi."
         className="-mx-4 -mt-4 md:-mx-8 md:-mt-8"
         actions={
           <button

@@ -595,7 +595,7 @@ function InviteStatus({
         <div className="flex-1">
           <p className="font-medium">Sei stato invitato da {invite.professionalName}</p>
           <p className="text-muted-foreground text-xs">
-            {invite.professionalRole === "DOCTOR" ? "Medico" : "Coach"} · Al termine della
+            {invite.professionalRole === "DOCTOR" ? "Professionista" : "Coach"} · Al termine della
             registrazione sarai assegnato automaticamente.
           </p>
         </div>

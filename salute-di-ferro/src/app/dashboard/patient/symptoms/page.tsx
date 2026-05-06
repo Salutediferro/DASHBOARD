@@ -227,7 +227,7 @@ export default function PatientSymptomsPage() {
         </h1>
         <p className="text-muted-foreground text-sm">
           Annota umore, energia, sonno e sintomi. Ti aiuta a riconoscere
-          schemi e a informare il tuo medico.
+          schemi e a informare il tuo professionista.
         </p>
       </header>
 

@@ -322,7 +322,7 @@ export default function AdminInvitationsPage() {
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {row.professionalRole === "DOCTOR"
-                            ? "Medico"
+                            ? "Professionista"
                             : "Coach"}
                         </Badge>
                       </div>

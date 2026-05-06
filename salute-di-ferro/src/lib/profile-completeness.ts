@@ -92,19 +92,30 @@ export function computeProfessionalCompleteness(
   }
   const missing: ProfileField[] = [];
   for (const f of PROFESSIONAL_FIELDS) {
+    // `specialties` is gated to DOCTOR: don't penalize a coach for
+    // missing it, and treat empty array as missing for a doctor.
+    if (f.key === "specialties") {
+      if (profile.role !== "DOCTOR") continue;
+      if ((profile.specialties ?? []).length === 0) missing.push(f);
+      continue;
+    }
     const v = profile[f.key];
     const empty =
       v == null ||
       (typeof v === "string" && v.trim() === "") ||
-      (typeof v === "number" && Number.isNaN(v));
+      (typeof v === "number" && Number.isNaN(v)) ||
+      (Array.isArray(v) && v.length === 0);
     if (empty) missing.push(f);
   }
-  const filled = PROFESSIONAL_FIELDS.length - missing.length;
+  const total = PROFESSIONAL_FIELDS.filter(
+    (f) => f.key !== "specialties" || profile.role === "DOCTOR",
+  ).length;
+  const filled = total - missing.length;
   return {
-    percent: Math.round((filled / PROFESSIONAL_FIELDS.length) * 100),
+    percent: total === 0 ? 0 : Math.round((filled / total) * 100),
     missing,
     missingCritical: missing.filter((f) => f.critical),
-    total: PROFESSIONAL_FIELDS.length,
+    total,
     filled,
   };
 }

@@ -219,7 +219,7 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
   return (
     <EmptyFrame
       title="Nessun appuntamento in programma"
-      description="Prenota il prossimo incontro con medico o coach in pochi passaggi."
+      description="Prenota il prossimo incontro con professionista o coach in pochi passaggi."
       illustration={
         <svg
           role="img"

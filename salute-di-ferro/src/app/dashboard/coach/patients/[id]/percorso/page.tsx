@@ -69,7 +69,7 @@ export default function CoachPatientPercorsoPage() {
           Percorso
         </h1>
         <p className="text-muted-foreground text-sm">
-          Indicazioni del medico — solo lettura
+          Indicazioni del professionista — solo lettura
         </p>
       </header>
 
@@ -82,7 +82,7 @@ export default function CoachPatientPercorsoPage() {
           <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Stethoscope className="text-muted-foreground h-10 w-10" />
             <p className="text-muted-foreground max-w-md text-sm">
-              Il medico non ha ancora registrato indicazioni per questo
+              Il professionista non ha ancora registrato indicazioni per questo
               cliente.
             </p>
           </CardContent>

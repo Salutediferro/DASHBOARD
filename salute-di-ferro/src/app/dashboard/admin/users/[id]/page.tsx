@@ -77,7 +77,7 @@ const ROLE_META: Record<
     tone: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
   },
   DOCTOR: {
-    label: "Medico",
+    label: "Professionista",
     icon: <Stethoscope className="h-3 w-3" />,
     tone: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   },
@@ -419,7 +419,7 @@ export default function AdminUserDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="DOCTOR">Medico</SelectItem>
+                <SelectItem value="DOCTOR">Professionista</SelectItem>
                 <SelectItem value="COACH">Coach</SelectItem>
                 <SelectItem value="PATIENT">Cliente</SelectItem>
               </SelectContent>
@@ -508,7 +508,7 @@ export default function AdminUserDetailPage() {
             </p>
           ) : (
             <p className="text-muted-foreground text-xs">
-              Un medico/coach che ha caricato referti per altri pazienti non
+              Un professionista/coach che ha caricato referti per altri pazienti non
               può essere eliminato finché quei referti non vengono riassegnati
               o cancellati (FK Restrict).
             </p>

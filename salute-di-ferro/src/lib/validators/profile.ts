@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { OVERVIEW_METRIC_KEYS } from "@/lib/overview-metric-keys";
+import { PROFESSIONAL_SPECIALTIES } from "@/lib/professional-specialties";
 
 /**
  * Lenient nullable string: accepts empty strings from the UI and normalizes
@@ -70,9 +71,17 @@ export const profilePatchSchema = z.object({
   injuries: nullableString(2000),
   targetWeightKg: nullableNumber(30, 250),
 
-  // Public professional profile (DOCTOR/COACH only — ignored otherwise)
+  // Public professional profile (DOCTOR only for specialties).
+  // `specialties` accepts canonical values from PROFESSIONAL_SPECIALTIES;
+  // unknown values are silently dropped so the form can't write garbage.
   bio: nullableString(2000),
-  specialties: nullableString(500),
+  specialties: z
+    .array(z.string())
+    .max(20)
+    .optional()
+    .transform((arr) =>
+      arr ? Array.from(new Set(arr.filter((s) => (PROFESSIONAL_SPECIALTIES as readonly string[]).includes(s)))) : undefined,
+    ),
 
   // IANA timezone (e.g. "Europe/Rome"). Validated leniently against the
   // browser's known list at write time — kept loose so a server in a
@@ -117,7 +126,7 @@ export const profileFormSchema = z.object({
   injuries: z.string().max(2000).nullable(),
   targetWeightKg: z.number().nullable(),
   bio: z.string().max(2000).nullable(),
-  specialties: z.string().max(500).nullable(),
+  specialties: z.array(z.string()).max(20),
   timezone: z.string().min(1).max(64),
 });
 

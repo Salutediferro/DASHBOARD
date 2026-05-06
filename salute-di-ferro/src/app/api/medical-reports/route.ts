@@ -181,7 +181,7 @@ export async function POST(req: Request) {
 
   if (me.role !== "PATIENT" && me.role !== "DOCTOR") {
     return NextResponse.json(
-      { error: "Solo cliente o medico possono caricare referti" },
+      { error: "Solo cliente o professionista possono caricare referti" },
       { status: 403 },
     );
   }

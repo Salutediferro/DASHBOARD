@@ -38,12 +38,6 @@ export default function CoachProfilePage() {
   const stats = [
     { label: "Assistiti attivi", value: clientsQuery.data?.total ?? 0 },
     { label: "Sessioni completate", value: completedSessions },
-    {
-      label: "Specialità",
-      value: profile.specialties
-        ? profile.specialties.split(",")[0]?.trim() || "—"
-        : "—",
-    },
   ];
 
   return (

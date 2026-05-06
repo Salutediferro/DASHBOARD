@@ -64,7 +64,7 @@ type Professional = {
     email: string;
     role: string;
     avatarUrl?: string | null;
-    specialties?: string | null;
+    specialties?: string[];
   };
 };
 
@@ -365,7 +365,7 @@ function ProfessionalStep({
   if (professionals.length === 0) {
     return (
       <div className="surface-1 rounded-xl p-5 text-sm text-muted-foreground">
-        Non hai ancora professionisti collegati. Chiedi al tuo medico o coach di
+        Non hai ancora professionisti collegati. Chiedi al tuo professionista o coach di
         instaurare una relazione di cura per prenotare un appuntamento.
       </div>
     );
@@ -428,7 +428,7 @@ function ProfessionalCard({
           <p className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
             {pro.professionalRole === "DOCTOR" ? (
               <>
-                <Stethoscope className="h-3 w-3" aria-hidden /> Medico
+                <Stethoscope className="h-3 w-3" aria-hidden /> Professionista
               </>
             ) : (
               <>
@@ -438,9 +438,9 @@ function ProfessionalCard({
           </p>
         </div>
       </div>
-      {pro.professional.specialties && (
+      {pro.professional.specialties && pro.professional.specialties.length > 0 && (
         <p className="line-clamp-2 text-xs text-muted-foreground">
-          {pro.professional.specialties}
+          {pro.professional.specialties.join(", ")}
         </p>
       )}
       <NextSlotHint professionalId={pro.professional.id} />
@@ -705,7 +705,7 @@ function ConfirmStep({
               {professional.professional.fullName}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              {professional.professionalRole === "DOCTOR" ? "Medico" : "Coach"}
+              {professional.professionalRole === "DOCTOR" ? "Professionista" : "Coach"}
             </p>
           </div>
         </div>

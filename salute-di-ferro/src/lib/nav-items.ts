@@ -1,5 +1,6 @@
 import {
   Activity,
+  Apple,
   Bell,
   Building2,
   Calendar,
@@ -46,8 +47,7 @@ export type NavItem = {
 // and refactors are cheap.
 const G = {
   overview: "Panoramica",
-  journey: "Il mio percorso",
-  therapy: "Supplementazione",
+  program: "Percorso",
   interactions: "Interazioni",
   schedule: "Agenda",
   work: "Il mio lavoro",
@@ -68,6 +68,7 @@ export const adminNav: NavItem[] = [
 export const doctorNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/doctor", icon: LayoutDashboard, mobile: true, group: G.work },
   { label: "I miei clienti", href: "/dashboard/doctor/patients", icon: Users, mobile: true, group: G.work },
+  { label: "Nutrizione", href: "/dashboard/doctor/nutrition", icon: Apple, mobile: true, group: G.work },
   { label: "Calendario", href: "/dashboard/doctor/calendar", icon: Calendar, mobile: true, group: G.schedule },
   { label: "Disponibilità", href: "/dashboard/doctor/availability", icon: CalendarClock, group: G.schedule },
   { label: "Referti", href: "/dashboard/doctor/reports", icon: FileText, group: G.docs },
@@ -86,14 +87,15 @@ export const coachNav: NavItem[] = [
 ];
 
 export const patientNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true, group: G.journey },
-  { label: "Percorso", href: "/dashboard/patient/percorso", icon: Stethoscope, mobile: true, group: G.journey },
-  { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true, group: G.journey },
-  { label: "Cartella dell'utente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true, group: G.journey },
-  { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen, group: G.journey },
-  { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity, group: G.journey },
-  { label: "Supplementi", href: "/dashboard/patient/supplementi", icon: Pill, group: G.therapy },
-  { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, group: G.therapy, badge: "unread-notifications" },
+  { label: "Dashboard", href: "/dashboard/patient", icon: LayoutDashboard, mobile: true },
+  { label: "Dati Salute", href: "/dashboard/patient/health", icon: HeartPulse, mobile: true },
+  { label: "Cartella dell'utente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true },
+  { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen },
+  { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity },
+  { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, badge: "unread-notifications" },
+  { label: "Percorso", href: "/dashboard/patient/percorso", icon: Stethoscope, mobile: true, group: G.program },
+  { label: "Supplementi", href: "/dashboard/patient/supplementi", icon: Pill, group: G.program },
+  { label: "Nutrizione", href: "/dashboard/patient/nutrition", icon: Apple, group: G.program },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true, group: G.interactions },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true, group: G.interactions, badge: "unread-messages" },
   { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound, group: G.account },

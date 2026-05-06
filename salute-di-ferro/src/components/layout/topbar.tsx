@@ -74,7 +74,7 @@ function Breadcrumb({ items }: { items: NavItem[] }) {
 
   const roleRoots: Record<string, { label: string; href: string }> = {
     admin: { label: "Admin", href: "/dashboard/admin" },
-    doctor: { label: "Medico", href: "/dashboard/doctor" },
+    doctor: { label: "Professionista", href: "/dashboard/doctor" },
     coach: { label: "Coach", href: "/dashboard/coach" },
     patient: { label: "Cliente", href: "/dashboard/patient" },
   };

@@ -73,7 +73,7 @@ export function invitationEmail(params: {
     ? `Ciao ${escapeHtml(params.firstName)},`
     : "Ciao,";
   const roleLabel =
-    params.professionalRole === "DOCTOR" ? "il medico" : "il coach";
+    params.professionalRole === "DOCTOR" ? "il professionista" : "il coach";
   const proName = escapeHtml(params.professionalName);
   const expiry = params.expiresAt.toLocaleDateString("it-IT", {
     day: "2-digit",
@@ -126,7 +126,7 @@ export function welcomeProfessionalEmail(params: {
   firstName: string;
   role: "DOCTOR" | "COACH";
 }): { html: string; text: string; subject: string } {
-  const roleLabel = params.role === "DOCTOR" ? "medico" : "coach";
+  const roleLabel = params.role === "DOCTOR" ? "professionista" : "coach";
   const firstName = escapeHtml(params.firstName);
   const subject = `Benvenuto in Salute di Ferro — imposta la tua password`;
 

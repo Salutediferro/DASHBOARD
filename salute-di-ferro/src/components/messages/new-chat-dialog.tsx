@@ -65,7 +65,7 @@ export function NewChatDialog({ open, onOpenChange }: Props) {
         id: p.professional.id,
         fullName: p.professional.fullName,
         avatarUrl: p.professional.avatarUrl,
-        roleLabel: p.professionalRole === "DOCTOR" ? "Medico" : "Coach",
+        roleLabel: p.professionalRole === "DOCTOR" ? "Professionista" : "Coach",
       }))
     : (patientsQuery.data?.items ?? []).map((r) => ({
         id: r.patient.id,
