@@ -1,16 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowLeft,
-  Check,
-  History,
-  Loader2,
-  Pencil,
-  Search,
-  SearchX,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Check, History, Loader2, Pencil, Search, SearchX, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,11 +34,7 @@ import {
   type FoodSearchResult,
   type RecentFood,
 } from "@/lib/hooks/use-foods";
-import {
-  MEAL_SLOTS_ORDERED,
-  mealSlotLabel,
-  defaultMealSlotForHour,
-} from "@/lib/nutrition-labels";
+import { MEAL_SLOTS_ORDERED, mealSlotLabel, defaultMealSlotForHour } from "@/lib/nutrition-labels";
 import { cn } from "@/lib/utils";
 import type { MealSlot } from "@/lib/validators/nutrition";
 
@@ -87,8 +74,7 @@ function extractHm(iso: string) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const numOrEmpty = (v: number | null | undefined) =>
-  v == null ? "" : String(v);
+const numOrEmpty = (v: number | null | undefined) => (v == null ? "" : String(v));
 
 const parseNum = (v: string): number | null => {
   if (v.trim() === "") return null;
@@ -133,9 +119,7 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
   const [fat, setFat] = React.useState("");
 
   // Selected-mode state — only used when mode === "selected"
-  const [selectedFood, setSelectedFood] = React.useState<FoodSearchResult | null>(
-    null,
-  );
+  const [selectedFood, setSelectedFood] = React.useState<FoodSearchResult | null>(null);
   const [grams, setGrams] = React.useState<string>("100");
 
   // Reset on (re)open. Edit mode goes straight to manual.
@@ -295,13 +279,8 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <SlotAndTime
-            slot={slot}
-            time={time}
-            onSlot={setSlot}
-            onTime={setTime}
-          />
+        <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-3">
+          <SlotAndTime slot={slot} time={time} onSlot={setSlot} onTime={setTime} />
 
           {mode === "search" && (
             <SearchPane
@@ -347,10 +326,7 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
             >
               Annulla
             </Button>
-            <Button
-              type="submit"
-              disabled={submitting || mode === "search"}
-            >
+            <Button type="submit" disabled={submitting || mode === "search"}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {editing ? "Salva" : "Aggiungi"}
             </Button>
@@ -382,9 +358,7 @@ function SlotAndTime({
         <Label htmlFor="meal-slot">Pasto</Label>
         <Select value={slot} onValueChange={(v) => onSlot(v as MealSlot)}>
           <SelectTrigger id="meal-slot">
-            <SelectValue>
-              {(v) => (v ? mealSlotLabel(v as MealSlot) : "")}
-            </SelectValue>
+            <SelectValue>{(v) => (v ? mealSlotLabel(v as MealSlot) : "")}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {MEAL_SLOTS_ORDERED.map((s) => (
@@ -397,12 +371,7 @@ function SlotAndTime({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="time">Ora</Label>
-        <Input
-          id="time"
-          type="time"
-          value={time}
-          onChange={(e) => onTime(e.target.value)}
-        />
+        <Input id="time" type="time" value={time} onChange={(e) => onTime(e.target.value)} />
       </div>
     </div>
   );
@@ -424,8 +393,11 @@ function SearchPane({
   const [query, setQuery] = React.useState("");
   const [debounced, setDebounced] = React.useState("");
 
+  // 600ms debounce keeps us well under OFF's 10 req/min/IP quota even
+  // for fast typers — at one fire per pause, a steady 600ms pace is
+  // 100 req/min worst case, but real users pause longer than they type.
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced(query), 250);
+    const t = setTimeout(() => setDebounced(query), 600);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -440,9 +412,11 @@ function SearchPane({
   }, [recent.data, query]);
 
   const offResults = search.data ?? [];
-  const showSearching = debounced.length >= 2 && search.isLoading;
+  // 3-char minimum mirrors useFoodSearch — anything shorter would fire
+  // fuzzy queries that mostly miss anyway and just burn quota.
+  const showSearching = debounced.length >= 3 && search.isLoading;
   const showNoResults =
-    debounced.length >= 2 &&
+    debounced.length >= 3 &&
     !search.isLoading &&
     offResults.length === 0 &&
     filteredRecent.length === 0;
@@ -471,12 +445,9 @@ function SearchPane({
         )}
       </div>
 
-      <div className="-mx-1 flex max-h-[45vh] min-h-0 flex-col overflow-y-auto px-1">
+      <div className="-mx-1 flex max-h-[45vh] min-h-0 flex-col overflow-x-hidden overflow-y-auto px-1">
         {filteredRecent.length > 0 && (
-          <ResultGroup
-            title="Recenti"
-            icon={<History className="h-3 w-3" />}
-          >
+          <ResultGroup title="Recenti" icon={<History className="h-3 w-3" />}>
             {filteredRecent.map((r) => (
               <button
                 key={r.description}
@@ -511,9 +482,7 @@ function SearchPane({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{f.name}</p>
                   <p className="text-muted-foreground mt-0.5 truncate text-[11px]">
-                    {f.brand && (
-                      <span className="font-medium">{f.brand} · </span>
-                    )}
+                    {f.brand && <span className="font-medium">{f.brand} · </span>}
                     {f.kcalPer100g} kcal/100g
                     {f.proteinPer100g != null && ` · ${round1(f.proteinPer100g)}g P`}
                     {f.carbsPer100g != null && ` · ${round1(f.carbsPer100g)}g C`}
@@ -539,9 +508,7 @@ function SearchPane({
         {showNoResults && (
           <div className="flex flex-col items-center gap-2 px-2 py-6 text-center">
             <SearchX className="text-muted-foreground/40 h-7 w-7" />
-            <p className="text-muted-foreground text-xs">
-              Nessun alimento trovato.
-            </p>
+            <p className="text-muted-foreground text-xs">Nessun alimento trovato.</p>
           </div>
         )}
 
@@ -555,13 +522,7 @@ function SearchPane({
         )}
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onCustom}
-        className="self-start"
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={onCustom} className="self-start">
         <Pencil className="h-3.5 w-3.5" /> Inserisci personalizzato
       </Button>
     </div>
@@ -578,8 +539,8 @@ function ResultGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-0.5">
-      <h4 className="text-muted-foreground inline-flex items-center gap-1 px-2 pt-2 text-[10px] font-semibold uppercase tracking-wider">
+    <section className="flex w-full flex-col gap-0.5 overflow-hidden">
+      <h4 className="text-muted-foreground inline-flex items-center gap-1 px-2 pt-2 text-[10px] font-semibold tracking-wider uppercase">
         {icon}
         {title}
       </h4>
@@ -615,9 +576,7 @@ function SelectedPane({
       <div className="border-border bg-muted/40 flex items-start justify-between gap-2 rounded-lg border p-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{food.name}</p>
-          {food.brand && (
-            <p className="text-muted-foreground truncate text-xs">{food.brand}</p>
-          )}
+          {food.brand && <p className="text-muted-foreground truncate text-xs">{food.brand}</p>}
           <p className="text-muted-foreground mt-1 text-[11px]">
             {food.kcalPer100g} kcal/100g
             {food.proteinPer100g != null && ` · ${round1(food.proteinPer100g)}g P`}
@@ -676,13 +635,7 @@ function SelectedPane({
         fat={macros?.fat ?? null}
       />
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onOverride}
-        className="self-start"
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={onOverride} className="self-start">
         <Pencil className="h-3.5 w-3.5" /> Modifica manualmente
       </Button>
     </div>
@@ -735,16 +688,9 @@ function MacroSummary({
   return (
     <div className="grid grid-cols-4 gap-2">
       {cells.map((c) => (
-        <div
-          key={c.label}
-          className="bg-muted/50 rounded-md p-2 text-center"
-        >
-          <p className="font-heading text-base font-semibold tabular-nums">
-            {c.value}
-          </p>
-          <p className="text-muted-foreground text-[10px] uppercase tracking-wide">
-            {c.label}
-          </p>
+        <div key={c.label} className="bg-muted/50 rounded-md p-2 text-center">
+          <p className="font-heading text-base font-semibold tabular-nums">{c.value}</p>
+          <p className="text-muted-foreground text-[10px] tracking-wide uppercase">{c.label}</p>
         </div>
       ))}
     </div>
@@ -785,13 +731,7 @@ function ManualPane({
   return (
     <div className="flex flex-col gap-3">
       {showBack && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="self-start"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onBack} className="self-start">
           <ArrowLeft className="h-3.5 w-3.5" /> Cerca un alimento
         </Button>
       )}

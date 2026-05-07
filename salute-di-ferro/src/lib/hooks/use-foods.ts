@@ -2,16 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-export type FoodSearchResult = {
-  id: string;
-  name: string;
-  brand: string | null;
-  kcalPer100g: number;
-  proteinPer100g: number | null;
-  carbsPer100g: number | null;
-  fatPer100g: number | null;
-  servingG: number | null;
-};
+import {
+  buildOffSearchUrl,
+  parseOffSearchResponse,
+  type FoodSearchResult,
+} from "@/lib/off";
+
+export type { FoodSearchResult } from "@/lib/off";
 
 export type RecentFood = {
   description: string;
@@ -23,22 +20,50 @@ export type RecentFood = {
 };
 
 /**
- * Free-text search against Open Food Facts (proxied by our API). The
- * query string should already be debounced — this hook does not
- * debounce, but only fires for queries with >= 2 characters.
+ * Free-text search against Open Food Facts via our server proxy.
+ *
+ * If the proxy returns 503 with `X-Off-Source: ratelimited`, OFF has
+ * throttled our shared egress IP — we transparently fall back to a
+ * direct browser → OFF fetch so each patient consumes their own
+ * 10 req/min quota instead of fighting over the server's. The result
+ * shape is identical because both paths run through `parseOffSearchResponse`.
+ *
+ * The query string should already be debounced upstream — this hook
+ * does not debounce, but only fires for queries with >= 3 characters.
  */
 export function useFoodSearch(query: string) {
   const trimmed = query.trim();
   return useQuery({
     queryKey: ["foods", "search", trimmed],
     queryFn: async () => {
-      const res = await fetch(
+      const proxyRes = await fetch(
         `/api/nutrition/foods/search?q=${encodeURIComponent(trimmed)}`,
       );
-      if (!res.ok) return [] as FoodSearchResult[];
-      return (await res.json()) as FoodSearchResult[];
+
+      // Server cache hit or fresh OFF call — done.
+      if (proxyRes.ok) {
+        return (await proxyRes.json()) as FoodSearchResult[];
+      }
+
+      // 503 + ratelimited signal: skip the proxy and call OFF straight
+      // from the browser. Other failures: surface an empty list.
+      const ratelimited =
+        proxyRes.status === 503 &&
+        proxyRes.headers.get("X-Off-Source") === "ratelimited";
+      if (!ratelimited) return [] as FoodSearchResult[];
+
+      try {
+        const offRes = await fetch(buildOffSearchUrl(trimmed), {
+          headers: { Accept: "application/json" },
+        });
+        if (!offRes.ok) return [] as FoodSearchResult[];
+        const data = await offRes.json();
+        return parseOffSearchResponse(data, trimmed);
+      } catch {
+        return [] as FoodSearchResult[];
+      }
     },
-    enabled: trimmed.length >= 2,
+    enabled: trimmed.length >= 3,
     staleTime: 60_000,
   });
 }

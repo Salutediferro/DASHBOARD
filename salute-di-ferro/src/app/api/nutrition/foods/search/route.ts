@@ -1,83 +1,51 @@
 import { NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
 
 import { requireRole, errorResponse } from "@/lib/auth/require-role";
+import {
+  buildOffSearchUrl,
+  normalizeQuery,
+  parseOffSearchResponse,
+  type FoodSearchResult,
+} from "@/lib/off";
 
 /**
- * Server-side proxy to Open Food Facts (OFF) so the patient diary picker
- * can suggest known foods with macros. We proxy rather than calling from
- * the client to:
- *   1. Send a polite User-Agent (OFF asks for one),
- *   2. Cache identical searches via Next.js fetch revalidate,
- *   3. Return a small, normalized shape regardless of OFF's broader payload.
+ * Server-side proxy to Open Food Facts (OFF) for the patient diary
+ * picker. Two reasons we route through here instead of always hitting
+ * OFF from the browser:
  *
- * Authentication is required (PATIENT role) — we don't want this acting as
- * an open OFF mirror.
+ *   1. Cross-user dedupe: a Redis cache keyed by normalized query means
+ *      the second patient typing "petto pollo" gets an instant response
+ *      and doesn't burn OFF's quota at all.
+ *   2. Polite UA: OFF asks each app for a `Name/Version (contact)`
+ *      header — browsers can't set User-Agent, so this is the only way.
+ *
+ * OFF's documented limits (https://openfoodfacts.github.io/.../api/) are
+ * 10 req/min/IP for `/search`. Because all server-side calls share our
+ * single egress IP, that quota covers the whole patient base. When OFF
+ * rate-limits us we return 503 with an explicit signal so the client
+ * can fall back to a direct browser → OFF fetch (per-user IP, per-user
+ * quota). Cache writes are skipped on the fallback path to keep this
+ * code path the only writer.
  */
 
-const OFF_BASE = "https://world.openfoodfacts.org/api/v2/search";
-const FIELDS = [
-  "code",
-  "product_name",
-  "product_name_it",
-  "brands",
-  "nutriments",
-  "serving_quantity",
-].join(",");
-const USER_AGENT = "SaluteDiFerro/1.0 (https://salutediferro.it)";
+// Format required by OFF: "AppName/Version (ContactEmail)".
+const USER_AGENT = "SaluteDiFerro/1.0 (support@salutediferro.it)";
 
-export type FoodSearchResult = {
-  /** Stable id — OFF barcode if present, otherwise the name. */
-  id: string;
-  name: string;
-  brand: string | null;
-  kcalPer100g: number;
-  proteinPer100g: number | null;
-  carbsPer100g: number | null;
-  fatPer100g: number | null;
-  /** Standard serving in grams when OFF reports it; null otherwise. */
-  servingG: number | null;
-};
+const CACHE_KEY_PREFIX = "sdf:off:search:";
+const CACHE_TTL_SECONDS = 60 * 60 * 6; // 6h — OFF data changes slowly.
 
-function asNumber(v: unknown): number | null {
-  if (v == null) return null;
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function asString(v: unknown): string | null {
-  return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
-}
-
-function normalize(product: unknown): FoodSearchResult | null {
-  if (!product || typeof product !== "object") return null;
-  const p = product as Record<string, unknown>;
-
-  const name = asString(p.product_name_it) ?? asString(p.product_name);
-  if (!name) return null;
-
-  const nutriments =
-    p.nutriments && typeof p.nutriments === "object"
-      ? (p.nutriments as Record<string, unknown>)
-      : {};
-
-  // OFF stores both `energy-kcal_100g` (preferred) and `energy-kcal`
-  // (per serving). We require per-100g so the rescaling math is honest.
-  const kcal = asNumber(nutriments["energy-kcal_100g"]);
-  if (kcal == null || kcal <= 0) return null;
-
-  const brandsRaw = asString(p.brands);
-  const brand = brandsRaw ? (brandsRaw.split(",")[0]?.trim() ?? null) : null;
-
-  return {
-    id: asString(p.code) ?? name,
-    name,
-    brand,
-    kcalPer100g: Math.round(kcal),
-    proteinPer100g: asNumber(nutriments.proteins_100g),
-    carbsPer100g: asNumber(nutriments.carbohydrates_100g),
-    fatPer100g: asNumber(nutriments.fat_100g),
-    servingG: asNumber(p.serving_quantity),
-  };
+let redisSingleton: Redis | null | undefined;
+function getRedis(): Redis | null {
+  if (redisSingleton !== undefined) return redisSingleton;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    redisSingleton = null;
+    return null;
+  }
+  redisSingleton = new Redis({ url, token });
+  return redisSingleton;
 }
 
 export async function GET(req: Request) {
@@ -87,49 +55,75 @@ export async function GET(req: Request) {
     const q = (url.searchParams.get("q") ?? "").trim();
     if (q.length < 2) return NextResponse.json([]);
 
-    const offUrl = new URL(OFF_BASE);
-    offUrl.searchParams.set("search_terms", q);
-    offUrl.searchParams.set("fields", FIELDS);
-    offUrl.searchParams.set("page_size", "20");
-    offUrl.searchParams.set("lc", "it");
-    offUrl.searchParams.set("cc", "it");
-    offUrl.searchParams.set("sort_by", "unique_scans_n");
+    const cacheKey = CACHE_KEY_PREFIX + normalizeQuery(q);
+    const redis = getRedis();
 
+    // 1. Cache lookup. A hit means we don't touch OFF at all.
+    if (redis) {
+      try {
+        const cached = await redis.get<FoodSearchResult[]>(cacheKey);
+        if (cached) {
+          return NextResponse.json(cached, {
+            headers: { "X-Off-Source": "cache" },
+          });
+        }
+      } catch (err) {
+        console.warn("[off-search] redis get failed", err);
+      }
+    }
+
+    // 2. Miss → call OFF. We share one egress IP across all patients,
+    //    so this is the request OFF rate-limits hardest.
     let res: Response;
     try {
-      res = await fetch(offUrl.toString(), {
+      res = await fetch(buildOffSearchUrl(q), {
         headers: {
           "User-Agent": USER_AGENT,
           Accept: "application/json",
         },
-        // Cache 1h per unique URL — OFF data is slow-changing and identical
-        // searches are common.
-        next: { revalidate: 3600 },
+        // HTTP-level revalidate is a cheap second layer beneath Redis —
+        // helps if Redis is unreachable or evicted the entry.
+        next: { revalidate: CACHE_TTL_SECONDS },
       });
     } catch (err) {
       console.warn("[off-search] network error", err);
-      return NextResponse.json([]);
+      // Network glitch — let the client retry directly.
+      return NextResponse.json([], {
+        status: 503,
+        headers: { "X-Off-Source": "ratelimited" },
+      });
+    }
+
+    // 3. Rate-limit handoff. OFF returns 429 when the IP exceeds quota;
+    //    treat 5xx the same way (transient backend issue → let the
+    //    browser try its own IP).
+    if (res.status === 429 || res.status >= 500) {
+      console.warn("[off-search] OFF rate-limited / unavailable", res.status);
+      return NextResponse.json([], {
+        status: 503,
+        headers: { "X-Off-Source": "ratelimited" },
+      });
     }
 
     if (!res.ok) {
       console.warn("[off-search] non-ok response", res.status);
-      console.warn(await res.text());
-
-      return NextResponse.json([]);
+      return NextResponse.json([], { headers: { "X-Off-Source": "off" } });
     }
 
     const data: unknown = await res.json().catch(() => null);
-    const products =
-      data && typeof data === "object" && Array.isArray((data as { products?: unknown }).products)
-        ? (data as { products: unknown[] }).products
-        : [];
+    const results = parseOffSearchResponse(data, q);
 
-    const results = products
-      .map(normalize)
-      .filter((r): r is FoodSearchResult => r != null)
-      .slice(0, 20);
+    // 4. Populate cache. Even an empty result set is worth caching to
+    //    spare OFF the same dud query 100 times in a row.
+    if (redis) {
+      try {
+        await redis.set(cacheKey, results, { ex: CACHE_TTL_SECONDS });
+      } catch (err) {
+        console.warn("[off-search] redis set failed", err);
+      }
+    }
 
-    return NextResponse.json(results);
+    return NextResponse.json(results, { headers: { "X-Off-Source": "off" } });
   } catch (e) {
     return errorResponse(e);
   }
