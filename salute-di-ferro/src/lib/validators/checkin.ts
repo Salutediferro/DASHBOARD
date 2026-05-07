@@ -11,7 +11,9 @@ export const measurementsSchema = z.object({
 });
 
 export const createCheckInSchema = z.object({
-  weightKg: z.number().min(30).max(250),
+  // Optional: a check-in is still useful (photos + notes for the coach)
+  // on weeks where the patient hasn't weighed in.
+  weightKg: z.number().min(30).max(250).nullable(),
   measurements: measurementsSchema,
   frontPhotoUrl: z.string().nullable(),
   sidePhotoUrl: z.string().nullable(),

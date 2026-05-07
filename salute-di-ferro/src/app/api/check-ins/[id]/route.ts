@@ -78,6 +78,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     professionalId: true,
     professionalRole: true,
     patient: { select: { id: true, fullName: true, email: true } },
+    professional: { select: { id: true, fullName: true, avatarUrl: true } },
   } as const;
 
   const current = await prisma.checkIn.findUnique({

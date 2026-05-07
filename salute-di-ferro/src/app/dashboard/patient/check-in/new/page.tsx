@@ -145,11 +145,14 @@ export default function NewCheckInPage() {
         const v = measurements[key];
         parsed[key] = v ? Number(v) : null;
       }
+      // Treat empty / non-numeric weight as null so the patient can
+      // submit photos + notes without weighing in.
+      const weightNum = weight.trim() === "" ? null : Number(weight);
       const res = await fetch("/api/check-ins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          weightKg: Number(weight),
+          weightKg: weightNum != null && Number.isFinite(weightNum) ? weightNum : null,
           measurements: parsed,
           frontPhotoUrl: front,
           sidePhotoUrl: side,
@@ -163,7 +166,9 @@ export default function NewCheckInPage() {
     },
     onSuccess: () => {
       toast.success("Check-in inviato");
-      router.replace("/dashboard/patient");
+      // Drop the patient back on the check-in index so they see their
+      // submission at the top of the cronologia immediately.
+      router.replace("/dashboard/patient/check-in");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -182,7 +187,7 @@ export default function NewCheckInPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 p-5">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="weight">Peso attuale (kg)</Label>
+            <Label htmlFor="weight">Peso attuale (kg) · facoltativo</Label>
             <Input
               id="weight"
               type="number"

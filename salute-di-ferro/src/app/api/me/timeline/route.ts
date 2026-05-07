@@ -114,6 +114,7 @@ export async function GET() {
   const events: TimelineEvent[] = [];
 
   for (const c of checkIns) {
+    const detailHref = `/dashboard/patient/check-in/${c.id}`;
     events.push({
       id: `checkin:${c.id}`,
       kind: "CHECK_IN",
@@ -127,7 +128,7 @@ export async function GET() {
         ]
           .filter(Boolean)
           .join(" · ") || null,
-      href: "/dashboard/patient",
+      href: detailHref,
       meta: { status: c.status },
     });
     if (c.professionalFeedback) {
@@ -137,7 +138,7 @@ export async function GET() {
         date: c.date.toISOString(),
         title: "Feedback dal tuo professionista",
         description: c.professionalFeedback.slice(0, 160),
-        href: "/dashboard/patient",
+        href: detailHref,
         meta: null,
       });
     }
