@@ -34,7 +34,12 @@ import {
   type FoodSearchResult,
   type RecentFood,
 } from "@/lib/hooks/use-foods";
-import { MEAL_SLOTS_ORDERED, mealSlotLabel, defaultMealSlotForHour } from "@/lib/nutrition-labels";
+import {
+  MEAL_SLOTS_ORDERED,
+  mealSlotLabel,
+  defaultMealSlotForHour,
+  defaultTimeForMealSlot,
+} from "@/lib/nutrition-labels";
 import { cn } from "@/lib/utils";
 import type { MealSlot } from "@/lib/validators/nutrition";
 
@@ -45,6 +50,12 @@ type Props = {
   date: string;
   /** When set, the dialog is in "edit" mode for that entry. */
   entry?: DiaryEntry | null;
+  /**
+   * When opening in create mode from a specific meal-slot card, pre-pick
+   * that slot and default the time to the slot's conventional time
+   * (e.g. LUNCH → 13:00). Ignored in edit mode.
+   */
+  initialSlot?: MealSlot;
 };
 
 /**
@@ -101,7 +112,7 @@ function scale(food: FoodSearchResult, grams: number) {
   };
 }
 
-export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
+export function DiaryEntryDialog({ open, onOpenChange, date, entry, initialSlot }: Props) {
   const create = useCreateDiaryEntry(date);
   const update = useUpdateDiaryEntry(date);
   const editing = !!entry;
@@ -138,8 +149,12 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
       setGrams("100");
     } else {
       setMode("search");
-      setTime(nowHm());
-      setSlot(defaultMealSlotForHour(new Date().getHours()));
+      // If the patient opened the dialog from a specific meal card, the
+      // slot/time should match that card; otherwise pick by current hour
+      // and use the wall-clock time.
+      const pickedSlot = initialSlot ?? defaultMealSlotForHour(new Date().getHours());
+      setSlot(pickedSlot);
+      setTime(initialSlot ? defaultTimeForMealSlot(initialSlot) : nowHm());
       setDescription("");
       setCalories("");
       setProtein("");
@@ -148,7 +163,7 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
       setSelectedFood(null);
       setGrams("100");
     }
-  }, [open, entry]);
+  }, [open, entry, initialSlot]);
 
   const submitting = create.isPending || update.isPending;
 

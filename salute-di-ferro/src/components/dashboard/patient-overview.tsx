@@ -254,7 +254,7 @@ const REGISTRY: Record<OverviewMetricKey, MetricDef> = {
   },
   glucosePostMeal: {
     label: "Glicemia post-pasto",
-    description: "Glicemia 2h dopo il pasto (mg/dL).",
+    description: "Glicemia 8h dopo il pasto (mg/dL).",
     category: "Metabolico",
     Component: makeSimple("glucosePostMeal", "Glicemia post-pasto", "mg/dL", true, fmtInt),
   },

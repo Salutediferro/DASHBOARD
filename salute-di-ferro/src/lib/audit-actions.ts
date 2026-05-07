@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = [
   "NUTRITION_DIARY_CREATE",
   "NUTRITION_DIARY_UPDATE",
   "NUTRITION_DIARY_DELETE",
+  "NUTRITION_DIARY_COPY",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

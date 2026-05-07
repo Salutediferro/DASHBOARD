@@ -3,11 +3,7 @@ import type { Prisma, ProfessionalRole } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
-import {
-  findConflict,
-  notifyAppointment,
-  resolveCaller,
-} from "@/lib/appointments/access";
+import { findConflict, notifyAppointment, resolveCaller } from "@/lib/appointments/access";
 
 function serialize(a: {
   id: string;
@@ -159,10 +155,7 @@ export async function POST(req: Request) {
     professionalRole = input.professionalRole;
   } else {
     if (!input.patientId) {
-      return NextResponse.json(
-        { error: "patientId obbligatorio" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "patientId obbligatorio" }, { status: 400 });
     }
     professionalId = me.id;
     patientId = input.patientId;
@@ -182,8 +175,7 @@ export async function POST(req: Request) {
   if (!rel) {
     return NextResponse.json(
       {
-        error:
-          "Nessuna relazione di cura attiva tra il cliente e il professionista",
+        error: "Nessuna relazione di cura attiva tra il cliente e il professionista",
       },
       { status: 403 },
     );

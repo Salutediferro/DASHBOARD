@@ -47,7 +47,6 @@ export type NavItem = {
 // and refactors are cheap.
 const G = {
   overview: "Panoramica",
-  program: "Percorso",
   interactions: "Interazioni",
   schedule: "Agenda",
   work: "Il mio lavoro",
@@ -92,11 +91,11 @@ export const patientNav: NavItem[] = [
   { label: "Cartella dell'utente", href: "/dashboard/patient/medical-records", icon: ClipboardList, mobile: true },
   { label: "Diario", href: "/dashboard/patient/symptoms", icon: NotebookPen },
   { label: "Timeline", href: "/dashboard/patient/timeline", icon: Activity },
-  { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, badge: "unread-notifications" },
-  { label: "Percorso", href: "/dashboard/patient/percorso", icon: Stethoscope, mobile: true, group: G.program },
-  { label: "Supplementi", href: "/dashboard/patient/supplementi", icon: Pill, group: G.program },
-  { label: "Nutrizione", href: "/dashboard/patient/nutrition", icon: Apple, group: G.program },
+  { label: "Percorso", href: "/dashboard/patient/percorso", icon: Stethoscope, mobile: true },
+  { label: "Supplementi", href: "/dashboard/patient/supplementi", icon: Pill },
+  { label: "Nutrizione", href: "/dashboard/patient/nutrition", icon: Apple },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true, group: G.interactions },
+  { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, group: G.interactions, badge: "unread-notifications" },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true, group: G.interactions, badge: "unread-messages" },
   { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound, group: G.account },
 ];

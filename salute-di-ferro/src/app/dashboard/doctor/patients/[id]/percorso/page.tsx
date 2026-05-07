@@ -5,24 +5,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Archive,
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Plus,
-  Stethoscope,
-  Trash2,
-} from "lucide-react";
+import { Archive, ArrowLeft, CheckCircle2, Loader2, Plus, Stethoscope, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -71,10 +58,7 @@ export default function DoctorPatientPercorsoPage() {
   const patientId = params.id;
   const qc = useQueryClient();
 
-  const queryKey = React.useMemo(
-    () => ["therapy", "PRESCRIBED", patientId] as const,
-    [patientId],
-  );
+  const queryKey = React.useMemo(() => ["therapy", "PRESCRIBED", patientId] as const, [patientId]);
 
   const [showForm, setShowForm] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
@@ -82,9 +66,7 @@ export default function DoctorPatientPercorsoPage() {
   const { data, isLoading } = useQuery<{ items: PrescribedItem[] }>({
     queryKey,
     queryFn: async () => {
-      const res = await fetch(
-        `/api/therapy?kind=PRESCRIBED&patientId=${patientId}`,
-      );
+      const res = await fetch(`/api/therapy?kind=PRESCRIBED&patientId=${patientId}`);
       if (!res.ok) throw new Error("Errore caricamento");
       return res.json();
     },
@@ -108,9 +90,7 @@ export default function DoctorPatientPercorsoPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof err.error === "string" ? err.error : "Errore",
-        );
+        throw new Error(typeof err.error === "string" ? err.error : "Errore");
       }
       return res.json();
     },
@@ -201,9 +181,7 @@ export default function DoctorPatientPercorsoPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Percorso
-          </h1>
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">Percorso</h1>
           <p className="text-muted-foreground text-sm">
             Indicazioni che il cliente vedrà nel suo percorso.
           </p>
@@ -245,9 +223,7 @@ export default function DoctorPatientPercorsoPage() {
                   id="frequency"
                   placeholder="Es. 1 volta al giorno dopo colazione"
                   value={form.frequency}
-                  onChange={(e) =>
-                    setForm({ ...form, frequency: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -256,9 +232,7 @@ export default function DoctorPatientPercorsoPage() {
                   id="startDate"
                   type="date"
                   value={form.startDate}
-                  onChange={(e) =>
-                    setForm({ ...form, startDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -267,9 +241,7 @@ export default function DoctorPatientPercorsoPage() {
                   id="endDate"
                   type="date"
                   value={form.endDate}
-                  onChange={(e) =>
-                    setForm({ ...form, endDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-1.5 md:col-span-2">
@@ -295,14 +267,8 @@ export default function DoctorPatientPercorsoPage() {
               >
                 Annulla
               </Button>
-              <Button
-                type="button"
-                onClick={submit}
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+              <Button type="button" onClick={submit} disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salva
               </Button>
             </div>
@@ -408,19 +374,13 @@ function PercorsoSection({
                     )}
                   </div>
                   {i.frequency && (
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {i.frequency}
-                    </p>
+                    <p className="text-muted-foreground mt-0.5 text-xs">{i.frequency}</p>
                   )}
                   <p className="text-muted-foreground mt-1 text-xs">
                     Dal {fmtDate(i.startDate)}
                     {i.endDate && ` al ${fmtDate(i.endDate)}`}
                   </p>
-                  {i.notes && (
-                    <p className="mt-1 text-xs whitespace-pre-wrap">
-                      {i.notes}
-                    </p>
-                  )}
+                  {i.notes && <p className="mt-1 text-xs whitespace-pre-wrap">{i.notes}</p>}
                 </div>
                 <div className="flex items-center gap-1">
                   <button

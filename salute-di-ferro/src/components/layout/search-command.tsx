@@ -130,8 +130,8 @@ export function SearchCommand({
                     <CommandItem
                       key={item.href}
                       // Including the group title in `value` makes the
-                      // group-name searchable too (e.g. typing "percorso"
-                      // surfaces every item in the Percorso section).
+                      // group-name searchable too (e.g. typing "interazioni"
+                      // surfaces every item in the Interazioni section).
                       value={`${item.label} ${section.title ?? ""}`}
                       onSelect={() => onSelect(item.href)}
                     >

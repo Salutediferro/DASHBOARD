@@ -247,3 +247,24 @@ export function useDeleteDiaryEntry(date: string) {
     },
   });
 }
+
+/**
+ * Bulk-copy diary entries from one day onto another. Used by the
+ * "Copia da..." flow on the patient diary — most patients eat the same
+ * things most days, so re-typing yesterday's meals every morning is the
+ * thing we're explicitly trying to remove.
+ */
+export function useCopyDay(targetDate: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      sourceDate: string;
+      targetDate: string;
+      entryIds?: string[];
+    }) =>
+      sendJson<{ created: number }>("/api/nutrition/diary/copy", "POST", input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: diaryKeys.day(targetDate) });
+    },
+  });
+}

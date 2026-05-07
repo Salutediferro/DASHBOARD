@@ -2,24 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  Calendar,
-  Eye,
-  FileText,
-  Image as ImageIcon,
-  Loader2,
-  User,
-} from "lucide-react";
+import { Calendar, Eye, FileText, Image as ImageIcon, Loader2, User } from "lucide-react";
 import type { MedicalReportCategory } from "@prisma/client";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,15 +42,12 @@ function initials(name: string) {
 }
 
 function IconFor({ mime }: { mime: string }) {
-  if (mime.startsWith("image/"))
-    return <ImageIcon className="text-primary h-5 w-5" />;
+  if (mime.startsWith("image/")) return <ImageIcon className="text-primary h-5 w-5" />;
   return <FileText className="text-primary h-5 w-5" />;
 }
 
 export default function DoctorReportsPage() {
-  const [category, setCategory] = React.useState<
-    MedicalReportCategory | "ALL"
-  >("ALL");
+  const [category, setCategory] = React.useState<MedicalReportCategory | "ALL">("ALL");
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
   const [patientFilter, setPatientFilter] = React.useState<string>("ALL");
@@ -83,34 +68,25 @@ export default function DoctorReportsPage() {
         map.set(r.patientId, { id: r.patientId, fullName: r.patient.fullName });
       }
     }
-    return Array.from(map.values()).sort((a, b) =>
-      a.fullName.localeCompare(b.fullName, "it"),
-    );
+    return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, "it"));
   }, [data]);
 
   const filtered =
-    patientFilter === "ALL"
-      ? data
-      : data.filter((r) => r.patientId === patientFilter);
+    patientFilter === "ALL" ? data : data.filter((r) => r.patientId === patientFilter);
 
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Referti condivisi
-        </h1>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">Referti condivisi</h1>
         <p className="text-muted-foreground text-sm">
           Tutti i referti che i tuoi clienti hanno scelto di condividere con te.
         </p>
       </header>
 
-      <div className="flex flex-wrap items-end gap-3 border-b border-border pb-4">
+      <div className="border-border flex flex-wrap items-end gap-3 border-b pb-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="patient">Cliente</Label>
-          <Select
-            value={patientFilter}
-            onValueChange={(v) => setPatientFilter(v ?? "ALL")}
-          >
+          <Select value={patientFilter} onValueChange={(v) => setPatientFilter(v ?? "ALL")}>
             <SelectTrigger id="patient" className="w-[240px]">
               <SelectValue />
             </SelectTrigger>
@@ -128,9 +104,7 @@ export default function DoctorReportsPage() {
           <Label htmlFor="cat">Categoria</Label>
           <Select
             value={category}
-            onValueChange={(v) =>
-              setCategory(v as MedicalReportCategory | "ALL")
-            }
+            onValueChange={(v) => setCategory(v as MedicalReportCategory | "ALL")}
           >
             <SelectTrigger id="cat" className="w-[200px]">
               <SelectValue />
@@ -147,21 +121,11 @@ export default function DoctorReportsPage() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="from">Dal</Label>
-          <Input
-            id="from"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
+          <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="to">Al</Label>
-          <Input
-            id="to"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
+          <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
       </div>
 
@@ -190,10 +154,7 @@ export default function DoctorReportsPage() {
           <CardContent className="p-0">
             <ul className="divide-border divide-y">
               {filtered.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex flex-wrap items-center gap-3 px-4 py-3"
-                >
+                <li key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-primary/20 text-primary text-xs">
                       {initials(r.patient.fullName)}
@@ -215,9 +176,7 @@ export default function DoctorReportsPage() {
                       </Badge>
                       <span className="inline-flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {r.issuedAt
-                          ? formatDate(r.issuedAt)
-                          : formatDate(r.uploadedAt)}
+                        {r.issuedAt ? formatDate(r.issuedAt) : formatDate(r.uploadedAt)}
                       </span>
                       <span>caricato da {r.uploadedBy.fullName}</span>
                     </div>

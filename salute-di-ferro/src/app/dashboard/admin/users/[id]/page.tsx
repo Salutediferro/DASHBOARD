@@ -28,12 +28,7 @@ import { toast } from "@/lib/toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -67,10 +62,7 @@ type ResetPasswordResult = {
   fallbackLink: string | null;
 };
 
-const ROLE_META: Record<
-  UserRole,
-  { label: string; icon: React.ReactNode; tone: string }
-> = {
+const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; tone: string }> = {
   ADMIN: {
     label: "Admin",
     icon: <Shield className="h-3 w-3" />,
@@ -118,10 +110,7 @@ async function patchUser(id: string, body: unknown) {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg =
-      typeof json?.error === "string"
-        ? json.error
-        : "Azione fallita, riprova";
+    const msg = typeof json?.error === "string" ? json.error : "Azione fallita, riprova";
     throw new Error(msg);
   }
   return json;
@@ -132,7 +121,11 @@ export default function AdminUserDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: user, isLoading, isError } = useQuery<UserDetail>({
+  const {
+    data: user,
+    isLoading,
+    isError,
+  } = useQuery<UserDetail>({
     queryKey: ["admin-user", id],
     queryFn: async () => {
       const res = await fetch(`/api/admin/users/${id}`);
@@ -181,12 +174,8 @@ export default function AdminUserDetailPage() {
       if (data.emailDelivered) {
         toast.success("Email di reset inviata");
       } else if (data.fallbackLink) {
-        void navigator.clipboard
-          ?.writeText(data.fallbackLink)
-          .catch(() => undefined);
-        toast.warning(
-          "Invio email fallito — link di reset copiato negli appunti",
-        );
+        void navigator.clipboard?.writeText(data.fallbackLink).catch(() => undefined);
+        toast.warning("Invio email fallito — link di reset copiato negli appunti");
       }
       invalidate();
     },
@@ -198,11 +187,7 @@ export default function AdminUserDetailPage() {
       const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(
-          typeof json?.error === "string"
-            ? json.error
-            : "Eliminazione fallita",
-        );
+        throw new Error(typeof json?.error === "string" ? json.error : "Eliminazione fallita");
       }
       return json as { ok: true; storagePurged: number };
     },
@@ -249,7 +234,7 @@ export default function AdminUserDetailPage() {
         <Skeleton className="h-5 w-36" />
         <div className="flex flex-wrap items-center gap-4">
           <Skeleton className="h-16 w-16 rounded-full" />
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex flex-1 flex-col gap-2">
             <Skeleton className="h-6 w-64" />
             <Skeleton className="h-3 w-48" />
           </div>
@@ -263,9 +248,7 @@ export default function AdminUserDetailPage() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            Utente non trovato o accesso negato.
-          </p>
+          <p className="text-muted-foreground text-sm">Utente non trovato o accesso negato.</p>
           <Button variant="outline" onClick={() => router.back()}>
             Indietro
           </Button>
@@ -293,13 +276,8 @@ export default function AdminUserDetailPage() {
         </Avatar>
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              {user.fullName}
-            </h1>
-            <Badge
-              variant="secondary"
-              className={cn("gap-1", ROLE_META[user.role].tone)}
-            >
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">{user.fullName}</h1>
+            <Badge variant="secondary" className={cn("gap-1", ROLE_META[user.role].tone)}>
               {ROLE_META[user.role].icon}
               {ROLE_META[user.role].label}
             </Badge>
@@ -356,9 +334,8 @@ export default function AdminUserDetailPage() {
             <Button
               variant="outline"
               onClick={() =>
-                confirmThen(
-                  `Ripristinare ${user.fullName}? Tornerà a poter fare login.`,
-                  () => restoreMutation.mutate(),
+                confirmThen(`Ripristinare ${user.fullName}? Tornerà a poter fare login.`, () =>
+                  restoreMutation.mutate(),
                 )
               }
               disabled={restoreMutation.isPending}
@@ -400,16 +377,15 @@ export default function AdminUserDetailPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Il ruolo è sincronizzato con Supabase <code>app_metadata</code>.
-            Cambiarlo aggiorna subito i permessi su tutta la piattaforma.
+            Il ruolo è sincronizzato con Supabase <code>app_metadata</code>. Cambiarlo aggiorna
+            subito i permessi su tutta la piattaforma.
           </p>
           <div className="flex items-center gap-2">
             <Select
               value={user.role}
               onValueChange={(v) =>
-                confirmThen(
-                  `Cambiare il ruolo di ${user.fullName} da ${user.role} a ${v}?`,
-                  () => roleMutation.mutate(v as UserRole),
+                confirmThen(`Cambiare il ruolo di ${user.fullName} da ${user.role} a ${v}?`, () =>
+                  roleMutation.mutate(v as UserRole),
                 )
               }
               disabled={roleMutation.isPending || disabled}
@@ -437,17 +413,15 @@ export default function AdminUserDetailPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Invia all&apos;utente un&apos;email con un link per reimpostare
-            la password (valido 24h). Se l&apos;invio email fallisce, il link
-            viene copiato automaticamente negli appunti per l&apos;inoltro
-            manuale.
+            Invia all&apos;utente un&apos;email con un link per reimpostare la password (valido
+            24h). Se l&apos;invio email fallisce, il link viene copiato automaticamente negli
+            appunti per l&apos;inoltro manuale.
           </p>
           <Button
             variant="outline"
             onClick={() =>
-              confirmThen(
-                `Inviare un'email di reset password a ${user.email}?`,
-                () => resetMutation.mutate(),
+              confirmThen(`Inviare un'email di reset password a ${user.email}?`, () =>
+                resetMutation.mutate(),
               )
             }
             disabled={resetMutation.isPending || disabled}
@@ -469,16 +443,11 @@ export default function AdminUserDetailPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
-            Scarica un JSON con tutti i dati dell&apos;utente: profilo,
-            misurazioni, appuntamenti, referti (metadati), permessi, messaggi,
-            notifiche, audit log. I file dei referti non sono inclusi — vanno
-            scaricati separatamente con i signed URL.
+            Scarica un JSON con tutti i dati dell&apos;utente: profilo, misurazioni, appuntamenti,
+            referti (metadati), permessi, messaggi, notifiche, audit log. I file dei referti non
+            sono inclusi — vanno scaricati separatamente con i signed URL.
           </p>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={handleExport} className="gap-2">
             <Download className="h-4 w-4" />
             Scarica export JSON
           </Button>
@@ -494,23 +463,19 @@ export default function AdminUserDetailPage() {
         <CardContent className="flex flex-col gap-4">
           <p className="text-muted-foreground max-w-prose text-sm">
             Elimina l&apos;utente e tutti i suoi dati in modo{" "}
-            <strong className="text-red-600 dark:text-red-400">
-              irreversibile
-            </strong>
-            . Purga i file dallo storage, elimina l&apos;account Supabase, e
-            cascata tutte le relazioni Prisma. Richiesta per l&apos;esercizio
-            del diritto all&apos;oblio.
+            <strong className="text-red-600 dark:text-red-400">irreversibile</strong>. Purga i file
+            dallo storage, elimina l&apos;account Supabase, e cascata tutte le relazioni Prisma.
+            Richiesta per l&apos;esercizio del diritto all&apos;oblio.
           </p>
           {!disabled ? (
             <p className="text-muted-foreground text-xs">
-              ⚠︎ Prima disabilita l&apos;utente (sezione &ldquo;Stato
-              account&rdquo;). Il processo è a due passi di sicurezza.
+              ⚠︎ Prima disabilita l&apos;utente (sezione &ldquo;Stato account&rdquo;). Il processo è
+              a due passi di sicurezza.
             </p>
           ) : (
             <p className="text-muted-foreground text-xs">
-              Un professionista/coach che ha caricato referti per altri pazienti non
-              può essere eliminato finché quei referti non vengono riassegnati
-              o cancellati (FK Restrict).
+              Un professionista/coach che ha caricato referti per altri pazienti non può essere
+              eliminato finché quei referti non vengono riassegnati o cancellati (FK Restrict).
             </p>
           )}
           <div className="flex justify-end">

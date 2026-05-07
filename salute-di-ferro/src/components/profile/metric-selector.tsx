@@ -115,7 +115,7 @@ const METRIC_META: Record<OverviewMetricKey, MetricMeta> = {
   },
   glucosePostMeal: {
     label: "Glicemia post-pasto",
-    description: "Glicemia 2h dopo il pasto.",
+    description: "Glicemia 8h dopo il pasto.",
     category: "Metabolico",
   },
   bodyTempC: {

@@ -3,13 +3,14 @@
 import * as React from "react";
 import {
   Apple,
+  CalendarDays,
+  Copy,
   History,
   Loader2,
-  Pencil,
   Plus,
   Search,
   Stethoscope,
-  Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,9 +34,14 @@ import {
 import {
   MEAL_SLOTS_ORDERED,
   mealSlotLabel,
+  mealSlotShortLabel,
+  MealSlotIcon,
+  defaultTimeForMealSlot,
 } from "@/lib/nutrition-labels";
 import { cn } from "@/lib/utils";
+import type { MealSlot } from "@/lib/validators/nutrition";
 
+import { CopyMealsDialog } from "./_components/copy-meals-dialog";
 import { DiaryEntryDialog } from "./_components/diary-entry-dialog";
 import { FindProfessionalDialog } from "./_components/find-professional-dialog";
 import { PlanHistoryDialog } from "./_components/plan-history-dialog";
@@ -47,18 +53,11 @@ function todayIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function fmtDay(iso: string) {
+function fmtNumeric(iso: string) {
   return new Date(iso).toLocaleDateString("it-IT", {
-    weekday: "long",
     day: "2-digit",
-    month: "short",
-  });
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 }
 
@@ -285,37 +284,56 @@ function ActivePlanCard({
 }
 
 // ----------------------------------------------------------------------------
-// Diary section — date picker, totals, entries grouped by meal slot
+// Diary section — header, totals, slot pills, one card per meal slot
 // ----------------------------------------------------------------------------
+
+type MacroTone = "red" | "emerald" | "amber" | "sky";
+
+const STAT_TONE: Record<MacroTone, string> = {
+  red: "text-red-500",
+  emerald: "text-emerald-600",
+  amber: "text-amber-500",
+  sky: "text-sky-500",
+};
+
+const PILL_TONE: Record<MacroTone, string> = {
+  red: "bg-red-50 text-red-700 ring-red-200",
+  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  amber: "bg-amber-50 text-amber-700 ring-amber-200",
+  sky: "bg-sky-50 text-sky-700 ring-sky-200",
+};
+
+function totalsOf(entries: DiaryEntry[]) {
+  return entries.reduce(
+    (acc, e) => {
+      acc.kcal += e.caloriesKcal;
+      acc.protein += e.proteinG ?? 0;
+      acc.carbs += e.carbsG ?? 0;
+      acc.fat += e.fatG ?? 0;
+      return acc;
+    },
+    { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+  );
+}
 
 function DiarySection() {
   const [date, setDate] = React.useState(todayIso());
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<DiaryEntry | null>(null);
+  const [initialSlot, setInitialSlot] = React.useState<MealSlot | undefined>(
+    undefined,
+  );
+  const [copyOpen, setCopyOpen] = React.useState(false);
   const diary = useDiary(date);
   const remove = useDeleteDiaryEntry(date);
 
   const entries = React.useMemo(() => diary.data ?? [], [diary.data]);
-
-  const totals = React.useMemo(() => {
-    return entries.reduce(
-      (acc, e) => {
-        acc.kcal += e.caloriesKcal;
-        acc.protein += e.proteinG ?? 0;
-        acc.carbs += e.carbsG ?? 0;
-        acc.fat += e.fatG ?? 0;
-        return acc;
-      },
-      { kcal: 0, protein: 0, carbs: 0, fat: 0 },
-    );
-  }, [entries]);
+  const totals = React.useMemo(() => totalsOf(entries), [entries]);
 
   const grouped = React.useMemo(() => {
-    const map = new Map<string, DiaryEntry[]>();
+    const map = new Map<MealSlot, DiaryEntry[]>();
     for (const slot of MEAL_SLOTS_ORDERED) map.set(slot, []);
-    for (const e of entries) {
-      map.get(e.mealSlot)?.push(e);
-    }
+    for (const e of entries) map.get(e.mealSlot)?.push(e);
     for (const arr of map.values()) {
       arr.sort(
         (a, b) =>
@@ -325,13 +343,25 @@ function DiarySection() {
     return map;
   }, [entries]);
 
-  function openCreate() {
+  // Always show the 5 main slots; only show EVENING_SNACK when the
+  // patient actually used it that day, since most don't.
+  const visibleSlots = React.useMemo(
+    () =>
+      MEAL_SLOTS_ORDERED.filter(
+        (s) => s !== "EVENING_SNACK" || (grouped.get(s)?.length ?? 0) > 0,
+      ),
+    [grouped],
+  );
+
+  function openCreate(slot?: MealSlot) {
     setEditing(null);
+    setInitialSlot(slot);
     setDialogOpen(true);
   }
 
   function openEdit(entry: DiaryEntry) {
     setEditing(entry);
+    setInitialSlot(undefined);
     setDialogOpen(true);
   }
 
@@ -343,139 +373,325 @@ function DiarySection() {
       .catch((err: Error) => toast.error(err.message));
   }
 
-  return (
-    <>
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-          <CardTitle className="text-base">
-            {date === todayIso() ? "Oggi" : fmtDay(date)}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Input
-              type="date"
-              value={date}
-              max={todayIso()}
-              onChange={(e) => setDate(e.target.value)}
-              className="h-9 w-auto"
-            />
-            <Button type="button" size="sm" onClick={openCreate}>
-              <Plus className="h-3.5 w-3.5" /> Aggiungi voce
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <TotalCell label="kcal" value={Math.round(totals.kcal)} />
-            <TotalCell
-              label="P (g)"
-              value={Math.round(totals.protein * 10) / 10}
-            />
-            <TotalCell
-              label="C (g)"
-              value={Math.round(totals.carbs * 10) / 10}
-            />
-            <TotalCell label="G (g)" value={Math.round(totals.fat * 10) / 10} />
-          </div>
+  function scrollToSlot(slot: MealSlot) {
+    document
+      .getElementById(`meal-card-${slot}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
-          {diary.isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Header */}
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">
+            Cosa ho mangiato
+          </h2>
+          <p className="text-muted-foreground mt-0.5 text-sm">
+            Diario alimentare · {fmtNumeric(date)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            value={date}
+            max={todayIso()}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-9 w-auto"
+            aria-label="Cambia giorno"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setCopyOpen(true)}
+          >
+            <Copy className="h-3.5 w-3.5" /> Copia da…
+          </Button>
+        </div>
+      </header>
+
+      {/* Daily totals */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <StatCard tone="red" value={Math.round(totals.kcal)} unit="" label="kcal" />
+        <StatCard tone="emerald" value={Math.round(totals.protein)} unit="g" label="proteine" />
+        <StatCard tone="amber" value={Math.round(totals.carbs)} unit="g" label="carbo" />
+        <StatCard tone="sky" value={Math.round(totals.fat)} unit="g" label="grassi" />
+      </div>
+
+      {/* Slot pills — quick-jump nav */}
+      <nav
+        aria-label="Pasti"
+        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      >
+        {visibleSlots.map((slot) => (
+          <SlotPill key={slot} slot={slot} onClick={() => scrollToSlot(slot)} />
+        ))}
+      </nav>
+
+      {/* Loading */}
+      {diary.isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+        </div>
+      )}
+
+      {/* Empty-day CTA — sits ABOVE the meal cards as a discoverability
+          nudge for the copy feature. The cards still render their own
+          per-slot "+ Aggiungi" buttons. */}
+      {!diary.isLoading && entries.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+            <CalendarDays className="text-muted-foreground/40 h-10 w-10" />
+            <div>
+              <p className="text-sm font-medium">Diario vuoto</p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Aggiungi una voce o copia un giorno precedente — molti
+                pasti tornano uguali, non serve riscriverli.
+              </p>
             </div>
-          ) : entries.length === 0 ? (
-            <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-xs">
-              Nessuna voce per questo giorno. Tocca <strong>Aggiungi voce</strong>
-              {" "}
-              per iniziare.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {MEAL_SLOTS_ORDERED.map((slot) => {
-                const items = grouped.get(slot) ?? [];
-                if (items.length === 0) return null;
-                const slotKcal = items.reduce(
-                  (acc, e) => acc + e.caloriesKcal,
-                  0,
-                );
-                return (
-                  <section key={slot} className="flex flex-col gap-2">
-                    <header className="flex items-center justify-between gap-2">
-                      <h4 className="text-xs font-semibold uppercase tracking-wider">
-                        {mealSlotLabel(slot)}
-                      </h4>
-                      <span className="text-muted-foreground text-[11px] tabular-nums">
-                        {slotKcal} kcal
-                      </span>
-                    </header>
-                    <ul className="flex flex-col gap-1.5">
-                      {items.map((e) => (
-                        <li
-                          key={e.id}
-                          className="border-border flex items-start gap-3 rounded-lg border p-2.5"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm">{e.description}</p>
-                            <p className="text-muted-foreground mt-0.5 text-[11px]">
-                              {fmtTime(e.consumedAt)} · {e.caloriesKcal} kcal
-                              {e.proteinG != null && ` · ${e.proteinG}g P`}
-                              {e.carbsG != null && ` · ${e.carbsG}g C`}
-                              {e.fatG != null && ` · ${e.fatG}g G`}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="ghost"
-                              aria-label="Modifica voce"
-                              onClick={() => openEdit(e)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="ghost"
-                              aria-label="Elimina voce"
-                              onClick={() => onDelete(e)}
-                              disabled={remove.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                );
-              })}
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button type="button" size="sm" onClick={() => openCreate()}>
+                <Plus className="h-3.5 w-3.5" /> Aggiungi voce
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCopyOpen(true)}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copia da…
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Meal cards */}
+      {!diary.isLoading && (
+        <div className="flex flex-col gap-3">
+          {visibleSlots.map((slot) => (
+            <MealCard
+              key={slot}
+              slot={slot}
+              entries={grouped.get(slot) ?? []}
+              onAdd={() => openCreate(slot)}
+              onEdit={openEdit}
+              onDelete={onDelete}
+              removing={remove.isPending}
+            />
+          ))}
+        </div>
+      )}
 
       <DiaryEntryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         date={date}
         entry={editing}
+        initialSlot={initialSlot}
       />
-    </>
+      <CopyMealsDialog
+        open={copyOpen}
+        onOpenChange={setCopyOpen}
+        targetDate={date}
+      />
+    </div>
   );
 }
 
-function TotalCell({ label, value }: { label: string; value: number }) {
+function StatCard({
+  tone,
+  value,
+  unit,
+  label,
+}: {
+  tone: MacroTone;
+  value: number;
+  unit?: string;
+  label: string;
+}) {
   return (
-    <div
+    <div className="bg-card border-border flex flex-col items-center justify-center rounded-xl border p-3">
+      <p
+        className={cn(
+          "font-heading text-2xl font-semibold tabular-nums",
+          STAT_TONE[tone],
+        )}
+      >
+        {value}
+        {unit}
+      </p>
+      <p className="text-muted-foreground mt-0.5 text-xs">{label}</p>
+    </div>
+  );
+}
+
+function SlotPill({ slot, onClick }: { slot: MealSlot; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-card border-border focus-ring flex shrink-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 transition-colors hover:bg-muted/40"
+    >
+      <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+        <MealSlotIcon slot={slot} className="text-muted-foreground h-3.5 w-3.5" />
+        {mealSlotShortLabel(slot)}
+      </span>
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {defaultTimeForMealSlot(slot)}
+      </span>
+    </button>
+  );
+}
+
+function MacroPill({ tone, children }: { tone: MacroTone; children: React.ReactNode }) {
+  return (
+    <span
       className={cn(
-        "bg-muted/50 rounded-lg p-3 text-center",
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+        PILL_TONE[tone],
       )}
     >
-      <p className="font-heading text-xl font-semibold tabular-nums">
-        {value}
-      </p>
-      <p className="text-muted-foreground text-[10px] uppercase tracking-wide">
-        {label}
-      </p>
-    </div>
+      {children}
+    </span>
+  );
+}
+
+function MealCard({
+  slot,
+  entries,
+  onAdd,
+  onEdit,
+  onDelete,
+  removing,
+}: {
+  slot: MealSlot;
+  entries: DiaryEntry[];
+  onAdd: () => void;
+  onEdit: (entry: DiaryEntry) => void;
+  onDelete: (entry: DiaryEntry) => void;
+  removing: boolean;
+}) {
+  const t = totalsOf(entries);
+  const hasEntries = entries.length > 0;
+  return (
+    <Card id={`meal-card-${slot}`} className="scroll-mt-4">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
+        <div className="min-w-0 flex-1">
+          <CardTitle className="inline-flex items-center gap-2 text-base">
+            <MealSlotIcon slot={slot} className="text-muted-foreground h-4 w-4" />
+            {mealSlotShortLabel(slot)}
+            <span className="text-muted-foreground text-sm font-normal tabular-nums">
+              {defaultTimeForMealSlot(slot)}
+            </span>
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-xs">
+            {Math.round(t.kcal)} kcal totali
+          </p>
+          {hasEntries && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <MacroPill tone="emerald">P {Math.round(t.protein)}g</MacroPill>
+              <MacroPill tone="amber">C {Math.round(t.carbs)}g</MacroPill>
+              <MacroPill tone="sky">F {Math.round(t.fat)}g</MacroPill>
+            </div>
+          )}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+          <Plus className="h-3.5 w-3.5" /> Aggiungi
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {hasEntries ? (
+          <ul className="flex flex-col gap-1.5">
+            {entries.map((e) => (
+              <EntryRow
+                key={e.id}
+                slot={slot}
+                entry={e}
+                onEdit={() => onEdit(e)}
+                onDelete={() => onDelete(e)}
+                disabled={removing}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground text-xs italic">
+            Nessuna voce.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Pull a trailing "(150 g)" out of the description so we can render
+ *  grams + macros on a separate clean line. The parenthetical is only
+ *  ever appended by the OFF-pick path in DiaryEntryDialog; manual
+ *  entries don't have it and just render the description as-is. */
+function splitDescription(description: string): { name: string; grams: string | null } {
+  const match = description.match(/\s*\((\d+(?:[.,]\d+)?)\s*g\)\s*$/i);
+  if (!match) return { name: description, grams: null };
+  return {
+    name: description.slice(0, match.index).trim(),
+    grams: match[1].replace(",", "."),
+  };
+}
+
+function EntryRow({
+  slot,
+  entry,
+  onEdit,
+  onDelete,
+  disabled,
+}: {
+  slot: MealSlot;
+  entry: DiaryEntry;
+  onEdit: () => void;
+  onDelete: () => void;
+  disabled: boolean;
+}) {
+  const { name, grams } = splitDescription(entry.description);
+  const macros = [
+    grams ? `${grams}g` : null,
+    entry.proteinG != null ? `P${Math.round(entry.proteinG)}g` : null,
+    entry.carbsG != null ? `C${Math.round(entry.carbsG)}g` : null,
+    entry.fatG != null ? `F${Math.round(entry.fatG)}g` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <li className="bg-muted/30 hover:bg-muted/50 flex items-center gap-2 rounded-lg p-2 transition-colors">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="focus-ring flex min-w-0 flex-1 items-center gap-3 rounded-md text-left"
+      >
+        <span className="bg-card border-border flex h-8 w-8 shrink-0 items-center justify-center rounded-full border">
+          <MealSlotIcon slot={slot} className="text-muted-foreground h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{name}</span>
+          {macros && (
+            <span className="text-muted-foreground mt-0.5 block truncate text-[11px]">
+              {macros}
+            </span>
+          )}
+        </span>
+        <span className="shrink-0 text-sm font-semibold tabular-nums">
+          {entry.caloriesKcal} kcal
+        </span>
+      </button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        aria-label="Elimina voce"
+        onClick={onDelete}
+        disabled={disabled}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </li>
   );
 }

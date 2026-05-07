@@ -19,12 +19,7 @@ import type { UserRole } from "@prisma/client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -58,10 +53,7 @@ type ListResponse = {
   counts: Record<UserRole, number>;
 };
 
-const ROLE_META: Record<
-  UserRole,
-  { label: string; icon: React.ReactNode; tone: string }
-> = {
+const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; tone: string }> = {
   ADMIN: {
     label: "Admin",
     icon: <Shield className="h-3 w-3" />,
@@ -124,12 +116,8 @@ export default function AdminUsersPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Utenti
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Gestione account della piattaforma.
-          </p>
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">Utenti</h1>
+          <p className="text-muted-foreground text-sm">Gestione account della piattaforma.</p>
         </div>
         <Link
           href="/dashboard/admin/users/new"
@@ -153,7 +141,7 @@ export default function AdminUsersPage() {
                 {ROLE_META[r].icon}
               </div>
               <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                <p className="text-muted-foreground text-xs tracking-wider uppercase">
                   {ROLE_META[r].label}
                 </p>
                 <p className="font-heading text-2xl font-semibold tabular-nums">
@@ -165,7 +153,7 @@ export default function AdminUsersPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 border-b border-border pb-4">
+      <div className="border-border flex flex-wrap items-end gap-3 border-b pb-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="q">Cerca</Label>
           <Input
@@ -178,10 +166,7 @@ export default function AdminUsersPage() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="role">Ruolo</Label>
-          <Select
-            value={role}
-            onValueChange={(v) => setRole((v as UserRole | "ALL") ?? "ALL")}
-          >
+          <Select value={role} onValueChange={(v) => setRole((v as UserRole | "ALL") ?? "ALL")}>
             <SelectTrigger id="role" className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
@@ -239,10 +224,7 @@ export default function AdminUsersPage() {
                         >
                           {u.fullName}
                         </p>
-                        <Badge
-                          variant="secondary"
-                          className={cn("gap-1", ROLE_META[u.role].tone)}
-                        >
+                        <Badge variant="secondary" className={cn("gap-1", ROLE_META[u.role].tone)}>
                           {ROLE_META[u.role].icon}
                           {ROLE_META[u.role].label}
                         </Badge>
@@ -255,13 +237,11 @@ export default function AdminUsersPage() {
                             Disabilitato
                           </Badge>
                         )}
-                        {!u.deletedAt &&
-                          !u.onboardingCompleted &&
-                          u.role !== "ADMIN" && (
-                            <Badge variant="outline" className="text-xs">
-                              Onboarding in corso
-                            </Badge>
-                          )}
+                        {!u.deletedAt && !u.onboardingCompleted && u.role !== "ADMIN" && (
+                          <Badge variant="outline" className="text-xs">
+                            Onboarding in corso
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-3 text-xs">
                         <span className="inline-flex items-center gap-1">

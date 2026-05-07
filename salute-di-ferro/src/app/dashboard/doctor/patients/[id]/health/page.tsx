@@ -16,12 +16,8 @@ export default function DoctorPatientHealthPage() {
         <ArrowLeft className="h-4 w-4" /> Scheda cliente
       </Link>
       <header>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Dati salute
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Vista clinica — solo lettura
-        </p>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">Dati salute</h1>
+        <p className="text-muted-foreground text-sm">Vista clinica — solo lettura</p>
       </header>
       <HealthTabs patientId={params.id} readOnly />
     </div>

@@ -76,7 +76,7 @@ function Breadcrumb({ items }: { items: NavItem[] }) {
     admin: { label: "Admin", href: "/dashboard/admin" },
     doctor: { label: "Professionista", href: "/dashboard/doctor" },
     coach: { label: "Coach", href: "/dashboard/coach" },
-    patient: { label: "Cliente", href: "/dashboard/patient" },
+    patient: { label: "Utente", href: "/dashboard/patient" },
   };
   const root = (seg1 ? roleRoots[seg1] : undefined) ?? {
     label: "Dashboard",

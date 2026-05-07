@@ -25,12 +25,7 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BodyTrendCard } from "@/components/patient/body-trend-card";
 import { QuickWeightCard } from "@/components/patient/quick-weight-card";
 import { WeightGoalCard } from "@/components/patient/weight-goal-card";
@@ -196,18 +191,10 @@ export function PatientHomeClient({
     initialData: initialProfessionals,
   });
 
-  const nextAppt = (apptQuery.data ?? []).find(
-    (a) => a.status === "SCHEDULED",
-  );
-  const checkIns = React.useMemo(
-    () => checkInsQuery.data?.items ?? [],
-    [checkInsQuery.data],
-  );
+  const nextAppt = (apptQuery.data ?? []).find((a) => a.status === "SCHEDULED");
+  const checkIns = React.useMemo(() => checkInsQuery.data?.items ?? [], [checkInsQuery.data]);
   const lastCheckIn = checkIns[0];
-  const biometrics = React.useMemo(
-    () => biometricsQuery.data?.items ?? [],
-    [biometricsQuery.data],
-  );
+  const biometrics = React.useMemo(() => biometricsQuery.data?.items ?? [], [biometricsQuery.data]);
   const lastWeight =
     biometrics.find((b) => b.weight != null)?.weight ??
     checkIns.find((c) => c.weight != null)?.weight ??
@@ -233,50 +220,32 @@ export function PatientHomeClient({
           {hello}
           {profile.firstName ? `, ${profile.firstName}` : ""}
         </h1>
-        <p className="text-muted-foreground text-sm">
-          La tua centrale salute.
-        </p>
+        <p className="text-muted-foreground text-sm">La tua centrale salute.</p>
       </header>
 
       <CompletenessCard completeness={completeness} criticalOnly />
 
       <section className="flex flex-col gap-3">
         <SectionLabel>Oggi</SectionLabel>
-        <div
-          className={
-            hasWeightGoal
-              ? "grid gap-4 md:grid-cols-2"
-              : "flex flex-col gap-4"
-          }
-        >
+        <div className={hasWeightGoal ? "grid gap-4 md:grid-cols-2" : "flex flex-col gap-4"}>
           <QuickWeightCard lastWeight={lastWeight} />
           {hasWeightGoal && (
             <WeightGoalCard
               current={lastWeight}
               target={profile.targetWeightKg}
-              start={
-                biometrics.length > 0
-                  ? biometrics[biometrics.length - 1].weight
-                  : null
-              }
+              start={biometrics.length > 0 ? biometrics[biometrics.length - 1].weight : null}
             />
           )}
         </div>
 
-        <Card
-          className={
-            checkInOverdue ? "border-primary/40 bg-primary/5" : undefined
-          }
-        >
+        <Card className={checkInOverdue ? "border-primary/40 bg-primary/5" : undefined}>
           <CardContent className="flex flex-wrap items-center gap-4 p-5">
             <div className="bg-primary/15 text-primary flex h-12 w-12 items-center justify-center rounded-md">
               <ClipboardCheck className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">
-                {checkInOverdue
-                  ? "È ora del check-in settimanale"
-                  : "Ultimo check-in inviato"}
+                {checkInOverdue ? "È ora del check-in settimanale" : "Ultimo check-in inviato"}
               </p>
               <p className="text-muted-foreground text-xs">
                 {lastCheckIn
@@ -298,121 +267,110 @@ export function PatientHomeClient({
       <section className="flex flex-col gap-3">
         <SectionLabel>Il tuo team</SectionLabel>
         <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Prossimo appuntamento</CardTitle>
-            <Link
-              href="/dashboard/patient/appointments"
-              className="text-muted-foreground hover:text-foreground text-xs"
-            >
-              Tutti →
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {nextAppt ? (
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-md">
-                  <Calendar className="h-5 w-5" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Prossimo appuntamento</CardTitle>
+              <Link
+                href="/dashboard/patient/appointments"
+                className="text-muted-foreground hover:text-foreground text-xs"
+              >
+                Tutti →
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {nextAppt ? (
+                <div className="flex items-start gap-3">
+                  <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-md">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{formatDateTime(nextAppt.startTime)}</p>
+                    <p className="text-muted-foreground text-xs">
+                      Con {nextAppt.professionalName ?? "professionista"}
+                    </p>
+                    <Badge variant="outline" className="mt-2 text-[10px]">
+                      {nextAppt.type}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">
-                    {formatDateTime(nextAppt.startTime)}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    Con {nextAppt.professionalName ?? "professionista"}
-                  </p>
-                  <Badge variant="outline" className="mt-2 text-[10px]">
-                    {nextAppt.type}
-                  </Badge>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <p className="text-muted-foreground text-sm">Nessun appuntamento in programma.</p>
+                  <Link
+                    href="/dashboard/patient/appointments"
+                    className="border-border hover:bg-muted inline-flex w-fit items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium"
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Prenota
+                  </Link>
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <p className="text-muted-foreground text-sm">
-                  Nessun appuntamento in programma.
-                </p>
-                <Link
-                  href="/dashboard/patient/appointments"
-                  className="border-border hover:bg-muted inline-flex w-fit items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium"
-                >
-                  <CalendarPlus className="h-4 w-4" />
-                  Prenota
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">I tuoi professionisti</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {professionals.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Nessun professionista collegato. Attendi un invito o chiedilo al
-                tuo professionista/coach.
-              </p>
-            ) : (
-              <>
-                {doctor && (
-                  <ProfessionalRow
-                    role="Professionista"
-                    icon={<Stethoscope className="h-4 w-4" />}
-                    pro={doctor.professional}
-                  />
-                )}
-                {coach && (
-                  <ProfessionalRow
-                    role="Coach"
-                    icon={<UserRound className="h-4 w-4" />}
-                    pro={coach.professional}
-                  />
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">I tuoi professionisti</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {professionals.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Nessun professionista collegato. Attendi un invito o chiedilo al tuo
+                  professionista/coach.
+                </p>
+              ) : (
+                <>
+                  {doctor && (
+                    <ProfessionalRow
+                      role="Professionista"
+                      icon={<Stethoscope className="h-4 w-4" />}
+                      pro={doctor.professional}
+                    />
+                  )}
+                  {coach && (
+                    <ProfessionalRow
+                      role="Coach"
+                      icon={<UserRound className="h-4 w-4" />}
+                      pro={coach.professional}
+                    />
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {lastCheckIn?.professionalFeedback && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Feedback sul tuo ultimo check-in
-              </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-start gap-3">
-            <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
-              <HeartPulse className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="whitespace-pre-wrap text-sm">
-                {lastCheckIn.professionalFeedback}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Check-in del {formatDate(lastCheckIn.date)}
-                {lastCheckIn.weight != null &&
-                  ` · ${lastCheckIn.weight.toFixed(1)} kg`}
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  openConversation.mutate(lastCheckIn.professionalId)
-                }
-                disabled={openConversation.isPending}
-                className="border-border hover:bg-muted mt-3 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
-              >
-                {openConversation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <MessageCircle className="h-3.5 w-3.5" />
-                )}
-                Rispondi al tuo professionista
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+              <CardTitle className="text-base">Feedback sul tuo ultimo check-in</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-start gap-3">
+              <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
+                <HeartPulse className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm whitespace-pre-wrap">{lastCheckIn.professionalFeedback}</p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Check-in del {formatDate(lastCheckIn.date)}
+                  {lastCheckIn.weight != null && ` · ${lastCheckIn.weight.toFixed(1)} kg`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openConversation.mutate(lastCheckIn.professionalId)}
+                  disabled={openConversation.isPending}
+                  className="border-border hover:bg-muted mt-3 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+                >
+                  {openConversation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  )}
+                  Rispondi al tuo professionista
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </section>
 
@@ -484,7 +442,7 @@ export function PatientHomeClient({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">
+    <h2 className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
       {children}
     </h2>
   );
@@ -509,9 +467,7 @@ function ProfessionalRow({
   return (
     <div className="flex items-start gap-3">
       <Avatar className="h-11 w-11">
-        {pro.avatarUrl && (
-          <AvatarImage src={pro.avatarUrl} alt={pro.fullName} />
-        )}
+        {pro.avatarUrl && <AvatarImage src={pro.avatarUrl} alt={pro.fullName} />}
         <AvatarFallback className="bg-primary/20 text-primary text-xs">
           {initials(pro.fullName)}
         </AvatarFallback>
@@ -521,11 +477,7 @@ function ProfessionalRow({
         <p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
           {icon} {role}
         </p>
-        {pro.bio && (
-          <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-            {pro.bio}
-          </p>
-        )}
+        {pro.bio && <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">{pro.bio}</p>}
         {tags.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {tags.slice(0, 4).map((t) => (
