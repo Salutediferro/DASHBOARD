@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2, Search, SearchX, UserPlus } from "lucide-react";
-import { toast } from "sonner";
+import { CalendarPlus, Check, Loader2, Search, SearchX } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +22,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useGrantProfessional, useProfessionalSearch } from "@/lib/hooks/use-professionals";
+import {
+  useProfessionalSearch,
+  type ProfessionalSearchResult,
+} from "@/lib/hooks/use-professionals";
 import { PROFESSIONAL_SPECIALTIES } from "@/lib/professional-specialties";
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /**
+   * Called when the patient picks a pro to book with. The dialog closes
+   * itself; the parent is responsible for opening the booking wizard.
+   * Adding a pro to the team is no longer unilateral — it happens as a
+   * server-side side effect of confirming the booking.
+   */
+  onRequestAppointment: (prof: ProfessionalSearchResult) => void;
 };
 
 const SPECIALTY_ALL = "__all__";
@@ -44,11 +53,14 @@ function initials(name: string) {
   );
 }
 
-export function FindProfessionalDialog({ open, onOpenChange }: Props) {
+export function FindProfessionalDialog({
+  open,
+  onOpenChange,
+  onRequestAppointment,
+}: Props) {
   const [query, setQuery] = React.useState("");
   const [specialty, setSpecialty] = React.useState<string>(SPECIALTY_ALL);
   const [debounced, setDebounced] = React.useState("");
-  const grant = useGrantProfessional();
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 250);
@@ -65,11 +77,9 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
     }
   }, [open]);
 
-  function onGrant(id: string, name: string) {
-    grant
-      .mutateAsync(id)
-      .then(() => toast.success(`${name} aggiunto ai tuoi professionisti`))
-      .catch((err: Error) => toast.error(err.message));
+  function onPickForBooking(prof: ProfessionalSearchResult) {
+    onRequestAppointment(prof);
+    onOpenChange(false);
   }
 
   const items = search.data ?? [];
@@ -82,8 +92,8 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Cerca un professionista</DialogTitle>
           <DialogDescription>
-            Aggiungerlo concede subito accesso ai tuoi dati di nutrizione. Puoi revocarlo quando
-            vuoi.
+            Prenota un primo appuntamento per aggiungerlo al tuo team. Una volta
+            collegato, potrai condividere i tuoi dati di nutrizione.
           </DialogDescription>
         </DialogHeader>
 
@@ -192,15 +202,10 @@ export function FindProfessionalDialog({ open, onOpenChange }: Props) {
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() => onGrant(p.id, p.fullName)}
-                        disabled={grant.isPending}
+                        onClick={() => onPickForBooking(p)}
                       >
-                        {grant.isPending && grant.variables === p.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <UserPlus className="h-3.5 w-3.5" />
-                        )}
-                        Aggiungi
+                        <CalendarPlus className="h-3.5 w-3.5" />
+                        Richiedi appuntamento
                       </Button>
                     )}
                   </div>

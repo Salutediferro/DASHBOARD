@@ -107,15 +107,20 @@ export async function GET(req: Request) {
  *
  * Creates an appointment in one of two modes:
  *   - PATIENT booking: body provides professionalId + professionalRole;
- *     server sets patientId = me.id.
+ *     server sets patientId = me.id. The booking itself is what
+ *     establishes the CareRelationship — patients cannot self-link to
+ *     a professional they've never had any appointment with, so the
+ *     CareRelationship row is upserted to ACTIVE inside the same
+ *     transaction. This prevents random users from spamming
+ *     professionals via messaging just by self-grant.
  *   - DOCTOR/COACH manual creation: body provides patientId; server
  *     sets professionalId = me.id and derives professionalRole from the
- *     caller's role.
+ *     caller's role. Pros still require an ACTIVE relationship — they
+ *     can't unilaterally pull patients into their roster.
  *
- * Both modes require an ACTIVE CareRelationship with the matching
- * professionalRole. All creations run a conflict check against existing
- * non-CANCELED appointments on the same professional and write
- * Notification rows for both sides.
+ * All creations run a conflict check against existing non-CANCELED
+ * appointments on the same professional and write Notification rows
+ * for both sides.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -162,23 +167,63 @@ export async function POST(req: Request) {
     professionalRole = me.role as ProfessionalRole;
   }
 
-  // Verify the care relationship exists + is active.
-  const rel = await prisma.careRelationship.findFirst({
-    where: {
-      professionalId,
-      patientId,
-      professionalRole,
-      status: "ACTIVE",
-    },
-    select: { id: true },
-  });
-  if (!rel) {
-    return NextResponse.json(
-      {
-        error: "Nessuna relazione di cura attiva tra il cliente e il professionista",
+  if (me.role === "PATIENT") {
+    // First-contact path: validate the target is a real, non-deleted
+    // professional in the same organization with the claimed role. The
+    // CareRelationship is upserted inside the create transaction below
+    // — booking IS the entry into the team.
+    const [meRow, target] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: me.id },
+        select: { organizationId: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: professionalId },
+        select: {
+          id: true,
+          role: true,
+          deletedAt: true,
+          organizationId: true,
+        },
+      }),
+    ]);
+    if (!target || target.deletedAt) {
+      return NextResponse.json(
+        { error: "Professionista non trovato" },
+        { status: 404 },
+      );
+    }
+    if (target.role !== professionalRole) {
+      return NextResponse.json(
+        { error: "Ruolo professionista non corrispondente" },
+        { status: 400 },
+      );
+    }
+    if (target.organizationId !== meRow?.organizationId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else {
+    // Pro-initiated booking: still require an ACTIVE relationship —
+    // pros must not be able to add a patient to their roster without
+    // the patient having already opted in (via a prior appointment).
+    const rel = await prisma.careRelationship.findFirst({
+      where: {
+        professionalId,
+        patientId,
+        professionalRole,
+        status: "ACTIVE",
       },
-      { status: 403 },
-    );
+      select: { id: true },
+    });
+    if (!rel) {
+      return NextResponse.json(
+        {
+          error:
+            "Nessuna relazione di cura attiva tra il cliente e il professionista",
+        },
+        { status: 403 },
+      );
+    }
   }
 
   // Compute start/end.
@@ -202,19 +247,48 @@ export async function POST(req: Request) {
     );
   }
 
-  const created = await prisma.appointment.create({
-    data: {
-      professionalId,
-      patientId,
-      professionalRole,
-      startTime,
-      endTime,
-      type: input.type,
-      status: "SCHEDULED",
-      notes: input.notes ?? null,
-      meetingUrl: input.meetingUrl ? input.meetingUrl : null,
-    },
-    select: LIST_SELECT,
+  // Patient first-contact bookings auto-create the relationship.
+  // Wrap both writes in a transaction so we never end up with an
+  // appointment but no relationship row.
+  const created = await prisma.$transaction(async (tx) => {
+    if (me.role === "PATIENT") {
+      await tx.careRelationship.upsert({
+        where: {
+          professionalId_patientId_professionalRole: {
+            professionalId,
+            patientId,
+            professionalRole,
+          },
+        },
+        update: {
+          // Reactivate if previously paused/archived — booking again
+          // is an explicit re-engagement.
+          status: "ACTIVE",
+          startDate: new Date(),
+          endDate: null,
+        },
+        create: {
+          professionalId,
+          patientId,
+          professionalRole,
+          status: "ACTIVE",
+        },
+      });
+    }
+    return tx.appointment.create({
+      data: {
+        professionalId,
+        patientId,
+        professionalRole,
+        startTime,
+        endTime,
+        type: input.type,
+        status: "SCHEDULED",
+        notes: input.notes ?? null,
+        meetingUrl: input.meetingUrl ? input.meetingUrl : null,
+      },
+      select: LIST_SELECT,
+    });
   });
 
   // Fire the paired notifications.

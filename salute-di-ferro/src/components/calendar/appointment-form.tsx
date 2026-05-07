@@ -82,6 +82,19 @@ type Props = {
   /** Pre-fill date and duration when the professional clicks an empty time slot. */
   initialStart?: string; // ISO string
   initialDurationMin?: number;
+  /**
+   * Patient mode: pre-select a professional (linked or not) and skip the
+   * picker step. The booking API will auto-create the CareRelationship
+   * if missing, so this works for first-contact bookings opened from the
+   * Team di Ferro directory.
+   */
+  initialProfessional?: {
+    id: string;
+    fullName: string;
+    role: ProfessionalRole;
+    avatarUrl?: string | null;
+    specialties?: string[];
+  };
 };
 
 export function AppointmentForm(props: Props) {
@@ -98,12 +111,37 @@ type Step = "professional" | "date" | "slot" | "confirm";
 function PatientBookingDialog({
   open,
   onOpenChange,
-}: Pick<Props, "open" | "onOpenChange">) {
+  initialProfessional,
+}: Pick<Props, "open" | "onOpenChange" | "initialProfessional">) {
   const create = useCreateAppointment();
 
-  const [step, setStep] = React.useState<Step>("professional");
+  // When the parent passes a pre-selected pro (e.g. from Team di Ferro),
+  // build a synthetic Professional so the rest of the wizard can stay
+  // unchanged. relationshipId is left blank — the server will upsert
+  // the relationship when the appointment is created.
+  const initialProState = React.useMemo<Professional | null>(
+    () =>
+      initialProfessional
+        ? {
+            relationshipId: "",
+            professionalRole: initialProfessional.role,
+            professional: {
+              id: initialProfessional.id,
+              fullName: initialProfessional.fullName,
+              email: "",
+              role: initialProfessional.role,
+              avatarUrl: initialProfessional.avatarUrl ?? null,
+              specialties: initialProfessional.specialties ?? [],
+            },
+          }
+        : null,
+    [initialProfessional],
+  );
+  const firstStep: Step = initialProState ? "date" : "professional";
+
+  const [step, setStep] = React.useState<Step>(firstStep);
   const [professional, setProfessional] = React.useState<Professional | null>(
-    null,
+    initialProState,
   );
   const [day, setDay] = React.useState<string>("");
   const [slot, setSlot] = React.useState<FreeSlot | null>(null);
@@ -116,8 +154,8 @@ function PatientBookingDialog({
     if (open) return;
     // A small delay so the dialog content doesn't visually "blink".
     const t = window.setTimeout(() => {
-      setStep("professional");
-      setProfessional(null);
+      setStep(firstStep);
+      setProfessional(initialProState);
       setDay("");
       setSlot(null);
       setNotes("");
@@ -125,7 +163,7 @@ function PatientBookingDialog({
       setLastCreatedId(null);
     }, 160);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, firstStep, initialProState]);
 
   const { data: professionals = [], isLoading: proLoading } = useQuery<
     Professional[]
@@ -139,15 +177,17 @@ function PatientBookingDialog({
     },
   });
 
-  // Skip the "professional" step if there's only one linked.
+  // Skip the "professional" step if there's only one linked. Don't
+  // run when the parent already pre-selected one — that pick wins.
   React.useEffect(() => {
     if (!open) return;
+    if (initialProState) return;
     if (step !== "professional") return;
     if (professionals.length === 1 && !professional) {
       setProfessional(professionals[0]);
       setStep("date");
     }
-  }, [professionals, open, step, professional]);
+  }, [professionals, open, step, professional, initialProState]);
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -168,7 +208,8 @@ function PatientBookingDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canBack = step !== "professional" && !lastCreatedId;
+  const firstStepIndex = stepOrder.indexOf(firstStep);
+  const canBack = step !== firstStep && !lastCreatedId;
   const stepIndex = stepOrder.indexOf(step);
 
   return (
@@ -236,7 +277,9 @@ function PatientBookingDialog({
               type="button"
               variant="ghost"
               disabled={!canBack}
-              onClick={() => setStep(stepOrder[Math.max(0, stepIndex - 1)])}
+              onClick={() =>
+                setStep(stepOrder[Math.max(firstStepIndex, stepIndex - 1)])
+              }
             >
               <ArrowLeft className="mr-1.5 h-4 w-4" /> Indietro
             </Button>

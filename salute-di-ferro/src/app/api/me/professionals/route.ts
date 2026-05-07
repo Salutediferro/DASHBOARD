@@ -64,11 +64,13 @@ const grantSchema = z.object({
 /**
  * POST /api/me/professionals
  *
- * Patient grants nutrition-data access to a professional by creating
- * (or re-activating) an ACTIVE CareRelationship with role=DOCTOR. The
- * grant is unilateral — the doctor does not need to accept. The patient
- * can revoke any time via DELETE /api/me/professionals/[id]. Both
- * users must belong to the same organization.
+ * Patient re-activates (or creates a row for) a CareRelationship with a
+ * professional they've previously had an appointment with. First-time
+ * relationships are NOT created here — those are established as a side
+ * effect of a patient booking (`POST /api/appointments`), so a stranger
+ * cannot self-link to a professional and start messaging them. This
+ * endpoint exists only to reactivate a paused/archived relationship for
+ * a professional the patient has already engaged with.
  */
 export async function POST(req: Request) {
   try {
@@ -121,6 +123,24 @@ export async function POST(req: Request) {
     }
     if (target.organizationId !== patient.organizationId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Gate: the patient must have already had at least one appointment
+    // with this professional. Strangers do not get to self-link — they
+    // must go through the booking flow, which establishes the
+    // relationship as a transactional side effect.
+    const priorAppointment = await prisma.appointment.findFirst({
+      where: { professionalId: target.id, patientId: me.id },
+      select: { id: true },
+    });
+    if (!priorAppointment) {
+      return NextResponse.json(
+        {
+          error:
+            "Per aggiungere un professionista al team, prenota prima un appuntamento.",
+        },
+        { status: 403 },
+      );
     }
 
     const existing = await prisma.careRelationship.findUnique({

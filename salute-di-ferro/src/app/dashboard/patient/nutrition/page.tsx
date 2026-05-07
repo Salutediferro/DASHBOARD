@@ -41,6 +41,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { MealSlot } from "@/lib/validators/nutrition";
 
+import { AppointmentForm } from "@/components/calendar/appointment-form";
+import type { ProfessionalSearchResult } from "@/lib/hooks/use-professionals";
+
 import { CopyMealsDialog } from "./_components/copy-meals-dialog";
 import { DiaryEntryDialog } from "./_components/diary-entry-dialog";
 import { FindProfessionalDialog } from "./_components/find-professional-dialog";
@@ -63,6 +66,12 @@ function fmtNumeric(iso: string) {
 
 export default function PatientNutritionPage() {
   const [findOpen, setFindOpen] = React.useState(false);
+  // The search dialog now hands the picked pro back here so we can open
+  // the booking wizard. Becoming "team" happens server-side as a result
+  // of the booking — no eager grant.
+  const [bookingFor, setBookingFor] = React.useState<ProfessionalSearchResult | null>(
+    null,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -93,7 +102,30 @@ export default function PatientNutritionPage() {
         </TabsContent>
       </Tabs>
 
-      <FindProfessionalDialog open={findOpen} onOpenChange={setFindOpen} />
+      <FindProfessionalDialog
+        open={findOpen}
+        onOpenChange={setFindOpen}
+        onRequestAppointment={(p) => setBookingFor(p)}
+      />
+      <AppointmentForm
+        open={bookingFor != null}
+        onOpenChange={(v) => {
+          if (!v) setBookingFor(null);
+        }}
+        mode="PATIENT"
+        initialProfessional={
+          bookingFor
+            ? {
+                id: bookingFor.id,
+                fullName: bookingFor.fullName,
+                // /api/professionals/search currently returns DOCTORs only.
+                role: "DOCTOR",
+                avatarUrl: bookingFor.avatarUrl,
+                specialties: bookingFor.specialties,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }
