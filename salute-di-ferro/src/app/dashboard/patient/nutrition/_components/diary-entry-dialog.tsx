@@ -267,7 +267,7 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle>
             {editing
               ? "Modifica voce"
@@ -279,7 +279,7 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-3">
+        <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-3 overflow-x-hidden">
           <SlotAndTime slot={slot} time={time} onSlot={setSlot} onTime={setTime} />
 
           {mode === "search" && (
@@ -445,7 +445,7 @@ function SearchPane({
         )}
       </div>
 
-      <div className="-mx-1 flex max-h-[45vh] min-h-0 flex-col overflow-x-hidden overflow-y-auto px-1">
+      <div className="-mx-1 flex flex-col px-1">
         {filteredRecent.length > 0 && (
           <ResultGroup title="Recenti" icon={<History className="h-3 w-3" />}>
             {filteredRecent.map((r) => (
@@ -506,14 +506,14 @@ function SearchPane({
         )}
 
         {showNoResults && (
-          <div className="flex flex-col items-center gap-2 px-2 py-6 text-center">
+          <div className="flex flex-col items-center gap-2 px-2 py-4 text-center">
             <SearchX className="text-muted-foreground/40 h-7 w-7" />
             <p className="text-muted-foreground text-xs">Nessun alimento trovato.</p>
           </div>
         )}
 
         {!query && filteredRecent.length === 0 && offResults.length === 0 && (
-          <div className="flex flex-col items-center gap-2 px-2 py-6 text-center">
+          <div className="flex flex-col items-center gap-2 px-2 py-4 text-center">
             <Search className="text-muted-foreground/40 h-7 w-7" />
             <p className="text-muted-foreground text-xs">
               Cerca un alimento per ottenerne i macronutrienti automaticamente.

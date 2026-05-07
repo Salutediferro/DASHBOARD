@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useActivePlan,
   usePlanHistory,
@@ -77,17 +78,21 @@ export default function PatientNutritionPage() {
         </p>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-lg font-semibold">Piano nutrizionale</h2>
-        <PlanSection onSearchClick={() => setFindOpen(true)} />
-      </section>
+      <Tabs defaultValue="plan" className="flex flex-col gap-4">
+        <TabsList>
+          <TabsTrigger value="plan">Piano nutrizionale</TabsTrigger>
+          <TabsTrigger value="diary">Diario</TabsTrigger>
+        </TabsList>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-lg font-semibold">Diario</h2>
-        <DiarySection />
-      </section>
+        <TabsContent value="plan" className="flex flex-col gap-4 pt-2">
+          <PlanSection onSearchClick={() => setFindOpen(true)} />
+          <LinkedProfessionalsCard onSearchClick={() => setFindOpen(true)} />
+        </TabsContent>
 
-      <LinkedProfessionalsCard onSearchClick={() => setFindOpen(true)} />
+        <TabsContent value="diary" className="flex flex-col gap-4 pt-2">
+          <DiarySection />
+        </TabsContent>
+      </Tabs>
 
       <FindProfessionalDialog open={findOpen} onOpenChange={setFindOpen} />
     </div>

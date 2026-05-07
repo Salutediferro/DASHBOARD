@@ -32,6 +32,11 @@ const OFF_FIELDS = [
   "brands",
   "nutriments",
   "serving_quantity",
+  // Categories matter for category-style queries: typing "pasta" must
+  // match "Penne Rigate Barilla" whose category is `en:pastas` even
+  // though the product name never says "pasta".
+  "categories",
+  "categories_tags",
 ].join(",");
 
 export function buildOffSearchUrl(query: string): string {
@@ -66,30 +71,68 @@ function escapeRegex(s: string): string {
  * like "pasta" it surfaces sauces, ready-meals and random products that
  * mention pasta anywhere in the metadata. We re-rank locally so results
  * the user actually typed the name of float to the top, and drop entries
- * with no token match against name/brand at all.
+ * with no token match anywhere (name/brand/categories).
  *
- * Score: exact > prefix > whole-word > substring > brand-only.
- * Multi-word queries score per token and average.
+ * Categories are critical: generic Italian products (e.g. "Penne Rigate
+ * Barilla") never carry the category word in the product name, so a
+ * category-style query like "pasta" or "verdura" would otherwise return
+ * nothing. We pull both `categories` (localized text) and the stems of
+ * `categories_tags` (English slugs, plural-aware via `\b<token>` regex
+ * matching "pasta" inside "pastas") so cross-language category matching
+ * works.
+ *
+ * Score: exact > prefix > whole-word > substring; category whole-word
+ * match scores like a name word match so generic-category queries can
+ * rank with typed-it-in-the-name results. Multi-word queries score per
+ * token and average; any token absent from every field rejects the row.
  */
-export function relevanceScore(name: string, brand: string | null, query: string): number {
+export function relevanceScore(
+  name: string,
+  brand: string | null,
+  categoriesText: string,
+  query: string,
+): number {
   const tokens = query.toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
   if (tokens.length === 0) return 0;
   const n = name.toLowerCase();
   const b = (brand ?? "").toLowerCase();
+  const c = categoriesText; // already lowercased upstream
   let total = 0;
   for (const t of tokens) {
     const word = new RegExp(`\\b${escapeRegex(t)}`, "i");
-    if (n === t) total += 100;
-    else if (n.startsWith(t + " ") || n.startsWith(t + ",")) total += 80;
-    else if (word.test(n)) total += 60;
-    else if (n.includes(t)) total += 30;
-    else if (b.includes(t)) total += 10;
-    else return 0; // any token absent from both name and brand → reject
+    let s = 0;
+    if (n === t) s = Math.max(s, 100);
+    else if (n.startsWith(t + " ") || n.startsWith(t + ",")) s = Math.max(s, 80);
+    else if (word.test(n)) s = Math.max(s, 60);
+    else if (n.includes(t)) s = Math.max(s, 30);
+    if (word.test(c)) s = Math.max(s, 70);
+    else if (c.includes(t)) s = Math.max(s, 25);
+    if (b.includes(t)) s = Math.max(s, 10);
+    if (s === 0) return 0;
+    total += s;
   }
   return total / tokens.length;
 }
 
-function normalizeProduct(product: unknown): FoodSearchResult | null {
+type NormalizedProduct = {
+  result: FoodSearchResult;
+  /** Lowercased localized categories + English tag stems, space-joined. */
+  categoriesText: string;
+};
+
+function buildCategoriesText(p: Record<string, unknown>): string {
+  const localized = asString(p.categories) ?? "";
+  const tagsRaw = Array.isArray(p.categories_tags) ? p.categories_tags : [];
+  // `en:dry-pastas` → `dry pastas`; we keep stems space-joined so a
+  // \b<token> regex hits "pasta" inside "pastas".
+  const stems = tagsRaw
+    .filter((t): t is string => typeof t === "string")
+    .map((t) => t.replace(/^[a-z]{2}:/, "").replace(/-/g, " "))
+    .join(" ");
+  return `${localized} ${stems}`.toLowerCase();
+}
+
+function normalizeProduct(product: unknown): NormalizedProduct | null {
   if (!product || typeof product !== "object") return null;
   const p = product as Record<string, unknown>;
 
@@ -110,14 +153,17 @@ function normalizeProduct(product: unknown): FoodSearchResult | null {
   const brand = brandsRaw ? (brandsRaw.split(",")[0]?.trim() ?? null) : null;
 
   return {
-    id: asString(p.code) ?? name,
-    name,
-    brand,
-    kcalPer100g: Math.round(kcal),
-    proteinPer100g: asNumber(nutriments.proteins_100g),
-    carbsPer100g: asNumber(nutriments.carbohydrates_100g),
-    fatPer100g: asNumber(nutriments.fat_100g),
-    servingG: asNumber(p.serving_quantity),
+    result: {
+      id: asString(p.code) ?? name,
+      name,
+      brand,
+      kcalPer100g: Math.round(kcal),
+      proteinPer100g: asNumber(nutriments.proteins_100g),
+      carbsPer100g: asNumber(nutriments.carbohydrates_100g),
+      fatPer100g: asNumber(nutriments.fat_100g),
+      servingG: asNumber(p.serving_quantity),
+    },
+    categoriesText: buildCategoriesText(p),
   };
 }
 
@@ -133,12 +179,12 @@ export function parseOffSearchResponse(data: unknown, query: string): FoodSearch
 
   const normalized = products
     .map(normalizeProduct)
-    .filter((r): r is FoodSearchResult => r != null);
+    .filter((n): n is NormalizedProduct => n != null);
 
   return normalized
-    .map((r, i) => ({
-      result: r,
-      score: relevanceScore(r.name, r.brand, query),
+    .map((n, i) => ({
+      result: n.result,
+      score: relevanceScore(n.result.name, n.result.brand, n.categoriesText, query),
       // Preserve OFF's popularity order as a tiebreaker.
       popularity: -i,
     }))

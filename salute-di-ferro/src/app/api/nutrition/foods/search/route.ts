@@ -32,7 +32,10 @@ import {
 // Format required by OFF: "AppName/Version (ContactEmail)".
 const USER_AGENT = "SaluteDiFerro/1.0 (support@salutediferro.it)";
 
-const CACHE_KEY_PREFIX = "sdf:off:search:";
+// v2: bumped after adding category-aware scoring — old entries cached
+// before that change have empty result lists for category-style queries
+// like "pasta" and would keep serving them until TTL expiry.
+const CACHE_KEY_PREFIX = "sdf:off:search:v2:";
 const CACHE_TTL_SECONDS = 60 * 60 * 6; // 6h — OFF data changes slowly.
 
 let redisSingleton: Redis | null | undefined;
