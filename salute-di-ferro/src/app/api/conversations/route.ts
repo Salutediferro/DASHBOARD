@@ -3,13 +3,22 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, requireRole } from "@/lib/auth/require-role";
 import {
-  canMessage,
-  findOrCreateDmConversation,
+  canMessageMany,
+  findOrCreateConversation,
 } from "@/lib/services/conversations";
 
-const createSchema = z.object({
-  participantId: z.string().uuid(),
-});
+// Accepts both shapes:
+//   { participantId: "<uuid>" }                — legacy 1:1
+//   { participantIds: ["<uuid>", "<uuid>"] }   — group (≥1 entry, dedup'd)
+// We normalize to a non-empty array of UUIDs before the auth gate.
+const createSchema = z
+  .object({
+    participantId: z.string().uuid().optional(),
+    participantIds: z.array(z.string().uuid()).min(1).max(10).optional(),
+  })
+  .refine((v) => !!v.participantId || !!v.participantIds, {
+    message: "participantId or participantIds richiesto",
+  });
 
 /**
  * GET /api/conversations
@@ -91,12 +100,12 @@ export async function GET() {
 }
 
 /**
- * POST /api/conversations { participantId }
+ * POST /api/conversations { participantId | participantIds }
  *
- * Returns the existing 1:1 conversation with that user or creates a
- * new one. Authorization is delegated to canMessage() so a patient
- * can only open threads with their linked professionals (and vice
- * versa); admin is unrestricted.
+ * Returns the existing conversation whose member set is exactly
+ * {caller} ∪ {participants}, or creates a new one. Group chats (3+
+ * members) are patient-initiated only — see `canMessageMany` for the
+ * rationale. Pros and admins keep the 1:1 path.
  */
 export async function POST(req: Request) {
   try {
@@ -107,17 +116,17 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
     }
-    const otherId = parsed.data.participantId;
+    const otherIds = parsed.data.participantIds ?? [parsed.data.participantId!];
 
-    const allowed = await canMessage(
+    const allowed = await canMessageMany(
       { id: me.id, role: me.role },
-      otherId,
+      otherIds,
     );
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id, created } = await findOrCreateDmConversation(me.id, otherId);
+    const { id, created } = await findOrCreateConversation([me.id, ...otherIds]);
     return NextResponse.json({ id, created }, { status: created ? 201 : 200 });
   } catch (e) {
     return errorResponse(e);

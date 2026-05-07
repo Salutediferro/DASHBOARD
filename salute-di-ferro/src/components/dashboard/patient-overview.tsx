@@ -248,13 +248,13 @@ const REGISTRY: Record<OverviewMetricKey, MetricDef> = {
   // ---- Metabolico ----
   glucoseFasting: {
     label: "Glicemia a digiuno",
-    description: "Glicemia a digiuno (mg/dL).",
+    description: "Glicemia 8h dopo il pasto (mg/dL).",
     category: "Metabolico",
     Component: makeSimple("glucoseFasting", "Glicemia a digiuno", "mg/dL", true, fmtInt),
   },
   glucosePostMeal: {
     label: "Glicemia post-pasto",
-    description: "Glicemia 8h dopo il pasto (mg/dL).",
+    description: "Glicemia 2h dopo il pasto (mg/dL).",
     category: "Metabolico",
     Component: makeSimple("glucosePostMeal", "Glicemia post-pasto", "mg/dL", true, fmtInt),
   },

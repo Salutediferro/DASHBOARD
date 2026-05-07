@@ -99,12 +99,12 @@ export const METRIC_GLOSSARY: Record<string, MetricGlossaryEntry> = {
   },
 
   glucoseFasting: {
-    description: "Glicemia a digiuno — livello di zucchero nel sangue prima dei pasti.",
+    description: "Glicemia a digiuno — livello di zucchero nel sangue 8 ore dopo l'ultimo pasto.",
     measure: "Dopo almeno 8 ore di digiuno, al mattino prima di colazione.",
   },
   glucosePostMeal: {
-    description: "Glicemia post-prandiale — livello di zucchero 8 ore dopo il pasto.",
-    measure: "Esattamente 8 ore dopo l'inizio del pasto principale.",
+    description: "Glicemia post-prandiale — livello di zucchero 2 ore dopo il pasto.",
+    measure: "Esattamente 2 ore dopo l'inizio del pasto principale.",
   },
   ketones: {
     description: "Chetoni nel sangue — indice di chetosi (utile in dieta chetogenica).",

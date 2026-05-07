@@ -16,7 +16,9 @@ import {
   Send,
   Smile,
   UserRound,
+  Users,
 } from "lucide-react";
+import type { UserRole } from "@prisma/client";
 import {
   format,
   isSameDay,
@@ -108,18 +110,22 @@ export function ThreadView({ conversationId }: Props) {
     }
   }, [messages.length, lastMessageId, pinnedToBottom]);
 
-  const other = data?.conversation.members.find((m) => m.userId !== me);
-  const otherLastReadAt = data?.conversation.members.find(
+  const others = (data?.conversation.members ?? []).filter(
     (m) => m.userId !== me,
-  )?.lastReadAt;
+  );
+  const isGroup = others.length > 1;
+  // For groups "letto da tutti" requires every other member to have a
+  // lastReadAt past the message timestamp. We hand the array down so
+  // the bubble can decide; in 1:1 it collapses to the single peer.
+  const othersLastReadAt = others
+    .map((m) => m.lastReadAt)
+    .filter((v): v is string => !!v);
 
   return (
     <TooltipProvider delay={200}>
       <div className="flex h-full flex-col overflow-hidden bg-background">
         <ThreadHeader
-          name={other?.user.fullName ?? "—"}
-          role={other?.user.role}
-          avatarUrl={other?.user.avatarUrl ?? null}
+          others={others.map((m) => m.user)}
         />
 
         {isLoading ? (
@@ -144,9 +150,10 @@ export function ThreadView({ conversationId }: Props) {
                 <MessageList
                   messages={messages}
                   meId={me}
-                  otherName={other?.user.fullName ?? ""}
-                  otherAvatar={other?.user.avatarUrl ?? null}
-                  otherLastReadAt={otherLastReadAt}
+                  members={data?.conversation.members ?? []}
+                  isGroup={isGroup}
+                  othersLastReadAt={othersLastReadAt}
+                  totalOthers={others.length}
                 />
               )}
             </div>
@@ -190,15 +197,29 @@ export function ThreadView({ conversationId }: Props) {
 
 // ── Header ────────────────────────────────────────────────────────
 
-function ThreadHeader({
-  name,
-  role,
-  avatarUrl,
-}: {
-  name: string;
-  role: "DOCTOR" | "COACH" | "PATIENT" | "ADMIN" | undefined;
+type HeaderUser = {
+  id: string;
+  fullName: string;
   avatarUrl: string | null;
-}) {
+  role: UserRole;
+};
+
+function ThreadHeader({ others }: { others: HeaderUser[] }) {
+  const isGroup = others.length > 1;
+  const single = others[0];
+
+  // Group heading: comma-separated first names, capped at 3 visible.
+  const title = isGroup
+    ? others
+        .map((o) => o.fullName.split(" ")[0])
+        .slice(0, 3)
+        .join(", ") + (others.length > 3 ? `, +${others.length - 3}` : "")
+    : (single?.fullName ?? "—");
+
+  const subtitle = isGroup
+    ? `Gruppo · ${others.length} membri`
+    : `${roleLabel(single?.role)} · ` ;
+
   return (
     <header className="page-header-glass sticky top-0 z-10 flex items-center gap-3 border-b border-border/50 px-4 py-3">
       <Link
@@ -208,24 +229,30 @@ function ThreadHeader({
       >
         <ArrowLeft className="h-4 w-4" />
       </Link>
-      <div className="relative">
-        <Avatar className="h-10 w-10">
-          {avatarUrl && <AvatarImage src={avatarUrl} />}
-          <AvatarFallback className="bg-primary/20 text-primary text-xs">
-            {initials(name)}
-          </AvatarFallback>
-        </Avatar>
-        {/* Presence dot (mock) */}
-        <span
-          aria-hidden
-          className="absolute -bottom-0.5 -right-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-success"
-          title="Online"
-        />
-      </div>
+      {isGroup ? (
+        <HeaderGroupAvatar others={others} />
+      ) : (
+        <div className="relative">
+          <Avatar className="h-10 w-10">
+            {single?.avatarUrl && <AvatarImage src={single.avatarUrl} />}
+            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+              {initials(single?.fullName ?? "")}
+            </AvatarFallback>
+          </Avatar>
+          {/* Presence dot (mock) */}
+          <span
+            aria-hidden
+            className="absolute -bottom-0.5 -right-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-background bg-success"
+            title="Online"
+          />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{name}</p>
-        <p className="text-xs text-muted-foreground">
-          {roleLabel(role)} · <span className="text-success">Online</span>
+        <p className="truncate text-sm font-semibold">{title}</p>
+        <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+          {isGroup && <Users className="h-3 w-3" aria-hidden />}
+          {subtitle}
+          {!isGroup && <span className="text-success">Online</span>}
         </p>
       </div>
       <DropdownMenu>
@@ -247,11 +274,39 @@ function ThreadHeader({
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => toast.info("Funzione in arrivo")}>
             <UserRound className="mr-2 h-4 w-4" aria-hidden />
-            Visualizza profilo
+            {isGroup ? "Visualizza membri" : "Visualizza profilo"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
+  );
+}
+
+function HeaderGroupAvatar({ others }: { others: HeaderUser[] }) {
+  const visible = others.slice(0, 2);
+  const extra = others.length - visible.length;
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      {visible.map((o, i) => (
+        <Avatar
+          key={o.id}
+          className={cn(
+            "border-background absolute h-7 w-7 border-2",
+            i === 0 ? "left-0 top-0" : "right-0 bottom-0",
+          )}
+        >
+          {o.avatarUrl && <AvatarImage src={o.avatarUrl} />}
+          <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+            {initials(o.fullName)}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+      {extra > 0 && (
+        <span className="bg-muted text-muted-foreground border-background absolute -bottom-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border-2 px-1 text-[9px] font-semibold tabular-nums">
+          +{extra}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -272,19 +327,35 @@ function roleLabel(role: string | undefined) {
 
 // ── Message list (grouping + dividers) ────────────────────────
 
+type ThreadMember = {
+  userId: string;
+  lastReadAt: string | null;
+  user: HeaderUser;
+};
+
 function MessageList({
   messages,
   meId,
-  otherName,
-  otherAvatar,
-  otherLastReadAt,
+  members,
+  isGroup,
+  othersLastReadAt,
+  totalOthers,
 }: {
   messages: MessageRow[];
   meId: string | undefined;
-  otherName: string;
-  otherAvatar: string | null;
-  otherLastReadAt?: string | null;
+  members: ThreadMember[];
+  isGroup: boolean;
+  /** lastReadAt for every other member; missing entries treated as null. */
+  othersLastReadAt: string[];
+  totalOthers: number;
 }) {
+  // Sender lookup once per render — bubbles fish their author out by id.
+  const byId = React.useMemo(() => {
+    const m = new Map<string, HeaderUser>();
+    for (const x of members) m.set(x.userId, x.user);
+    return m;
+  }, [members]);
+
   const nodes: React.ReactNode[] = [];
   const GROUP_MS = 5 * 60 * 1000;
   let lastDate: Date | null = null;
@@ -296,8 +367,6 @@ function MessageList({
     const prevT = prev ? new Date(prev.createdAt) : null;
 
     // Day separator — modern chat convention: centered pill, no lines.
-    // The old full-width "line · LABEL · line" divider (brand `Divider`)
-    // read as a formal section break inside a messaging thread.
     if (!lastDate || !isSameDay(lastDate, t)) {
       nodes.push(
         <div
@@ -324,21 +393,34 @@ function MessageList({
     const isFirstOfGroup = !sameSenderClose;
     const mine = m.senderId === meId;
     const isLast = i === messages.length - 1;
-    const readByOther =
+
+    // For a 1:1 thread "letto" means the single peer's lastReadAt has
+    // moved past the message timestamp. For a group, all other members
+    // must have read it. Show the sender's first name in the receipt
+    // when the message hasn't been read by everyone yet, so the patient
+    // can see who's still pending.
+    const readByAll =
       mine &&
-      otherLastReadAt &&
-      new Date(otherLastReadAt).getTime() >= t.getTime();
+      totalOthers > 0 &&
+      othersLastReadAt.length === totalOthers &&
+      othersLastReadAt.every((iso) => new Date(iso).getTime() >= t.getTime());
+
+    const sender = byId.get(m.senderId);
 
     nodes.push(
       <MessageBubble
         key={m.id}
         message={m}
         mine={mine}
-        otherName={otherName}
-        otherAvatar={otherAvatar}
+        senderName={sender?.fullName ?? ""}
+        senderAvatar={sender?.avatarUrl ?? null}
         showSenderMeta={isFirstOfGroup && !mine}
+        // In groups always print the sender name above their first
+        // bubble in a streak, even when the avatar gutter would
+        // otherwise be enough — many people can write in groups.
+        forceSenderName={isGroup}
         isLast={isLast}
-        readByOther={!!readByOther}
+        readByOther={readByAll}
       />,
     );
   }
@@ -355,17 +437,20 @@ function dayLabel(d: Date): string {
 function MessageBubble({
   message,
   mine,
-  otherName,
-  otherAvatar,
+  senderName,
+  senderAvatar,
   showSenderMeta,
+  forceSenderName,
   isLast,
   readByOther,
 }: {
   message: MessageRow;
   mine: boolean;
-  otherName: string;
-  otherAvatar: string | null;
+  senderName: string;
+  senderAvatar: string | null;
   showSenderMeta: boolean;
+  /** Always render the sender's name above their bubble (group chats). */
+  forceSenderName: boolean;
   isLast: boolean;
   readByOther: boolean;
 }) {
@@ -382,9 +467,9 @@ function MessageBubble({
         <div className="w-8 shrink-0">
           {showSenderMeta && (
             <Avatar className="h-8 w-8">
-              {otherAvatar && <AvatarImage src={otherAvatar} />}
+              {senderAvatar && <AvatarImage src={senderAvatar} />}
               <AvatarFallback className="bg-primary/20 text-primary text-[11px] font-semibold">
-                {initials(otherName)}
+                {initials(senderName)}
               </AvatarFallback>
             </Avatar>
           )}
@@ -396,9 +481,9 @@ function MessageBubble({
           mine ? "items-end" : "items-start",
         )}
       >
-        {showSenderMeta && !mine && (
+        {(showSenderMeta || forceSenderName) && !mine && (
           <span className="text-muted-foreground px-1 text-xs font-medium">
-            {otherName}
+            {senderName}
           </span>
         )}
         <div

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Paperclip, Plus, Search, Stethoscope, UserRound } from "lucide-react";
+import { Paperclip, Plus, Search, Stethoscope, UserRound, Users } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,15 +29,15 @@ export function ConversationSidebar() {
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
-      const other = c.others[0];
-      if (!other) return false;
+      if (c.others.length === 0) return false;
       if (filter === "unread" && c.unreadCount === 0) return false;
       // "attachments" filter: stub — the API doesn't flag attachments yet.
       // Keep the pill for discoverability but it resolves to the full set.
       if (filter === "attachments") return false;
       if (!q) return true;
       return (
-        other.fullName.toLowerCase().includes(q) || c.lastMessage?.body.toLowerCase().includes(q)
+        c.others.some((o) => o.fullName.toLowerCase().includes(q)) ||
+        c.lastMessage?.body.toLowerCase().includes(q)
       );
     });
   }, [items, query, filter]);
@@ -164,10 +164,26 @@ function ConversationRow({
   meId: string | undefined;
   active: boolean;
 }) {
-  const other = conversation.others[0];
-  if (!other) return null;
+  if (conversation.others.length === 0) return null;
+  const isGroup = conversation.others.length > 1;
   const unread = conversation.unreadCount > 0;
   const lastIsMine = conversation.lastMessage?.senderId === meId;
+
+  const title = isGroup
+    ? conversation.others.map((o) => o.fullName.split(" ")[0]).join(", ")
+    : conversation.others[0].fullName;
+
+  // For group last-message previews we prefix the sender's first name —
+  // "Marco: testo" — so the patient knows who said what without
+  // opening the thread. 1:1 keeps the more compact "Tu: " / no prefix.
+  const lastSender = conversation.lastMessage
+    ? lastIsMine
+      ? "Tu"
+      : isGroup
+        ? conversation.others.find((o) => o.id === conversation.lastMessage?.senderId)
+            ?.fullName.split(" ")[0]
+        : null
+    : null;
 
   return (
     <li className="relative">
@@ -181,18 +197,31 @@ function ConversationRow({
             : "hover:bg-muted/40 border-l-2 border-transparent",
         )}
       >
-        <Avatar className="h-10 w-10 shrink-0">
-          {other.avatarUrl && <AvatarImage src={other.avatarUrl} />}
-          <AvatarFallback className="bg-primary/20 text-primary text-xs">
-            {initials(other.fullName)}
-          </AvatarFallback>
-        </Avatar>
+        {isGroup ? (
+          <GroupAvatar others={conversation.others} />
+        ) : (
+          <Avatar className="h-10 w-10 shrink-0">
+            {conversation.others[0].avatarUrl && (
+              <AvatarImage src={conversation.others[0].avatarUrl ?? undefined} />
+            )}
+            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+              {initials(conversation.others[0].fullName)}
+            </AvatarFallback>
+          </Avatar>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
-              {other.fullName}
+              {title}
             </p>
-            <RoleChip role={other.role} />
+            {isGroup ? (
+              <span className="chip chip-silver shrink-0">
+                <Users className="h-3 w-3" aria-hidden />
+                Gruppo
+              </span>
+            ) : (
+              <RoleChip role={conversation.others[0].role} />
+            )}
           </div>
           <p
             className={cn(
@@ -201,7 +230,7 @@ function ConversationRow({
             )}
           >
             {conversation.lastMessage
-              ? `${lastIsMine ? "Tu: " : ""}${conversation.lastMessage.body}`
+              ? `${lastSender ? `${lastSender}: ` : ""}${conversation.lastMessage.body}`
               : "Nessun messaggio"}
           </p>
         </div>
@@ -220,6 +249,43 @@ function ConversationRow({
         </div>
       </Link>
     </li>
+  );
+}
+
+/**
+ * Stacked avatars for group conversations — first two members offset
+ * with overlap, plus a "+N" badge if there are more. Sized to roughly
+ * match the 10×10 single-avatar footprint so rows stay aligned.
+ */
+function GroupAvatar({
+  others,
+}: {
+  others: ConversationListItem["others"];
+}) {
+  const visible = others.slice(0, 2);
+  const extra = others.length - visible.length;
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      {visible.map((o, i) => (
+        <Avatar
+          key={o.id}
+          className={cn(
+            "border-card absolute h-7 w-7 border-2",
+            i === 0 ? "left-0 top-0" : "right-0 bottom-0",
+          )}
+        >
+          {o.avatarUrl && <AvatarImage src={o.avatarUrl} />}
+          <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+            {initials(o.fullName)}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+      {extra > 0 && (
+        <span className="bg-muted text-muted-foreground border-card absolute -bottom-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[9px] font-semibold tabular-nums">
+          +{extra}
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -179,14 +179,19 @@ export function useMarkConversationRead() {
   });
 }
 
+/**
+ * Open or reuse a conversation. Pass a single id for a 1:1 thread or an
+ * array for a group. The server enforces who can be in the same room.
+ */
 export function useStartConversation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (participantId: string) => {
+    mutationFn: async (participants: string | string[]) => {
+      const ids = Array.isArray(participants) ? participants : [participants];
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId }),
+        body: JSON.stringify({ participantIds: ids }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));

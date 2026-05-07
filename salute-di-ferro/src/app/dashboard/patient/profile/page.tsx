@@ -19,9 +19,7 @@ export default function PatientProfilePage() {
   const appointments = useAppointments();
 
   // Team of care size (approx: distinct active professionals).
-  const teamQuery = useQuery<
-    Array<{ professional: { id: string } }>
-  >({
+  const teamQuery = useQuery<Array<{ professional: { id: string } }>>({
     queryKey: ["my-professionals"],
     queryFn: async () => {
       const res = await fetch("/api/me/professionals");
@@ -34,7 +32,7 @@ export default function PatientProfilePage() {
 
   const stats = [
     {
-      label: "Team di cura",
+      label: "Team di ferro",
       value: teamQuery.data?.length ?? 0,
     },
     {
@@ -53,11 +51,7 @@ export default function PatientProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <ProfileForm
-            showClinical
-            hideHeader
-            bottomSection={<MetricPreferencesCard />}
-          />
+          <ProfileForm showClinical hideHeader bottomSection={<MetricPreferencesCard />} />
           <DangerZone />
         </div>
         <aside className="order-first lg:order-last">
@@ -78,8 +72,8 @@ export default function PatientProfilePage() {
 function PageSkeleton() {
   return (
     <div className="flex flex-col gap-6 pb-12">
-      <div className="h-40 w-full animate-pulse rounded-xl bg-muted" />
-      <div className="h-48 w-full animate-pulse rounded-xl bg-muted" />
+      <div className="bg-muted h-40 w-full animate-pulse rounded-xl" />
+      <div className="bg-muted h-48 w-full animate-pulse rounded-xl" />
     </div>
   );
 }
