@@ -82,6 +82,11 @@ export const profilePatchSchema = z.object({
     .transform((arr) =>
       arr ? Array.from(new Set(arr.filter((s) => (PROFESSIONAL_SPECIALTIES as readonly string[]).includes(s)))) : undefined,
     ),
+  // DOCTOR/COACH-only knob: when false the professional is hidden from
+  // the patient-facing search / can't accept new bookings. Default on
+  // the server side is `true` (see Prisma schema), so omitting this in
+  // a PATCH leaves the existing value intact.
+  acceptingPatients: z.boolean().optional(),
 
   // IANA timezone (e.g. "Europe/Rome"). Validated leniently against the
   // browser's known list at write time — kept loose so a server in a
@@ -127,6 +132,7 @@ export const profileFormSchema = z.object({
   targetWeightKg: z.number().nullable(),
   bio: z.string().max(2000).nullable(),
   specialties: z.array(z.string()).max(20),
+  acceptingPatients: z.boolean(),
   timezone: z.string().min(1).max(64),
 });
 

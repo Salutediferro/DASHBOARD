@@ -11,6 +11,8 @@ export type ProfessionalSearchResult = {
   specialties: string[];
   /** True when the patient already has an ACTIVE CareRelationship with this pro. */
   linked: boolean;
+  /** Self-set by the professional; gates new-patient bookings server-side. */
+  acceptingPatients: boolean;
 };
 
 export type LinkedProfessional = {
@@ -24,6 +26,7 @@ export type LinkedProfessional = {
     avatarUrl: string | null;
     bio: string | null;
     specialties: string[];
+    acceptingPatients: boolean;
   };
 };
 
@@ -53,8 +56,16 @@ async function sendJson<T>(
   return res.json();
 }
 
-export function useProfessionalSearch(query: string, specialty: string) {
+export function useProfessionalSearch(
+  query: string,
+  specialty: string,
+  opts: { enabled?: boolean } = {},
+) {
   const trimmed = query.trim();
+  // Default: only fire when there's something to filter on (used by the
+  // small dialog picker). Pass `{ enabled: true }` for the directory
+  // view that wants to show every professional in the org by default.
+  const enabled = opts.enabled ?? (trimmed.length > 0 || specialty.length > 0);
   return useQuery({
     queryKey: ["professionals", "search", trimmed, specialty],
     queryFn: () => {
@@ -63,8 +74,7 @@ export function useProfessionalSearch(query: string, specialty: string) {
       if (specialty) u.searchParams.set("specialty", specialty);
       return getJson<ProfessionalSearchResult[]>(u.pathname + u.search);
     },
-    // Avoid hammering on every keystroke; the parent handles debounce.
-    enabled: trimmed.length > 0 || specialty.length > 0,
+    enabled,
   });
 }
 

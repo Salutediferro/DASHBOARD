@@ -56,7 +56,10 @@ export async function GET(req: Request) {
     const [pros, links] = await Promise.all([
       prisma.user.findMany({
         where: filters,
-        orderBy: [{ fullName: "asc" }],
+        // Sort accepting professionals first so the patient sees who's
+        // actually bookable at the top, with alphabetical order as
+        // tiebreaker.
+        orderBy: [{ acceptingPatients: "desc" }, { fullName: "asc" }],
         take: 25,
         select: {
           id: true,
@@ -65,6 +68,7 @@ export async function GET(req: Request) {
           avatarUrl: true,
           bio: true,
           specialties: true,
+          acceptingPatients: true,
         },
       }),
       prisma.careRelationship.findMany({

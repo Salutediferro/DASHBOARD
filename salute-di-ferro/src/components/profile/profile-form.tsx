@@ -12,6 +12,7 @@ import { useWatch } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -118,6 +119,7 @@ export function ProfileForm({
       targetWeightKg: null,
       bio: "",
       specialties: [],
+      acceptingPatients: true,
       timezone: "Europe/Rome",
     },
   });
@@ -137,6 +139,10 @@ export function ProfileForm({
   const specialtiesValue = useWatch({
     control: form.control,
     name: "specialties",
+  });
+  const acceptingPatients = useWatch({
+    control: form.control,
+    name: "acceptingPatients",
   });
 
   // Hydrate the form once the profile fetch resolves.
@@ -158,6 +164,7 @@ export function ProfileForm({
       targetWeightKg: profile.targetWeightKg ?? null,
       bio: profile.bio ?? "",
       specialties: profile.specialties ?? [],
+      acceptingPatients: profile.acceptingPatients ?? true,
       timezone: profile.timezone ?? "Europe/Rome",
     });
   }, [profile, form]);
@@ -479,18 +486,51 @@ export function ProfileForm({
             <CardHeader>
               <CardTitle className="text-base">Profilo pubblico</CardTitle>
               <p className="text-muted-foreground text-xs">
-                Visibile ai clienti collegati. Aiuta a costruire fiducia.
+                Visibile ai clienti collegati e nella ricerca. Aiuta a costruire
+                fiducia.
               </p>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="flex flex-col gap-4">
+              {/* Availability switch — single source of truth used by the
+                  patient search ranking and the booking gate. Pinned to
+                  the top so it's the first decision the pro reaches. */}
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div className="flex flex-col gap-0.5">
+                  <Label
+                    htmlFor="acceptingPatients"
+                    className="text-sm font-medium"
+                  >
+                    Disponibile a nuovi pazienti
+                  </Label>
+                  <p className="text-muted-foreground text-xs">
+                    Quando attivo, i pazienti possono trovarti nella ricerca e
+                    prenotare un primo appuntamento. I pazienti già nel tuo
+                    team continuano a vederti normalmente.
+                  </p>
+                </div>
+                <Switch
+                  id="acceptingPatients"
+                  checked={acceptingPatients ?? true}
+                  onCheckedChange={(v) =>
+                    form.setValue("acceptingPatients", !!v, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
                   rows={4}
-                  placeholder="Chi sei, cosa offri, il tuo approccio..."
+                  placeholder="Chi sei, cosa offri, il tuo approccio (es. powerlifting, riabilitazione, nutrizione sportiva…)"
                   {...form.register("bio")}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Una breve descrizione aiuta i pazienti a capire se sei la
+                  persona giusta per loro.
+                </p>
               </div>
               {isDoctor && (
                 <div className="flex flex-col gap-1.5">

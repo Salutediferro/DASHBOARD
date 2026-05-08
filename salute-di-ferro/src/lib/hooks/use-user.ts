@@ -30,9 +30,11 @@ export type UserProfile = {
   injuries: string | null;
   targetWeightKg: number | null;
   // Public professional profile. `bio` for any professional;
-  // `specialties` is meaningful only for DOCTOR.
+  // `specialties` is meaningful only for DOCTOR. `acceptingPatients`
+  // is the self-set availability flag on DOCTOR/COACH.
   bio: string | null;
   specialties: string[];
+  acceptingPatients: boolean;
   // IANA timezone (e.g. "Europe/Rome"). Drives server-side reminder
   // scheduling so HH:MM is interpreted in the patient's local zone.
   timezone: string;

@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     // professional in the same organization with the claimed role. The
     // CareRelationship is upserted inside the create transaction below
     // — booking IS the entry into the team.
-    const [meRow, target] = await Promise.all([
+    const [meRow, target, existingRel] = await Promise.all([
       prisma.user.findUnique({
         where: { id: me.id },
         select: { organizationId: true },
@@ -184,7 +184,17 @@ export async function POST(req: Request) {
           role: true,
           deletedAt: true,
           organizationId: true,
+          acceptingPatients: true,
         },
+      }),
+      prisma.careRelationship.findFirst({
+        where: {
+          professionalId,
+          patientId: me.id,
+          professionalRole,
+          status: "ACTIVE",
+        },
+        select: { id: true },
       }),
     ]);
     if (!target || target.deletedAt) {
@@ -201,6 +211,19 @@ export async function POST(req: Request) {
     }
     if (target.organizationId !== meRow?.organizationId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    // First-time bookings are gated by the pro's availability flag.
+    // Existing patients (already in the roster) can keep booking even
+    // when the pro has paused new acquisitions, so ongoing care isn't
+    // interrupted.
+    if (!existingRel && !target.acceptingPatients) {
+      return NextResponse.json(
+        {
+          error:
+            "Questo professionista non sta accettando nuovi pazienti al momento.",
+        },
+        { status: 403 },
+      );
     }
   } else {
     // Pro-initiated booking: still require an ACTIVE relationship —

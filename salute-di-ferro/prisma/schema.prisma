@@ -194,8 +194,14 @@ model User {
   // Public professional profile (visible to linked patients).
   // `bio` is free-text. `specialties` stores values from the curated list
   // in src/lib/professional-specialties.ts; only meaningful when role=DOCTOR.
-  bio         String?
-  specialties String[] @default([])
+  // `acceptingPatients` toggles whether a DOCTOR/COACH appears as
+  // bookable in the patient "Team di Ferro" search; defaults to true so
+  // existing professionals don't disappear after migration. Patients
+  // without an existing relationship cannot create one when this is
+  // false.
+  bio                String?
+  specialties        String[] @default([])
+  acceptingPatients  Boolean  @default(true)
 
   // IANA timezone, used by server-side reminder schedulers to interpret
   // user-set HH:MM (e.g. supplement reminders) in the patient's locale.

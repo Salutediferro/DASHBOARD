@@ -31,6 +31,7 @@ const USER_SELECT = {
   targetWeightKg: true,
   bio: true,
   specialties: true,
+  acceptingPatients: true,
   timezone: true,
   selectedMetrics: true,
 } as const;
@@ -57,6 +58,7 @@ type DbUser = {
   targetWeightKg: number | null;
   bio: string | null;
   specialties: string[];
+  acceptingPatients: boolean;
   timezone: string;
   selectedMetrics: string[];
 };
@@ -118,6 +120,8 @@ export async function PATCH(req: Request) {
     updates.targetWeightKg = data.targetWeightKg;
   if (data.bio !== undefined) updates.bio = data.bio;
   if (data.specialties !== undefined) updates.specialties = data.specialties;
+  if (data.acceptingPatients !== undefined)
+    updates.acceptingPatients = data.acceptingPatients;
   if (data.timezone !== undefined) updates.timezone = data.timezone;
   if (data.selectedMetrics !== undefined)
     updates.selectedMetrics = data.selectedMetrics;
