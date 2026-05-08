@@ -281,9 +281,15 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry, initialSlot 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="pr-8">
-          <DialogTitle>
+      {/* Override the shared DialogContent's `grid gap-4 p-4 overflow-y-auto`:
+          we want a flex column where the header + slot strip pin at the
+          top, the active pane scrolls in the middle, and the action
+          footer pins at the bottom. Each section paints its own padding
+          so the dialog body itself can sit edge-to-edge of the rounded
+          frame (no uniform outer gutter). */}
+      <DialogContent className="flex flex-col gap-0 p-0! sm:max-w-md">
+        <DialogHeader className="shrink-0 px-4 pt-4 pr-10 pb-2">
+          <DialogTitle className="pb-4">
             {editing
               ? "Modifica voce"
               : mode === "selected"
@@ -294,62 +300,96 @@ export function DiaryEntryDialog({ open, onOpenChange, date, entry, initialSlot 
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-3 overflow-x-hidden">
-          <SlotAndTime slot={slot} time={time} onSlot={setSlot} onTime={setTime} />
+        <form onSubmit={onSubmit} className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Body wrapper. MUST be a flex column with `flex-1 min-h-0`,
+              not a plain block — otherwise the children below that rely
+              on `flex-1 min-h-0 overflow-y-auto` (the result list,
+              ScrollPane) have no constrained parent height and they
+              just grow to their natural size, getting clipped by the
+              wrapper's `overflow-hidden` instead of scrolling. */}
+          <div className="flex min-h-0 flex-1 flex-col pb-3">
+            {/* Pinned top: slot + time strip — same padding as the header
+              so they read as a single sticky group. */}
+            <div className="shrink-0 px-4 pb-2">
+              <SlotAndTime slot={slot} time={time} onSlot={setSlot} onTime={setTime} />
+            </div>
 
-          {mode === "search" && (
-            <SearchPane
-              onPickFood={pickOffFood}
-              onPickRecent={pickRecent}
-              onCustom={startManualFromSearch}
-            />
-          )}
+            {mode === "search" && <SearchPane onPickFood={pickOffFood} onPickRecent={pickRecent} />}
 
-          {mode === "selected" && selectedFood && (
-            <SelectedPane
-              food={selectedFood}
-              grams={grams}
-              onGrams={setGrams}
-              onBack={backToSearch}
-              onOverride={overrideMacros}
-            />
-          )}
+            {mode === "selected" && selectedFood && (
+              <ScrollPane>
+                <SelectedPane
+                  food={selectedFood}
+                  grams={grams}
+                  onGrams={setGrams}
+                  onBack={backToSearch}
+                  onOverride={overrideMacros}
+                />
+              </ScrollPane>
+            )}
 
-          {mode === "manual" && (
-            <ManualPane
-              description={description}
-              calories={calories}
-              protein={protein}
-              carbs={carbs}
-              fat={fat}
-              onDescription={setDescription}
-              onCalories={setCalories}
-              onProtein={setProtein}
-              onCarbs={setCarbs}
-              onFat={setFat}
-              showBack={!editing}
-              onBack={backToSearch}
-            />
-          )}
+            {mode === "manual" && (
+              <ScrollPane>
+                <ManualPane
+                  description={description}
+                  calories={calories}
+                  protein={protein}
+                  carbs={carbs}
+                  fat={fat}
+                  onDescription={setDescription}
+                  onCalories={setCalories}
+                  onProtein={setProtein}
+                  onCarbs={setCarbs}
+                  onFat={setFat}
+                  showBack={!editing}
+                  onBack={backToSearch}
+                />
+              </ScrollPane>
+            )}
+          </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Annulla
-            </Button>
-            <Button type="submit" disabled={submitting || mode === "search"}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editing ? "Salva" : "Aggiungi"}
-            </Button>
+          {/* `m-0` overrides the shared DialogFooter's `-mx-4 -mb-4`
+              (which only made sense when DialogContent had p-4); the
+              safe-area pb keeps content above the iOS home indicator. */}
+          <DialogFooter className="m-0 shrink-0 rounded-none">
+            <div className="flex size-full flex-row items-center justify-between gap-4">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={startManualFromSearch}
+                className="shrink-0 self-start"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Inserisci personalizzato
+              </Button>
+
+              <div className="flex flex-row items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={submitting}
+                >
+                  Annulla
+                </Button>
+                <Button type="submit" disabled={submitting || mode === "search"}>
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editing ? "Salva" : "Aggiungi"}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Scrollable wrapper for the selected / manual panes — gives them
+ *  their own internal scroll surface so the form stays pinned at the
+ *  top and the footer at the bottom regardless of content height. */
+function ScrollPane({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-3">{children}</div>;
 }
 
 // ----------------------------------------------------------------------------
@@ -399,11 +439,9 @@ function SlotAndTime({
 function SearchPane({
   onPickFood,
   onPickRecent,
-  onCustom,
 }: {
   onPickFood: (f: FoodSearchResult) => void;
   onPickRecent: (r: RecentFood) => void;
-  onCustom: () => void;
 }) {
   const [query, setQuery] = React.useState("");
   const [debounced, setDebounced] = React.useState("");
@@ -437,30 +475,47 @@ function SearchPane({
     filteredRecent.length === 0;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="relative">
-        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-        <Input
-          placeholder="Cerca un alimento (es. mela, yogurt, pasta…)"
-          className="pl-9!"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-          autoFocus
-        />
-        {query && (
-          <button
-            type="button"
-            aria-label="Pulisci"
-            onClick={() => setQuery("")}
-            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 p-1"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+    // Three-row layout that fills the form's flex-1 region:
+    //   1) search input — pinned (shrink-0) so it stays visible while
+    //      the user scrolls the list below it
+    //   2) result list — flex-1 + overflow-y-auto, the only thing that
+    //      scrolls in search mode
+    //   3) custom-entry CTA — pinned at the bottom of the body, just
+    //      above the action footer
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-hidden">
+      <div className="shrink-0 px-4 pb-2">
+        <div className="relative">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            placeholder="Cerca un alimento (es. mela, yogurt, pasta…)"
+            className="pl-9!"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+            autoFocus
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Pulisci"
+              onClick={() => setQuery("")}
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 p-1"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="-mx-1 flex flex-col px-1">
+      {/* `max-h-[55dvh]` is the actual scroll-trigger here: relying on
+          `flex-1 min-h-0` alone only constrains the list when total
+          dialog content exceeds DialogContent's `max-h-[85dvh]` — on
+          taller viewports content fits, the chain has no flex-space
+          to distribute, and the list happily grows past the dialog
+          height with no scroll. The explicit cap forces a scroll the
+          moment the list itself has more rows than fit in 55 % of the
+          dynamic viewport, regardless of how tall the dialog is. */}
+      <div className="flex max-h-[55dvh] min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-3">
         {filteredRecent.length > 0 && (
           <ResultGroup title="Recenti" icon={<History className="h-3 w-3" />}>
             {filteredRecent.map((r) => (
@@ -536,10 +591,6 @@ function SearchPane({
           </div>
         )}
       </div>
-
-      <Button type="button" variant="ghost" size="sm" onClick={onCustom} className="self-start">
-        <Pencil className="h-3.5 w-3.5" /> Inserisci personalizzato
-      </Button>
     </div>
   );
 }
@@ -554,7 +605,7 @@ function ResultGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex w-full flex-col gap-0.5 overflow-hidden">
+    <section className="flex w-full flex-col gap-0.5">
       <h4 className="text-muted-foreground inline-flex items-center gap-1 px-2 pt-2 text-[10px] font-semibold tracking-wider uppercase">
         {icon}
         {title}

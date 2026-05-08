@@ -32,10 +32,11 @@ import {
 // Format required by OFF: "AppName/Version (ContactEmail)".
 const USER_AGENT = "SaluteDiFerro/1.0 (support@salutediferro.it)";
 
-// v2: bumped after adding category-aware scoring — old entries cached
-// before that change have empty result lists for category-style queries
-// like "pasta" and would keep serving them until TTL expiry.
-const CACHE_KEY_PREFIX = "sdf:off:search:v2:";
+// v3: bumped after switching from the v2 search endpoint to the legacy
+// `cgi/search.pl` (relevance-sorted, full-text). v2 cache had empty /
+// junk results for queries like "pollo" and "pasta" that need to be
+// invalidated immediately on rollout, not waited out by TTL.
+const CACHE_KEY_PREFIX = "sdf:off:search:v3:";
 const CACHE_TTL_SECONDS = 60 * 60 * 6; // 6h — OFF data changes slowly.
 
 let redisSingleton: Redis | null | undefined;

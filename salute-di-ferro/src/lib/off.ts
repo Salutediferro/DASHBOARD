@@ -23,7 +23,17 @@ export type FoodSearchResult = {
   servingG: number | null;
 };
 
-export const OFF_SEARCH_BASE = "https://world.openfoodfacts.org/api/v2/search";
+// Use the legacy `cgi/search.pl` endpoint instead of `api/v2/search`.
+// Why: `api/v2/search` is primarily a tag/facet filter and treats
+// `search_terms` as a loose hint that's easily overridden by sort
+// options; with `sort_by=unique_scans_n` it returned the globally most
+// popular Italy-market products regardless of relevance ("pollo" → water,
+// Coca-Cola, Lindt). The legacy endpoint with `search_simple=1` does
+// proper full-text matching, returns results sorted by relevance, and
+// is the path OFF's own UI uses. We also drop `cc=it` here — it
+// excluded most generic chicken/pasta entries; `lc=it` alone keeps
+// product names localized when available.
+export const OFF_SEARCH_BASE = "https://world.openfoodfacts.org/cgi/search.pl";
 
 const OFF_FIELDS = [
   "code",
@@ -42,13 +52,16 @@ const OFF_FIELDS = [
 export function buildOffSearchUrl(query: string): string {
   const url = new URL(OFF_SEARCH_BASE);
   url.searchParams.set("search_terms", query);
+  url.searchParams.set("search_simple", "1");
+  url.searchParams.set("action", "process");
+  url.searchParams.set("json", "1");
   url.searchParams.set("fields", OFF_FIELDS);
   // Pull a wider page so we can re-rank locally and still end up with
   // ~20 relevant results after dropping the noise OFF returns.
   url.searchParams.set("page_size", "60");
   url.searchParams.set("lc", "it");
-  url.searchParams.set("cc", "it");
-  url.searchParams.set("sort_by", "unique_scans_n");
+  // No sort_by — let OFF rank by relevance to `search_terms`.
+  // No cc=it — too restrictive for generic / cross-market foods.
   return url.toString();
 }
 

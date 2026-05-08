@@ -384,26 +384,25 @@ function ProfessionalCard({
           {showAvailability && <AvailabilityBadge available={prof.acceptingPatients} />}
         </div>
 
+        {/* Specialties are shown in full (no slice + "+N" overflow) so a
+            patient searching by specialty can see every match a pro
+            covers — the powerlifter scanning for matching trainers
+            shouldn't have to click anywhere to read the list. */}
         {prof.specialties.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
-            {prof.specialties.slice(0, 4).map((s) => (
+            {prof.specialties.map((s) => (
               <Badge key={s} variant="outline" className="text-[10px]">
                 {s}
               </Badge>
             ))}
-            {prof.specialties.length > 4 && (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground text-[10px]"
-              >
-                +{prof.specialties.length - 4}
-              </Badge>
-            )}
           </div>
         )}
 
-        {prof.bio && (
-          <p className="text-muted-foreground mt-2 line-clamp-3 text-xs">
+        {/* `bio?.trim()` so a string of whitespace doesn't render an empty
+            paragraph block. Full text — no line-clamp — for the same
+            "let the patient actually read it" reason as specialties. */}
+        {prof.bio?.trim() && (
+          <p className="text-muted-foreground mt-2 text-xs whitespace-pre-wrap">
             {prof.bio}
           </p>
         )}
