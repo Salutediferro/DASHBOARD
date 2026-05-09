@@ -10,12 +10,12 @@
  * health professions a patient may want to grant access to.
  */
 export const PROFESSIONAL_SPECIALTIES = [
-  "Cardiologia",
-  "Endocrinologia",
-  "Osteopatia",
-  "Fisioterapia",
-  "Nutrizione",
-  "Gastroenterologia",
+  "Cardiologo",
+  "Endocrinologo",
+  "Osteopato",
+  "Fisioterapo",
+  "Nutrizionista",
+  "Gastroenterologo",
 ] as const;
 
 export type ProfessionalSpecialty = (typeof PROFESSIONAL_SPECIALTIES)[number];

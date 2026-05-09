@@ -130,18 +130,13 @@ export default function PatientTeamPage() {
   const linked = useLinkedProfessionals();
   // Always fetch — the directory is useful even before the patient
   // types anything. Result list is capped at 25 server-side.
-  const search = useProfessionalSearch(
-    debounced,
-    specialty === SPECIALTY_ALL ? "" : specialty,
-    { enabled: true },
-  );
+  const search = useProfessionalSearch(debounced, specialty === SPECIALTY_ALL ? "" : specialty, {
+    enabled: true,
+  });
 
   const startChat = useStartConversation();
 
-  const myTeam = React.useMemo(
-    () => (linked.data ?? []).map(fromLinked),
-    [linked.data],
-  );
+  const myTeam = React.useMemo(() => (linked.data ?? []).map(fromLinked), [linked.data]);
   // Don't show pros that are already in the team in the search column —
   // they're already represented on the left, and the duplicate looks
   // confusing on mobile where the columns stack.
@@ -160,9 +155,7 @@ export default function PatientTeamPage() {
   }
 
   function onShareData(prof: ProCardData) {
-    toast.info(
-      `Apri un referto nella tua Cartella per condividerlo con ${prof.fullName}.`,
-    );
+    toast.info(`Apri un referto nella tua Cartella per condividerlo con ${prof.fullName}.`);
     router.push("/dashboard/patient/medical-records");
   }
 
@@ -205,8 +198,8 @@ export default function PatientTeamPage() {
                 <HeartHandshake className="text-muted-foreground/40 h-9 w-9" />
                 <p className="text-sm font-medium">Nessuno nel team</p>
                 <p className="text-muted-foreground max-w-xs text-xs">
-                  Trova un professionista nella ricerca a destra e prenota un
-                  primo appuntamento per aggiungerlo al tuo team.
+                  Trova un professionista nella ricerca a destra e prenota un primo appuntamento per
+                  aggiungerlo al tuo team.
                 </p>
               </CardContent>
             </Card>
@@ -217,9 +210,7 @@ export default function PatientTeamPage() {
                   key={p.id}
                   prof={p}
                   context="team"
-                  busy={
-                    startChat.isPending && startChat.variables === p.id
-                  }
+                  busy={startChat.isPending && startChat.variables === p.id}
                   onSendMessage={onSendMessage}
                   onShareData={onShareData}
                   onRequestAppointment={onRequestAppointment}
@@ -232,12 +223,10 @@ export default function PatientTeamPage() {
         {/* ── Right: search ────────────────────────────────────────── */}
         <section className="flex flex-col gap-3">
           <header>
-            <h2 className="font-heading text-lg font-semibold">
-              Cerca professionisti
-            </h2>
+            <h2 className="font-heading text-lg font-semibold">Cerca professionisti</h2>
             <p className="text-muted-foreground text-xs">
-              Filtra per nome o specialità. Funziona anche con la sola
-              specialità se non conosci nessuno per nome.
+              Filtra per nome o specialità. Funziona anche con la sola specialità se non conosci
+              nessuno per nome.
             </p>
           </header>
 
@@ -253,25 +242,18 @@ export default function PatientTeamPage() {
                 autoComplete="off"
               />
             </div>
-            <Select
-              value={specialty}
-              onValueChange={(v) => setSpecialty(v ?? SPECIALTY_ALL)}
-            >
+            <Select value={specialty} onValueChange={(v) => setSpecialty(v ?? SPECIALTY_ALL)}>
               <SelectTrigger
                 id="team-specialty"
                 aria-label="Filtra per specialità"
                 className="w-full sm:w-56"
               >
                 <SelectValue>
-                  {(v) =>
-                    v === SPECIALTY_ALL ? "Tutte le specialità" : (v as string)
-                  }
+                  {(v) => (v === SPECIALTY_ALL ? "Tutti le specialisti" : (v as string))}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SPECIALTY_ALL}>
-                  Tutte le specialità
-                </SelectItem>
+                <SelectItem value={SPECIALTY_ALL}>Tutti gli specialisti</SelectItem>
                 {PROFESSIONAL_SPECIALTIES.map((s) => (
                   <SelectItem key={s} value={s}>
                     {s}
@@ -287,9 +269,7 @@ export default function PatientTeamPage() {
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
                 <SearchX className="text-muted-foreground/40 h-9 w-9" />
-                <p className="text-muted-foreground text-xs">
-                  Nessun professionista trovato.
-                </p>
+                <p className="text-muted-foreground text-xs">Nessun professionista trovato.</p>
               </CardContent>
             </Card>
           ) : (
@@ -365,9 +345,7 @@ function ProfessionalCard({
   return (
     <li className="border-border/70 bg-card flex flex-col gap-3 rounded-xl border p-4 shadow-xs sm:flex-row sm:items-start">
       <Avatar className="h-12 w-12 shrink-0">
-        {prof.avatarUrl && (
-          <AvatarImage src={prof.avatarUrl} alt={prof.fullName} />
-        )}
+        {prof.avatarUrl && <AvatarImage src={prof.avatarUrl} alt={prof.fullName} />}
         <AvatarFallback className="bg-primary/15 text-primary">
           {initials(prof.fullName)}
         </AvatarFallback>
@@ -402,9 +380,7 @@ function ProfessionalCard({
             paragraph block. Full text — no line-clamp — for the same
             "let the patient actually read it" reason as specialties. */}
         {prof.bio?.trim() && (
-          <p className="text-muted-foreground mt-2 text-xs whitespace-pre-wrap">
-            {prof.bio}
-          </p>
+          <p className="text-muted-foreground mt-2 text-xs whitespace-pre-wrap">{prof.bio}</p>
         )}
       </div>
 
@@ -425,12 +401,7 @@ function ProfessionalCard({
               )}
               Invia messaggio
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => onShareData(prof)}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => onShareData(prof)}>
               <ShieldCheck className="h-3.5 w-3.5" />
               Condividi referti
             </Button>
@@ -481,7 +452,9 @@ function AvailabilityBadge({ available }: { available: boolean }) {
       <Circle
         className={cn(
           "h-2 w-2",
-          available ? "fill-emerald-500 text-emerald-500" : "fill-muted-foreground/40 text-muted-foreground/40",
+          available
+            ? "fill-emerald-500 text-emerald-500"
+            : "fill-muted-foreground/40 text-muted-foreground/40",
         )}
       />
       {available ? "Disponibile" : "Non disponibile"}

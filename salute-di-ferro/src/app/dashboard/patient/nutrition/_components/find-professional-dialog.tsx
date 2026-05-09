@@ -53,11 +53,7 @@ function initials(name: string) {
   );
 }
 
-export function FindProfessionalDialog({
-  open,
-  onOpenChange,
-  onRequestAppointment,
-}: Props) {
+export function FindProfessionalDialog({ open, onOpenChange, onRequestAppointment }: Props) {
   const [query, setQuery] = React.useState("");
   const [specialty, setSpecialty] = React.useState<string>(SPECIALTY_ALL);
   const [debounced, setDebounced] = React.useState("");
@@ -92,8 +88,8 @@ export function FindProfessionalDialog({
         <DialogHeader>
           <DialogTitle>Cerca un professionista</DialogTitle>
           <DialogDescription>
-            Prenota un primo appuntamento per aggiungerlo al tuo team. Una volta
-            collegato, potrai condividere i tuoi dati di nutrizione.
+            Prenota un primo appuntamento per aggiungerlo al tuo team. Una volta collegato, potrai
+            condividere i tuoi dati di nutrizione.
           </DialogDescription>
         </DialogHeader>
 
@@ -117,11 +113,11 @@ export function FindProfessionalDialog({
               className="w-full sm:w-48"
             >
               <SelectValue>
-                {(v) => (v === SPECIALTY_ALL ? "Tutte le specialità" : (v as string))}
+                {(v) => (v === SPECIALTY_ALL ? "Tutti le specialisti" : (v as string))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SPECIALTY_ALL}>Tutte le specialità</SelectItem>
+              <SelectItem value={SPECIALTY_ALL}>Tutti le specialisti</SelectItem>
               {PROFESSIONAL_SPECIALTIES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
@@ -199,11 +195,7 @@ export function FindProfessionalDialog({
                         <Check className="h-3 w-3" /> Collegato
                       </Badge>
                     ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => onPickForBooking(p)}
-                      >
+                      <Button type="button" size="sm" onClick={() => onPickForBooking(p)}>
                         <CalendarPlus className="h-3.5 w-3.5" />
                         Richiedi appuntamento
                       </Button>

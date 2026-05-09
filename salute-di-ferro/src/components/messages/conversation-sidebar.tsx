@@ -73,7 +73,7 @@ export function ConversationSidebar() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cerca conversazioni…"
             aria-label="Cerca conversazioni"
-            className="focus-ring pl-9"
+            className="focus-ring pl-9!"
           />
         </div>
         <FilterPills value={filter} onChange={setFilter} unreadCount={totalUnread} />
@@ -180,7 +180,8 @@ function ConversationRow({
     ? lastIsMine
       ? "Tu"
       : isGroup
-        ? conversation.others.find((o) => o.id === conversation.lastMessage?.senderId)
+        ? conversation.others
+            .find((o) => o.id === conversation.lastMessage?.senderId)
             ?.fullName.split(" ")[0]
         : null
     : null;
@@ -257,11 +258,7 @@ function ConversationRow({
  * with overlap, plus a "+N" badge if there are more. Sized to roughly
  * match the 10×10 single-avatar footprint so rows stay aligned.
  */
-function GroupAvatar({
-  others,
-}: {
-  others: ConversationListItem["others"];
-}) {
+function GroupAvatar({ others }: { others: ConversationListItem["others"] }) {
   const visible = others.slice(0, 2);
   const extra = others.length - visible.length;
   return (
@@ -271,7 +268,7 @@ function GroupAvatar({
           key={o.id}
           className={cn(
             "border-card absolute h-7 w-7 border-2",
-            i === 0 ? "left-0 top-0" : "right-0 bottom-0",
+            i === 0 ? "top-0 left-0" : "right-0 bottom-0",
           )}
         >
           {o.avatarUrl && <AvatarImage src={o.avatarUrl} />}
@@ -281,7 +278,7 @@ function GroupAvatar({
         </Avatar>
       ))}
       {extra > 0 && (
-        <span className="bg-muted text-muted-foreground border-card absolute -bottom-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[9px] font-semibold tabular-nums">
+        <span className="bg-muted text-muted-foreground border-card absolute -right-0.5 -bottom-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[9px] font-semibold tabular-nums">
           +{extra}
         </span>
       )}

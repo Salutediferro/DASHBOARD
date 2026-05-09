@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   Apple,
-  CalendarDays,
   Copy,
   History,
   Loader2,
@@ -440,6 +439,9 @@ function DiarySection() {
           >
             <Copy className="h-3.5 w-3.5" /> Copia da…
           </Button>
+          <Button type="button" size="sm" onClick={() => openCreate()}>
+            <Plus className="h-3.5 w-3.5" /> Aggiungi
+          </Button>
         </div>
       </header>
 
@@ -466,37 +468,6 @@ function DiarySection() {
         <div className="flex items-center justify-center py-8">
           <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
         </div>
-      )}
-
-      {/* Empty-day CTA — sits ABOVE the meal cards as a discoverability
-          nudge for the copy feature. The cards still render their own
-          per-slot "+ Aggiungi" buttons. */}
-      {!diary.isLoading && entries.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-            <CalendarDays className="text-muted-foreground/40 h-10 w-10" />
-            <div>
-              <p className="text-sm font-medium">Diario vuoto</p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Aggiungi una voce o copia un giorno precedente — molti
-                pasti tornano uguali, non serve riscriverli.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button type="button" size="sm" onClick={() => openCreate()}>
-                <Plus className="h-3.5 w-3.5" /> Aggiungi voce
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setCopyOpen(true)}
-              >
-                <Copy className="h-3.5 w-3.5" /> Copia da…
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {/* Meal cards */}

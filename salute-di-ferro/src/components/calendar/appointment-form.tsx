@@ -149,20 +149,23 @@ function PatientBookingDialog({
   const [notes, setNotes] = React.useState("");
   const [lastCreatedId, setLastCreatedId] = React.useState<string | null>(null);
 
-  // Reset on close
+  // Re-initialize wizard state on each open transition (false -> true).
+  // useState's initial value only runs at mount, so without this the
+  // dialog would keep showing the "professional" step the next time it
+  // opens with a freshly-passed initialProfessional (e.g. from Team di
+  // Ferro), since the parent mounts the dialog with no pre-selection.
+  const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
-    if (open) return;
-    // A small delay so the dialog content doesn't visually "blink".
-    const t = window.setTimeout(() => {
-      setStep(firstStep);
-      setProfessional(initialProState);
-      setDay("");
-      setSlot(null);
-      setNotes("");
-      setType("VIDEO_CALL");
-      setLastCreatedId(null);
-    }, 160);
-    return () => window.clearTimeout(t);
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!open || wasOpen) return;
+    setStep(firstStep);
+    setProfessional(initialProState);
+    setDay("");
+    setSlot(null);
+    setNotes("");
+    setType("VIDEO_CALL");
+    setLastCreatedId(null);
   }, [open, firstStep, initialProState]);
 
   const { data: professionals = [], isLoading: proLoading } = useQuery<
