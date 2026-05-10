@@ -23,7 +23,7 @@ function EmptyFrame({
   // backdrop that fades the brand accent into the card fill. The result
   // reads as "featured area" instead of "placeholder hole".
   return (
-    <div className="relative flex flex-col items-center gap-4 overflow-hidden rounded-xl border border-border/70 bg-card/60 px-6 py-12 text-center">
+    <div className="border-border/70 bg-card/60 relative flex flex-col items-center gap-4 overflow-hidden rounded-xl border px-6 py-12 text-center">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-32"
@@ -35,7 +35,7 @@ function EmptyFrame({
       <div className="relative">{illustration}</div>
       <div className="relative flex max-w-sm flex-col gap-1.5">
         <h3 className="text-display text-lg">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-muted-foreground text-sm">{description}</p>
       </div>
       {action && <div className="relative">{action}</div>}
     </div>
@@ -70,8 +70,7 @@ export function BiometricsEmptyState({ action }: { action?: ReactNode }) {
         >
           <title id="bio-empty-t">Bilancia con ruota di progresso</title>
           <desc id="bio-empty-d">
-            Una bilancia stilizzata al centro di un cerchio metallico con
-            accento rosso.
+            Una bilancia stilizzata al centro di un cerchio metallico con accento rosso.
           </desc>
           <GradientRing id="bio-ring" />
           <circle
@@ -104,14 +103,7 @@ export function BiometricsEmptyState({ action }: { action?: ReactNode }) {
             stroke="var(--accent-500)"
             strokeOpacity="0.35"
           />
-          <rect
-            x="64"
-            y="68"
-            width="32"
-            height="12"
-            rx="2"
-            fill="var(--background)"
-          />
+          <rect x="64" y="68" width="32" height="12" rx="2" fill="var(--background)" />
           <circle cx="72" cy="74" r="1.5" fill="#b22222" />
           <circle cx="80" cy="74" r="1.5" fill="var(--accent-500)" opacity="0.7" />
           <circle cx="88" cy="74" r="1.5" fill="var(--accent-500)" opacity="0.5" />
@@ -140,8 +132,7 @@ export function ReportsEmptyState({ action }: { action?: ReactNode }) {
         >
           <title id="rep-empty-t">Cartella del cliente con anello cromato</title>
           <desc id="rep-empty-d">
-            Una cartella stilizzata con documento all&apos;interno, circondata
-            da un anello cromato.
+            Una cartella stilizzata con documento all&apos;interno, circondata da un anello cromato.
           </desc>
           <GradientRing id="rep-ring" />
           <circle
@@ -197,9 +188,33 @@ export function ReportsEmptyState({ action }: { action?: ReactNode }) {
             strokeOpacity="0.25"
           />
           <rect x="64" y="68" width="22" height="2" rx="1" fill="var(--accent-500)" opacity="0.8" />
-          <rect x="64" y="73" width="32" height="1.5" rx="0.8" fill="var(--accent-500)" opacity="0.4" />
-          <rect x="64" y="77" width="32" height="1.5" rx="0.8" fill="var(--accent-500)" opacity="0.4" />
-          <rect x="64" y="81" width="20" height="1.5" rx="0.8" fill="var(--accent-500)" opacity="0.4" />
+          <rect
+            x="64"
+            y="73"
+            width="32"
+            height="1.5"
+            rx="0.8"
+            fill="var(--accent-500)"
+            opacity="0.4"
+          />
+          <rect
+            x="64"
+            y="77"
+            width="32"
+            height="1.5"
+            rx="0.8"
+            fill="var(--accent-500)"
+            opacity="0.4"
+          />
+          <rect
+            x="64"
+            y="81"
+            width="20"
+            height="1.5"
+            rx="0.8"
+            fill="var(--accent-500)"
+            opacity="0.4"
+          />
           {/* Medical cross accent */}
           <path
             d="M 92 70 h 4 v 4 h 4 v 4 h -4 v 4 h -4 v -4 h -4 v -4 h 4 z"
@@ -229,8 +244,7 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
         >
           <title id="apt-empty-t">Calendario con anello cromato</title>
           <desc id="apt-empty-d">
-            Un calendario stilizzato con un giorno evidenziato, al centro di
-            un anello cromato.
+            Un calendario stilizzato con un giorno evidenziato, al centro di un anello cromato.
           </desc>
           <GradientRing id="apt-ring" />
           <circle
@@ -254,8 +268,24 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
             transform="rotate(-90 80 70)"
           />
           {/* Calendar binding rings */}
-          <rect x="62" y="46" width="3" height="8" rx="1.5" fill="var(--accent-500)" opacity="0.7" />
-          <rect x="95" y="46" width="3" height="8" rx="1.5" fill="var(--accent-500)" opacity="0.7" />
+          <rect
+            x="62"
+            y="46"
+            width="3"
+            height="8"
+            rx="1.5"
+            fill="var(--accent-500)"
+            opacity="0.7"
+          />
+          <rect
+            x="95"
+            y="46"
+            width="3"
+            height="8"
+            rx="1.5"
+            fill="var(--accent-500)"
+            opacity="0.7"
+          />
           {/* Calendar body */}
           <rect
             x="54"
@@ -268,7 +298,15 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
             strokeOpacity="0.35"
           />
           {/* Header */}
-          <rect x="54" y="52" width="52" height="9" rx="4" fill="var(--accent-500)" opacity="0.15" />
+          <rect
+            x="54"
+            y="52"
+            width="52"
+            height="9"
+            rx="4"
+            fill="var(--accent-500)"
+            opacity="0.15"
+          />
           {/* Grid dots */}
           {[0, 1, 2, 3].map((col) =>
             [0, 1, 2].map((row) => (
@@ -297,7 +335,7 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
 export function MessagesEmptyState({ action }: { action?: ReactNode }) {
   return (
     <EmptyFrame
-      title="Scrivi al tuo coach"
+      title="Scrivi ai tuoi professionisti"
       description="Una chat diretta col tuo team: fai domande, aggiorna sul progresso, ricevi feedback."
       illustration={
         <svg
@@ -307,9 +345,7 @@ export function MessagesEmptyState({ action }: { action?: ReactNode }) {
           className="h-24 w-28"
         >
           <title id="msg-empty-t">Nuvoletta di conversazione</title>
-          <desc id="msg-empty-d">
-            Una bubble con tre punti al centro di un anello cromato.
-          </desc>
+          <desc id="msg-empty-d">Una bubble con tre punti al centro di un anello cromato.</desc>
           <GradientRing id="msg-ring" />
           <circle
             cx="80"

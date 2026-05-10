@@ -2,13 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  buildOffSearchUrl,
-  parseOffSearchResponse,
-  type FoodSearchResult,
-} from "@/lib/off";
+import type { FoodSearchResult } from "@/lib/food-search";
 
-export type { FoodSearchResult } from "@/lib/off";
+export type { FoodSearchResult } from "@/lib/food-search";
 
 export type RecentFood = {
   description: string;
@@ -20,13 +16,7 @@ export type RecentFood = {
 };
 
 /**
- * Free-text search against Open Food Facts via our server proxy.
- *
- * If the proxy returns 503 with `X-Off-Source: ratelimited`, OFF has
- * throttled our shared egress IP — we transparently fall back to a
- * direct browser → OFF fetch so each patient consumes their own
- * 10 req/min quota instead of fighting over the server's. The result
- * shape is identical because both paths run through `parseOffSearchResponse`.
+ * Free-text search against our local `Food` table via the API route.
  *
  * The query string should already be debounced upstream — this hook
  * does not debounce, but only fires for queries with >= 3 characters.
@@ -36,32 +26,11 @@ export function useFoodSearch(query: string) {
   return useQuery({
     queryKey: ["foods", "search", trimmed],
     queryFn: async () => {
-      const proxyRes = await fetch(
+      const res = await fetch(
         `/api/nutrition/foods/search?q=${encodeURIComponent(trimmed)}`,
       );
-
-      // Server cache hit or fresh OFF call — done.
-      if (proxyRes.ok) {
-        return (await proxyRes.json()) as FoodSearchResult[];
-      }
-
-      // 503 + ratelimited signal: skip the proxy and call OFF straight
-      // from the browser. Other failures: surface an empty list.
-      const ratelimited =
-        proxyRes.status === 503 &&
-        proxyRes.headers.get("X-Off-Source") === "ratelimited";
-      if (!ratelimited) return [] as FoodSearchResult[];
-
-      try {
-        const offRes = await fetch(buildOffSearchUrl(trimmed), {
-          headers: { Accept: "application/json" },
-        });
-        if (!offRes.ok) return [] as FoodSearchResult[];
-        const data = await offRes.json();
-        return parseOffSearchResponse(data, trimmed);
-      } catch {
-        return [] as FoodSearchResult[];
-      }
+      if (!res.ok) return [] as FoodSearchResult[];
+      return (await res.json()) as FoodSearchResult[];
     },
     enabled: trimmed.length >= 3,
     staleTime: 60_000,

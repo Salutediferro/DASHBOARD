@@ -1,56 +1,35 @@
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
 
 import { requireRole, errorResponse } from "@/lib/auth/require-role";
+import { prisma } from "@/lib/prisma";
 import {
-  buildOffSearchUrl,
   normalizeQuery,
-  parseOffSearchResponse,
+  relevanceScore,
   type FoodSearchResult,
-} from "@/lib/off";
+} from "@/lib/food-search";
 
 /**
- * Server-side proxy to Open Food Facts (OFF) for the patient diary
- * picker. Two reasons we route through here instead of always hitting
- * OFF from the browser:
+ * Free-text food search backing the patient diary picker.
  *
- *   1. Cross-user dedupe: a Redis cache keyed by normalized query means
- *      the second patient typing "petto pollo" gets an instant response
- *      and doesn't burn OFF's quota at all.
- *   2. Polite UA: OFF asks each app for a `Name/Version (contact)`
- *      header — browsers can't set User-Agent, so this is the only way.
+ * Pre-2026 this proxied Open Food Facts (with Redis caching and a
+ * browser-side fallback for rate-limit handoff). We replaced it with a
+ * curated local dataset — the Italian CREA/INRAN composition tables
+ * (~900 rows) seeded into the `Food` table by `npm run db:seed:foods`.
+ * No external calls, no quota games, no cache: a 900-row Postgres ILIKE
+ * scan is comfortably sub-millisecond and the read load is negligible.
  *
- * OFF's documented limits (https://openfoodfacts.github.io/.../api/) are
- * 10 req/min/IP for `/search`. Because all server-side calls share our
- * single egress IP, that quota covers the whole patient base. When OFF
- * rate-limits us we return 503 with an explicit signal so the client
- * can fall back to a direct browser → OFF fetch (per-user IP, per-user
- * quota). Cache writes are skipped on the fallback path to keep this
- * code path the only writer.
+ * Strategy:
+ *   1. Broad recall — pull every row where ANY query token appears in
+ *      `name`, `englishName`, or `category` (case-insensitive). With a
+ *      900-row table the candidate set is small even for short tokens.
+ *   2. In-memory ranking via `relevanceScore` — exact > prefix > whole
+ *      word > substring, with category matches scored like name word
+ *      hits so a query like "frutta" surfaces every fruit. Tokens
+ *      missing from every field reject the row.
+ *   3. Top 20.
  */
 
-// Format required by OFF: "AppName/Version (ContactEmail)".
-const USER_AGENT = "SaluteDiFerro/1.0 (support@salutediferro.it)";
-
-// v3: bumped after switching from the v2 search endpoint to the legacy
-// `cgi/search.pl` (relevance-sorted, full-text). v2 cache had empty /
-// junk results for queries like "pollo" and "pasta" that need to be
-// invalidated immediately on rollout, not waited out by TTL.
-const CACHE_KEY_PREFIX = "sdf:off:search:v3:";
-const CACHE_TTL_SECONDS = 60 * 60 * 6; // 6h — OFF data changes slowly.
-
-let redisSingleton: Redis | null | undefined;
-function getRedis(): Redis | null {
-  if (redisSingleton !== undefined) return redisSingleton;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    redisSingleton = null;
-    return null;
-  }
-  redisSingleton = new Redis({ url, token });
-  return redisSingleton;
-}
+const MAX_RESULTS = 20;
 
 export async function GET(req: Request) {
   try {
@@ -59,75 +38,51 @@ export async function GET(req: Request) {
     const q = (url.searchParams.get("q") ?? "").trim();
     if (q.length < 2) return NextResponse.json([]);
 
-    const cacheKey = CACHE_KEY_PREFIX + normalizeQuery(q);
-    const redis = getRedis();
+    // Tokens >= 2 chars only; one-letter tokens balloon the candidate
+    // set without adding signal (they match every "a"/"e" in Italian).
+    const tokens = normalizeQuery(q).split(" ").filter((t) => t.length >= 2);
+    if (tokens.length === 0) return NextResponse.json([]);
 
-    // 1. Cache lookup. A hit means we don't touch OFF at all.
-    if (redis) {
-      try {
-        const cached = await redis.get<FoodSearchResult[]>(cacheKey);
-        if (cached) {
-          return NextResponse.json(cached, {
-            headers: { "X-Off-Source": "cache" },
-          });
-        }
-      } catch (err) {
-        console.warn("[off-search] redis get failed", err);
-      }
-    }
+    // OR across tokens for recall — `relevanceScore` does the strict
+    // AND-style filter (rows missing any token in every field score 0
+    // and get dropped). Keeping the SQL permissive avoids the trap
+    // where a multi-token query returns nothing because no single row
+    // contains every token in one field.
+    const candidates = await prisma.food.findMany({
+      where: {
+        OR: tokens.flatMap((t) => [
+          { name: { contains: t, mode: "insensitive" as const } },
+          { englishName: { contains: t, mode: "insensitive" as const } },
+          { category: { contains: t, mode: "insensitive" as const } },
+        ]),
+      },
+      // Cap the candidate set so a one-letter common token (e.g. typing
+      // a token that ends up matching half the table) never pulls back
+      // more rows than we'd ever rank. 200 is well above MAX_RESULTS so
+      // ranking always has room to find the best 20.
+      take: 200,
+    });
 
-    // 2. Miss → call OFF. We share one egress IP across all patients,
-    //    so this is the request OFF rate-limits hardest.
-    let res: Response;
-    try {
-      res = await fetch(buildOffSearchUrl(q), {
-        headers: {
-          "User-Agent": USER_AGENT,
-          Accept: "application/json",
-        },
-        // HTTP-level revalidate is a cheap second layer beneath Redis —
-        // helps if Redis is unreachable or evicted the entry.
-        next: { revalidate: CACHE_TTL_SECONDS },
-      });
-    } catch (err) {
-      console.warn("[off-search] network error", err);
-      // Network glitch — let the client retry directly.
-      return NextResponse.json([], {
-        status: 503,
-        headers: { "X-Off-Source": "ratelimited" },
-      });
-    }
+    const ranked = candidates
+      .map((c) => ({
+        result: {
+          id: c.foodCode,
+          name: c.name,
+          brand: null,
+          kcalPer100g: c.kcalPer100g,
+          proteinPer100g: c.proteinPer100g,
+          carbsPer100g: c.carbsPer100g,
+          fatPer100g: c.fatPer100g,
+          servingG: c.portionG,
+        } satisfies FoodSearchResult,
+        score: relevanceScore(c.name, c.englishName, c.category, q),
+      }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.result.name.localeCompare(b.result.name))
+      .slice(0, MAX_RESULTS)
+      .map((x) => x.result);
 
-    // 3. Rate-limit handoff. OFF returns 429 when the IP exceeds quota;
-    //    treat 5xx the same way (transient backend issue → let the
-    //    browser try its own IP).
-    if (res.status === 429 || res.status >= 500) {
-      console.warn("[off-search] OFF rate-limited / unavailable", res.status);
-      return NextResponse.json([], {
-        status: 503,
-        headers: { "X-Off-Source": "ratelimited" },
-      });
-    }
-
-    if (!res.ok) {
-      console.warn("[off-search] non-ok response", res.status);
-      return NextResponse.json([], { headers: { "X-Off-Source": "off" } });
-    }
-
-    const data: unknown = await res.json().catch(() => null);
-    const results = parseOffSearchResponse(data, q);
-
-    // 4. Populate cache. Even an empty result set is worth caching to
-    //    spare OFF the same dud query 100 times in a row.
-    if (redis) {
-      try {
-        await redis.set(cacheKey, results, { ex: CACHE_TTL_SECONDS });
-      } catch (err) {
-        console.warn("[off-search] redis set failed", err);
-      }
-    }
-
-    return NextResponse.json(results, { headers: { "X-Off-Source": "off" } });
+    return NextResponse.json(ranked);
   } catch (e) {
     return errorResponse(e);
   }

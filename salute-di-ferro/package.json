@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "db:seed:foods": "tsx scripts/seed-foods.ts",
     "db:backup": "tsx scripts/backup-db.ts"
   },
   "prisma": {

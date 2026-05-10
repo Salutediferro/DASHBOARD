@@ -880,3 +880,45 @@ model NutritionDiaryEntry {
 
   @@index([patientId, consumedAt])
 }
+
+// `Food` is the local nutrient database powering the diary food picker.
+// Sourced from the Italian CREA/INRAN food composition tables (~900 rows
+// keyed by `foodCode`, a 6-digit national code). Re-seed via
+// `npm run db:seed:foods`, which upserts by `foodCode` so the script is
+// safe to re-run after dataset updates.
+//
+// All macro values are per 100g of edible part — that's the convention
+// the source dataset uses, and it lets the picker rescale on the user's
+// gram input the same way the OFF integration did before.
+model Food {
+  id             String  @id @default(uuid()) @db.Uuid
+  /// 6-digit CREA/INRAN code — the dataset's natural key.
+  foodCode       String  @unique
+  /// Italian display name (used as the primary search target).
+  name           String
+  /// Optional English label — also indexed for cross-language search.
+  englishName    String?
+  scientificName String?
+  category       String
+
+  /// Standard serving in grams from the source dataset.
+  portionG   Int
+  /// Edible fraction (0–1). Currently informational; not yet used for
+  /// auto-rescaling on raw vs. cleaned weights.
+  ediblePart Float
+
+  /// Per 100g, edible part. `kcalPer100g` is required — rows missing it
+  /// would break the picker's rescaling, so the seed script drops them.
+  kcalPer100g    Int
+  proteinPer100g Float?
+  carbsPer100g   Float?
+  fatPer100g     Float?
+  fiberPer100g   Float?
+
+  imageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
