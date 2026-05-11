@@ -12,8 +12,8 @@
 export const PROFESSIONAL_SPECIALTIES = [
   "Cardiologo",
   "Endocrinologo",
-  "Osteopato",
-  "Fisioterapo",
+  "Osteopata",
+  "Fisioterapista",
   "Nutrizionista",
   "Gastroenterologo",
 ] as const;
