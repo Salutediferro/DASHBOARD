@@ -297,7 +297,7 @@ export function AppointmentsEmptyState({ action }: { action?: ReactNode }) {
 export function MessagesEmptyState({ action }: { action?: ReactNode }) {
   return (
     <EmptyFrame
-      title="Scrivi al tuo coach"
+      title="Scrivi ai tuoi professionisti"
       description="Una chat diretta col tuo team: fai domande, aggiorna sul progresso, ricevi feedback."
       illustration={
         <svg
