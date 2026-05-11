@@ -249,7 +249,7 @@ export default function PatientTeamPage() {
                 className="w-full sm:w-56"
               >
                 <SelectValue>
-                  {(v) => (v === SPECIALTY_ALL ? "Tutti le specialisti" : (v as string))}
+                  {(v) => (v === SPECIALTY_ALL ? "Tutti gli specialisti" : (v as string))}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

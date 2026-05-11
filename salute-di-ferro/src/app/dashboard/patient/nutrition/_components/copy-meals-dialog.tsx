@@ -30,15 +30,6 @@ type Props = {
   targetDate: string;
 };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 /** YYYY-MM-DD → previous day in YYYY-MM-DD. */
 function previousDay(iso: string): string {
   const d = new Date(`${iso}T12:00:00.000Z`);
@@ -67,7 +58,7 @@ export function CopyMealsDialog({ open, onOpenChange, targetDate }: Props) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
   const source = useDiary(sourceDate);
-  const copy = useCopyDay(targetDate);
+  const copy = useCopyDay();
 
   const entries = React.useMemo(() => source.data ?? [], [source.data]);
 
@@ -159,7 +150,6 @@ export function CopyMealsDialog({ open, onOpenChange, targetDate }: Props) {
               id="source-date"
               type="date"
               value={sourceDate}
-              max={todayIso()}
               onChange={(e) => setSourceDate(e.target.value)}
             />
             <p className="text-muted-foreground text-xs">

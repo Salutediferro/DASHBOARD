@@ -254,7 +254,7 @@ export function useDeleteDiaryEntry(date: string) {
  * things most days, so re-typing yesterday's meals every morning is the
  * thing we're explicitly trying to remove.
  */
-export function useCopyDay(targetDate: string) {
+export function useCopyDay() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: {
@@ -263,8 +263,8 @@ export function useCopyDay(targetDate: string) {
       entryIds?: string[];
     }) =>
       sendJson<{ created: number }>("/api/nutrition/diary/copy", "POST", input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: diaryKeys.day(targetDate) });
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: diaryKeys.day(vars.targetDate) });
     },
   });
 }

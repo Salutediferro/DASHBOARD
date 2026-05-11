@@ -113,11 +113,11 @@ export function FindProfessionalDialog({ open, onOpenChange, onRequestAppointmen
               className="w-full sm:w-48"
             >
               <SelectValue>
-                {(v) => (v === SPECIALTY_ALL ? "Tutti le specialisti" : (v as string))}
+                {(v) => (v === SPECIALTY_ALL ? "Tutti gli specialisti" : (v as string))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SPECIALTY_ALL}>Tutti le specialisti</SelectItem>
+              <SelectItem value={SPECIALTY_ALL}>Tutti gli specialisti</SelectItem>
               {PROFESSIONAL_SPECIALTIES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}

@@ -7,6 +7,7 @@ import {
   History,
   Loader2,
   Plus,
+  Repeat,
   Search,
   Stethoscope,
   X,
@@ -48,6 +49,7 @@ import { DiaryEntryDialog } from "./_components/diary-entry-dialog";
 import { FindProfessionalDialog } from "./_components/find-professional-dialog";
 import { PlanHistoryDialog } from "./_components/plan-history-dialog";
 import { LinkedProfessionalsCard } from "./_components/linked-professionals-card";
+import { ReplicateMealDialog } from "./_components/replicate-meal-dialog";
 
 function todayIso(): string {
   const d = new Date();
@@ -355,6 +357,9 @@ function DiarySection() {
     undefined,
   );
   const [copyOpen, setCopyOpen] = React.useState(false);
+  const [replicateSlot, setReplicateSlot] = React.useState<MealSlot | null>(
+    null,
+  );
   const diary = useDiary(date);
   const remove = useDeleteDiaryEntry(date);
 
@@ -426,7 +431,6 @@ function DiarySection() {
           <Input
             type="date"
             value={date}
-            max={todayIso()}
             onChange={(e) => setDate(e.target.value)}
             className="h-9 w-auto"
             aria-label="Cambia giorno"
@@ -481,6 +485,7 @@ function DiarySection() {
               onAdd={() => openCreate(slot)}
               onEdit={openEdit}
               onDelete={onDelete}
+              onReplicate={() => setReplicateSlot(slot)}
               removing={remove.isPending}
             />
           ))}
@@ -498,6 +503,15 @@ function DiarySection() {
         open={copyOpen}
         onOpenChange={setCopyOpen}
         targetDate={date}
+      />
+      <ReplicateMealDialog
+        open={replicateSlot != null}
+        onOpenChange={(v) => {
+          if (!v) setReplicateSlot(null);
+        }}
+        sourceDate={date}
+        slot={replicateSlot ?? "LUNCH"}
+        entries={replicateSlot ? (grouped.get(replicateSlot) ?? []) : []}
       />
     </div>
   );
@@ -567,6 +581,7 @@ function MealCard({
   onAdd,
   onEdit,
   onDelete,
+  onReplicate,
   removing,
 }: {
   slot: MealSlot;
@@ -574,6 +589,7 @@ function MealCard({
   onAdd: () => void;
   onEdit: (entry: DiaryEntry) => void;
   onDelete: (entry: DiaryEntry) => void;
+  onReplicate: () => void;
   removing: boolean;
 }) {
   const t = totalsOf(entries);
@@ -600,9 +616,24 @@ function MealCard({
             </div>
           )}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="h-3.5 w-3.5" /> Aggiungi
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {hasEntries && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onReplicate}
+              aria-label={`Replica ${mealSlotLabel(slot).toLowerCase()} in un altro giorno`}
+              title="Replica in un altro giorno"
+              className="h-8 w-8"
+            >
+              <Repeat className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+            <Plus className="h-3.5 w-3.5" /> Aggiungi
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {hasEntries ? (
