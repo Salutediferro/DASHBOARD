@@ -1,59 +1,59 @@
 "use client";
 
-import * as React from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  ArrowLeft,
-  ArrowRight,
-  CalendarCheck,
-  CalendarClock,
-  CalendarPlus,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Stethoscope,
-  UserRound,
-} from "lucide-react";
 import type {
-  AppointmentType,
-  ProfessionalRole,
+    AppointmentType,
+    ProfessionalRole,
 } from "@prisma/client";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, isBefore, addMonths, subMonths } from "date-fns";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { addDays, addMonths, endOfMonth, endOfWeek, format, isBefore, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
+import {
+    ArrowLeft,
+    ArrowRight,
+    CalendarCheck,
+    CalendarClock,
+    CalendarPlus,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    Loader2,
+    Stethoscope,
+    UserRound,
+} from "lucide-react";
+import * as React from "react";
+import { toast } from "sonner";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+    Avatar,
+    AvatarFallback,
+    AvatarImage,
+} from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  APPOINTMENT_TYPES,
-  APPOINTMENT_TYPE_LABELS,
-} from "@/lib/validators/appointment";
-import { SlotPicker } from "./slot-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { useFreeSlots, type FreeSlot } from "@/lib/hooks/use-availability";
 import { cn } from "@/lib/utils";
+import {
+    APPOINTMENT_TYPES,
+    APPOINTMENT_TYPE_LABELS,
+} from "@/lib/validators/appointment";
+import { SlotPicker } from "./slot-picker";
 
 type Professional = {
   relationshipId: string;
@@ -764,7 +764,9 @@ function ConfirmStep({
           onValueChange={(v) => onTypeChange(v as AppointmentType)}
         >
           <SelectTrigger id="apt-type" className="focus-ring">
-            <SelectValue />
+            <SelectValue>
+              {(v) => APPOINTMENT_TYPE_LABELS[v as AppointmentType]}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {APPOINTMENT_TYPES.map((t) => (
@@ -984,7 +986,9 @@ function ProfessionalCreateDialog({
               onValueChange={(v) => setType(v as AppointmentType)}
             >
               <SelectTrigger className="focus-ring">
-                <SelectValue />
+                <SelectValue>
+                  {(v) => APPOINTMENT_TYPE_LABELS[v as AppointmentType]}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {APPOINTMENT_TYPES.map((t) => (
