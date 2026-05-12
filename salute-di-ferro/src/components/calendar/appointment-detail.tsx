@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   CalendarClock,
   CalendarPlus,
+  Check,
   CheckCircle2,
   Loader2,
   UserX,
@@ -34,7 +35,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  useAcceptAppointmentRequest,
   useCancelAppointment,
+  useDeclineAppointmentRequest,
   useUpdateAppointment,
   type AppointmentDTO,
 } from "@/lib/hooks/use-appointments";
@@ -52,6 +55,7 @@ function fmtLong(iso: string) {
 }
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
+  PENDING: "In attesa",
   SCHEDULED: "Confermato",
   COMPLETED: "Completato",
   CANCELED: "Annullato",
@@ -59,6 +63,8 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
 };
 
 const STATUS_TONE: Record<AppointmentStatus, string> = {
+  PENDING:
+    "bg-amber-500/15 text-amber-600 border-amber-500/40 dark:text-amber-400",
   SCHEDULED: "bg-primary-500/15 text-primary-500 border-primary-500/40",
   COMPLETED: "bg-success/15 text-success border-success/40",
   CANCELED: "bg-muted text-muted-foreground border-border",
@@ -82,6 +88,8 @@ export function AppointmentDetail({
 }: Props) {
   const update = useUpdateAppointment(appointment?.id ?? "");
   const cancel = useCancelAppointment();
+  const accept = useAcceptAppointmentRequest();
+  const decline = useDeclineAppointmentRequest();
   const [rescheduling, setRescheduling] = React.useState(false);
   const [newStart, setNewStart] = React.useState("");
 
@@ -129,7 +137,31 @@ export function AppointmentDetail({
     }
   }
 
-  const busy = update.isPending || cancel.isPending;
+  async function doAccept() {
+    if (!appointment) return;
+    try {
+      await accept.mutateAsync(appointment.id);
+      toast.success("Richiesta accettata");
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  async function doDecline() {
+    if (!appointment) return;
+    if (!confirm("Rifiutare questa richiesta? L'orario torna libero.")) return;
+    try {
+      await decline.mutateAsync(appointment.id);
+      toast.success("Richiesta rifiutata");
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  const busy =
+    update.isPending || cancel.isPending || accept.isPending || decline.isPending;
 
   const body = appointment && rescheduling ? (
     <div className="flex flex-col gap-3">
@@ -225,6 +257,42 @@ export function AppointmentDetail({
 
   const actions = (
     <>
+      {!rescheduling && professional && appointment?.status === "PENDING" && (
+        <>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={doDecline}
+            disabled={busy}
+          >
+            {decline.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <X className="mr-1.5 h-4 w-4" />
+            )}
+            Rifiuta
+          </Button>
+          <Button type="button" onClick={doAccept} disabled={busy}>
+            {accept.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-1.5 h-4 w-4" />
+            )}
+            Accetta
+          </Button>
+        </>
+      )}
+      {!rescheduling && !professional && appointment?.status === "PENDING" && (
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={doCancel}
+          disabled={busy}
+        >
+          <X className="mr-1.5 h-4 w-4" />
+          Annulla richiesta
+        </Button>
+      )}
       {!rescheduling && appointment?.status === "SCHEDULED" && (
         <Button
           type="button"

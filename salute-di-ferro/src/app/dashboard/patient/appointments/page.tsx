@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarPlus, Plus } from "lucide-react";
+import { CalendarPlus, Clock, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -17,6 +17,7 @@ import { AppointmentForm } from "@/components/calendar/appointment-form";
 import { AppointmentDetail } from "@/components/calendar/appointment-detail";
 
 const STATUS_LABEL: Record<string, string> = {
+  PENDING: "In attesa",
   SCHEDULED: "Confermato",
   COMPLETED: "Completato",
   CANCELED: "Annullato",
@@ -42,11 +43,18 @@ export default function PatientAppointmentsPage() {
   const { data: all = [], isLoading } = useAppointments();
 
   const nowIso = new Date().toISOString();
+  const pending = all
+    .filter((a) => a.status === "PENDING" && a.startTime >= nowIso)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
   const upcoming = all
     .filter((a) => a.status === "SCHEDULED" && a.startTime >= nowIso)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
   const past = all
-    .filter((a) => a.status !== "SCHEDULED" || a.startTime < nowIso)
+    .filter(
+      (a) =>
+        (a.status !== "SCHEDULED" && a.status !== "PENDING") ||
+        a.startTime < nowIso,
+    )
     .sort((a, b) => b.startTime.localeCompare(a.startTime))
     .slice(0, 20);
 
@@ -67,6 +75,44 @@ export default function PatientAppointmentsPage() {
           </button>
         }
       />
+
+      {pending.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <SectionHeader
+            title="Richieste in attesa"
+            subtitle="In attesa che il professionista accetti."
+          />
+          <ul className="flex flex-col gap-2">
+            {pending.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(a)}
+                  className="surface-2 focus-ring flex w-full items-center gap-3 rounded-xl border border-amber-500/30 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  >
+                    <Clock className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium capitalize">
+                      {fmtLong(a.startTime)}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {a.professionalName ?? "—"} · {APPOINTMENT_TYPE_LABELS[a.type]}
+                    </span>
+                  </span>
+                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                    In attesa
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <SectionHeader

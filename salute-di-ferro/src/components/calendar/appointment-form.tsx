@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+    AppointmentStatus,
     AppointmentType,
     ProfessionalRole,
 } from "@prisma/client";
@@ -148,6 +149,8 @@ function PatientBookingDialog({
   const [type, setType] = React.useState<AppointmentType>("VIDEO_CALL");
   const [notes, setNotes] = React.useState("");
   const [lastCreatedId, setLastCreatedId] = React.useState<string | null>(null);
+  const [lastCreatedStatus, setLastCreatedStatus] =
+    React.useState<AppointmentStatus | null>(null);
 
   // Re-initialize wizard state on each open transition (false -> true).
   // useState's initial value only runs at mount, so without this the
@@ -166,6 +169,7 @@ function PatientBookingDialog({
     setNotes("");
     setType("VIDEO_CALL");
     setLastCreatedId(null);
+    setLastCreatedStatus(null);
   }, [open, firstStep, initialProState]);
 
   const { data: professionals = [], isLoading: proLoading } = useQuery<
@@ -206,10 +210,21 @@ function PatientBookingDialog({
     },
     onSuccess: (apt) => {
       setLastCreatedId(apt.id);
-      toast.success("Prenotazione confermata");
+      setLastCreatedStatus(apt.status);
+      toast.success(
+        apt.status === "PENDING"
+          ? "Richiesta inviata"
+          : "Prenotazione confermata",
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // A first-contact request (no ACTIVE CareRelationship yet) lands as
+  // PENDING on the server. We mirror that here to swap the CTA copy
+  // ("Invia richiesta" vs "Conferma prenotazione") so the patient knows
+  // what they're submitting before they hit the button.
+  const isRequest = !!professional && !professional.relationshipId;
 
   const firstStepIndex = stepOrder.indexOf(firstStep);
   const canBack = step !== firstStep && !lastCreatedId;
@@ -231,6 +246,7 @@ function PatientBookingDialog({
           {lastCreatedId ? (
             <SuccessState
               appointmentId={lastCreatedId}
+              status={lastCreatedStatus ?? "SCHEDULED"}
               professional={professional!}
               slot={slot!}
               onClose={() => onOpenChange(false)}
@@ -298,7 +314,7 @@ function PatientBookingDialog({
                 ) : (
                   <CalendarCheck className="mr-2 h-4 w-4" />
                 )}
-                Conferma prenotazione
+                {isRequest ? "Invia richiesta" : "Conferma prenotazione"}
               </Button>
             ) : (
               <Button
@@ -797,15 +813,18 @@ function ConfirmStep({
 
 function SuccessState({
   appointmentId,
+  status,
   professional,
   slot,
   onClose,
 }: {
   appointmentId: string;
+  status: AppointmentStatus;
   professional: Professional;
   slot: FreeSlot;
   onClose: () => void;
 }) {
+  const pending = status === "PENDING";
   return (
     <div className="flex flex-col items-center gap-4 py-6 text-center">
       <span
@@ -815,23 +834,34 @@ function SuccessState({
         <CalendarCheck className="h-7 w-7" />
       </span>
       <div className="flex flex-col gap-1">
-        <h3 className="text-display text-lg">Appuntamento prenotato</h3>
+        <h3 className="text-display text-lg">
+          {pending ? "Richiesta inviata" : "Appuntamento prenotato"}
+        </h3>
         <p className="text-sm text-muted-foreground">
           {format(new Date(slot.start), "EEEE d MMMM 'alle' HH:mm", {
             locale: it,
           })}{" "}
           con {professional.professional.fullName}
         </p>
+        {pending && (
+          <p className="text-xs text-muted-foreground">
+            Riceverai una notifica quando il professionista accetterà o
+            rifiuterà la richiesta. L&apos;orario resta riservato fino ad
+            allora.
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap justify-center gap-2">
-        <a
-          href={`/api/appointments/${appointmentId}/ics`}
-          download
-          className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium transition-colors hover:bg-muted"
-        >
-          <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
-          Aggiungi al calendario
-        </a>
+        {!pending && (
+          <a
+            href={`/api/appointments/${appointmentId}/ics`}
+            download
+            className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+            Aggiungi al calendario
+          </a>
+        )}
         <Button type="button" onClick={onClose} size="sm">
           Chiudi
         </Button>

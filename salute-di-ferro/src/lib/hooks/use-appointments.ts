@@ -111,6 +111,50 @@ export function useUpdateAppointment(id: string) {
   });
 }
 
+export function useAcceptAppointmentRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/appointments/${id}/accept`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string" ? body.error : "Accettazione fallita",
+        );
+      }
+      return res.json() as Promise<AppointmentDTO>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["appointments"] });
+      qc.invalidateQueries({ queryKey: ["availability-slots"] });
+    },
+  });
+}
+
+export function useDeclineAppointmentRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/appointments/${id}/decline`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string" ? body.error : "Rifiuto fallito",
+        );
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["appointments"] });
+      qc.invalidateQueries({ queryKey: ["availability-slots"] });
+    },
+  });
+}
+
 export function useCancelAppointment() {
   const qc = useQueryClient();
   return useMutation({

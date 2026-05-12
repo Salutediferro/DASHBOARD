@@ -143,17 +143,22 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   // Status restriction: PATIENT cannot mark completed/no-show.
   if (patch.status && role === "OWNER_PATIENT") {
-    const allowedForPatient = new Set(["SCHEDULED"]);
-    if (!allowedForPatient.has(patch.status)) {
-      return NextResponse.json(
-        { error: "Il cliente non può aggiornare lo stato" },
-        { status: 403 },
-      );
-    }
+    return NextResponse.json(
+      { error: "Il cliente non può aggiornare lo stato" },
+      { status: 403 },
+    );
   }
   if (patch.status === "CANCELED") {
     return NextResponse.json(
       { error: "Usa DELETE per annullare" },
+      { status: 400 },
+    );
+  }
+  // Accept/decline must go through the dedicated endpoints — they
+  // upsert the CareRelationship and fire the correct notification.
+  if (patch.status === "SCHEDULED" || patch.status === "PENDING") {
+    return NextResponse.json(
+      { error: "Usa l'endpoint dedicato per accettare/rifiutare" },
       { status: 400 },
     );
   }

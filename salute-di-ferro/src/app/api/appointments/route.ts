@@ -106,21 +106,27 @@ export async function GET(req: Request) {
  * POST /api/appointments
  *
  * Creates an appointment in one of two modes:
- *   - PATIENT booking: body provides professionalId + professionalRole;
- *     server sets patientId = me.id. The booking itself is what
- *     establishes the CareRelationship — patients cannot self-link to
- *     a professional they've never had any appointment with, so the
- *     CareRelationship row is upserted to ACTIVE inside the same
- *     transaction. This prevents random users from spamming
- *     professionals via messaging just by self-grant.
- *   - DOCTOR/COACH manual creation: body provides patientId; server
- *     sets professionalId = me.id and derives professionalRole from the
- *     caller's role. Pros still require an ACTIVE relationship — they
- *     can't unilaterally pull patients into their roster.
+ *   - PATIENT booking:
+ *       body provides professionalId + professionalRole; server sets
+ *       patientId = me.id.
+ *       * If an ACTIVE CareRelationship already exists, the appointment
+ *         is created directly with status=SCHEDULED — the patient is
+ *         already on the pro's roster and the booking is part of
+ *         ongoing care.
+ *       * If no ACTIVE relationship exists, the appointment is created
+ *         with status=PENDING. The CareRelationship is NOT created
+ *         here — booking is only a request, and the pro must accept
+ *         (via POST /api/appointments/[id]/accept) before the patient
+ *         is enrolled. Decline via /decline.
+ *   - DOCTOR/COACH manual creation:
+ *       body provides patientId; server sets professionalId = me.id and
+ *       derives professionalRole from the caller's role. Pros still
+ *       require an ACTIVE relationship — they can't unilaterally pull
+ *       patients into their roster.
  *
  * All creations run a conflict check against existing non-CANCELED
- * appointments on the same professional and write Notification rows
- * for both sides.
+ * appointments on the same professional (PENDING blocks the slot) and
+ * write Notification rows for both sides.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -167,11 +173,16 @@ export async function POST(req: Request) {
     professionalRole = me.role as ProfessionalRole;
   }
 
+  // Patient bookings: an existing ACTIVE CareRelationship determines
+  // whether this is a direct booking (status=SCHEDULED) or a request
+  // awaiting pro approval (status=PENDING). Captured here so both the
+  // validation block below and the create transaction can see it.
+  let isRequest = false;
   if (me.role === "PATIENT") {
     // First-contact path: validate the target is a real, non-deleted
-    // professional in the same organization with the claimed role. The
-    // CareRelationship is upserted inside the create transaction below
-    // — booking IS the entry into the team.
+    // professional in the same organization with the claimed role. If
+    // there is no ACTIVE relationship, this becomes a PENDING request
+    // — the relationship is only created when the pro accepts.
     const [meRow, target, existingRel] = await Promise.all([
       prisma.user.findUnique({
         where: { id: me.id },
@@ -225,6 +236,7 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
+    isRequest = !existingRel;
   } else {
     // Pro-initiated booking: still require an ACTIVE relationship —
     // pros must not be able to add a patient to their roster without
@@ -270,48 +282,22 @@ export async function POST(req: Request) {
     );
   }
 
-  // Patient first-contact bookings auto-create the relationship.
-  // Wrap both writes in a transaction so we never end up with an
-  // appointment but no relationship row.
-  const created = await prisma.$transaction(async (tx) => {
-    if (me.role === "PATIENT") {
-      await tx.careRelationship.upsert({
-        where: {
-          professionalId_patientId_professionalRole: {
-            professionalId,
-            patientId,
-            professionalRole,
-          },
-        },
-        update: {
-          // Reactivate if previously paused/archived — booking again
-          // is an explicit re-engagement.
-          status: "ACTIVE",
-          startDate: new Date(),
-          endDate: null,
-        },
-        create: {
-          professionalId,
-          patientId,
-          professionalRole,
-          status: "ACTIVE",
-        },
-      });
-    }
-    return tx.appointment.create({
-      data: {
-        professionalId,
-        patientId,
-        professionalRole,
-        startTime,
-        endTime,
-        type: input.type,
-        status: "SCHEDULED",
-        notes: input.notes ?? null,
-        meetingUrl: input.meetingUrl ? input.meetingUrl : null,
-      },
-      select: LIST_SELECT,
-    });
+  // First-contact patient bookings are PENDING — the CareRelationship
+  // is intentionally NOT written here. It's the pro's accept that
+  // enrolls the patient into the roster (see /[id]/accept).
+  const created = await prisma.appointment.create({
+    data: {
+      professionalId,
+      patientId,
+      professionalRole,
+      startTime,
+      endTime,
+      type: input.type,
+      status: isRequest ? "PENDING" : "SCHEDULED",
+      notes: input.notes ?? null,
+      meetingUrl: input.meetingUrl ? input.meetingUrl : null,
+    },
+    select: LIST_SELECT,
   });
 
   // Fire the paired notifications.
@@ -322,7 +308,7 @@ export async function POST(req: Request) {
     patientName: created.patient?.fullName ?? "Cliente",
     professionalName: created.professional?.fullName ?? "Professionista",
     when: created.startTime,
-    action: "CREATED",
+    action: isRequest ? "REQUEST_CREATED" : "CREATED",
   });
 
   return NextResponse.json(serialize(created), { status: 201 });

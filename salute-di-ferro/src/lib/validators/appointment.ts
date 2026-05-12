@@ -8,6 +8,7 @@ export const APPOINTMENT_TYPES = [
 ] as const;
 
 export const APPOINTMENT_STATUSES = [
+  "PENDING",
   "SCHEDULED",
   "COMPLETED",
   "CANCELED",

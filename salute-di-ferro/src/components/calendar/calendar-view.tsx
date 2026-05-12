@@ -38,6 +38,8 @@ const DAY_END_HOUR = 22;
 const HOUR_PX = 52;
 
 const STATUS_CLASS: Record<string, string> = {
+  PENDING:
+    "bg-amber-500/15 border-l-2 border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20",
   SCHEDULED:
     "bg-primary-500/20 border-l-2 border-primary-500 text-foreground hover:bg-primary-500/25",
   COMPLETED:

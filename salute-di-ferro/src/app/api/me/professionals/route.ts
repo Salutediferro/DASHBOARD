@@ -126,12 +126,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Gate: the patient must have already had at least one appointment
-    // with this professional. Strangers do not get to self-link — they
-    // must go through the booking flow, which establishes the
-    // relationship as a transactional side effect.
+    // Gate: the patient must have at least one accepted appointment
+    // with this professional. PENDING/CANCELED don't count — a request
+    // the pro never accepted (or declined outright) cannot be used to
+    // self-link, otherwise the new request flow would have a back-door.
     const priorAppointment = await prisma.appointment.findFirst({
-      where: { professionalId: target.id, patientId: me.id },
+      where: {
+        professionalId: target.id,
+        patientId: me.id,
+        status: { in: ["SCHEDULED", "COMPLETED", "NO_SHOW"] },
+      },
       select: { id: true },
     });
     if (!priorAppointment) {

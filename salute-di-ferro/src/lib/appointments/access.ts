@@ -64,7 +64,9 @@ export async function checkAppointmentAccess(
 
 /**
  * Returns a conflicting appointment on the same professional, or null
- * if the window is free. Ignores CANCELED rows.
+ * if the window is free. Ignores CANCELED rows. PENDING requests DO
+ * block the slot — once a patient requests a time the professional sees
+ * it reserved, and it only opens back up if they decline.
  */
 export async function findConflict(params: {
   professionalId: string;
@@ -97,7 +99,14 @@ export async function notifyAppointment(params: {
   patientName: string;
   professionalName: string;
   when: Date;
-  action: "CREATED" | "RESCHEDULED" | "CANCELED" | "COMPLETED";
+  action:
+    | "CREATED"
+    | "RESCHEDULED"
+    | "CANCELED"
+    | "COMPLETED"
+    | "REQUEST_CREATED"
+    | "REQUEST_ACCEPTED"
+    | "REQUEST_DECLINED";
 }) {
   const whenFmt = params.when.toLocaleString("it-IT", {
     day: "2-digit",
@@ -111,11 +120,32 @@ export async function notifyAppointment(params: {
     RESCHEDULED: "Appuntamento riprogrammato",
     CANCELED: "Appuntamento annullato",
     COMPLETED: "Appuntamento completato",
+    REQUEST_CREATED: "Nuova richiesta di appuntamento",
+    REQUEST_ACCEPTED: "Richiesta accettata",
+    REQUEST_DECLINED: "Richiesta rifiutata",
   };
 
-  const body = {
-    patient: `${titleFor[params.action].toLowerCase()} con ${params.professionalName} — ${whenFmt}`,
-    professional: `${titleFor[params.action].toLowerCase()} con ${params.patientName} — ${whenFmt}`,
+  // Patient-facing wording is mirrored from the pro side except for
+  // requests, where the patient is the one who initiated and the pro is
+  // the one who responds — copy needs to read naturally from each
+  // perspective.
+  const patientBody: Record<typeof params.action, string> = {
+    CREATED: `nuovo appuntamento con ${params.professionalName} — ${whenFmt}`,
+    RESCHEDULED: `appuntamento riprogrammato con ${params.professionalName} — ${whenFmt}`,
+    CANCELED: `appuntamento annullato con ${params.professionalName} — ${whenFmt}`,
+    COMPLETED: `appuntamento completato con ${params.professionalName} — ${whenFmt}`,
+    REQUEST_CREATED: `richiesta inviata a ${params.professionalName} — ${whenFmt}`,
+    REQUEST_ACCEPTED: `${params.professionalName} ha accettato la tua richiesta — ${whenFmt}`,
+    REQUEST_DECLINED: `${params.professionalName} ha rifiutato la tua richiesta — ${whenFmt}`,
+  };
+  const professionalBody: Record<typeof params.action, string> = {
+    CREATED: `nuovo appuntamento con ${params.patientName} — ${whenFmt}`,
+    RESCHEDULED: `appuntamento riprogrammato con ${params.patientName} — ${whenFmt}`,
+    CANCELED: `appuntamento annullato con ${params.patientName} — ${whenFmt}`,
+    COMPLETED: `appuntamento completato con ${params.patientName} — ${whenFmt}`,
+    REQUEST_CREATED: `${params.patientName} ha richiesto un appuntamento — ${whenFmt}`,
+    REQUEST_ACCEPTED: `richiesta accettata: ${params.patientName} — ${whenFmt}`,
+    REQUEST_DECLINED: `richiesta rifiutata: ${params.patientName} — ${whenFmt}`,
   };
 
   const patientHref = `/dashboard/patient/appointments`;
@@ -127,14 +157,14 @@ export async function notifyAppointment(params: {
         userId: params.patientId,
         type: "REMINDER",
         title: titleFor[params.action],
-        body: body.patient,
+        body: patientBody[params.action],
         actionUrl: patientHref,
       },
       {
         userId: params.professionalId,
         type: "REMINDER",
         title: titleFor[params.action],
-        body: body.professional,
+        body: professionalBody[params.action],
         actionUrl: professionalHref,
       },
     ],
