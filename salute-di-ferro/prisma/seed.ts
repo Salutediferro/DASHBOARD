@@ -2,12 +2,12 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
 loadEnv();
 
-import {
-  PrismaClient,
-  type ProfessionalRole,
-  type UserRole,
-} from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import {
+    PrismaClient,
+    type ProfessionalRole,
+    type UserRole,
+} from "@prisma/client";
 import { createClient, type User as AuthUser } from "@supabase/supabase-js";
 
 // ── Env / clients ─────────────────────────────────────────────────────────
@@ -506,7 +506,6 @@ async function main() {
         professionalRole: "COACH",
         startTime: coachStart,
         endTime: new Date(coachStart.getTime() + 45 * 60000),
-        type: "COACHING_SESSION",
         status: "SCHEDULED",
         meetingUrl: "https://meet.example.com/demo",
       },
@@ -536,7 +535,6 @@ async function main() {
         professionalRole: "COACH",
         startTime: pastCoachStart,
         endTime: new Date(pastCoachStart.getTime() + 45 * 60000),
-        type: "COACHING_SESSION",
         status: "COMPLETED",
         meetingUrl: "https://meet.example.com/demo",
       },

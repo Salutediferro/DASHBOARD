@@ -61,7 +61,6 @@ enum AppointmentType {
   VIDEO_CALL
   VISIT
   FOLLOW_UP
-  COACHING_SESSION
 }
 
 enum AppointmentStatus {
