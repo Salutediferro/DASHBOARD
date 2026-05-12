@@ -7,6 +7,19 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["public", "auth"]
+}
+
+// Supabase's auth schema. We only need to model `users` because
+// `public.User.id` has a FK to it (added by Supabase outside of
+// Prisma's migration history). Listed here so introspection no longer
+// trips on the cross-schema reference.
+model auth_users {
+  id   String @id @db.Uuid
+  user User?
+
+  @@map("users")
+  @@schema("auth")
 }
 
 // ============================================================
@@ -18,17 +31,23 @@ enum UserRole {
   DOCTOR
   COACH
   PATIENT
+
+  @@schema("public")
 }
 
 enum ProfessionalRole {
   DOCTOR
   COACH
+
+  @@schema("public")
 }
 
 enum Sex {
   MALE
   FEMALE
   OTHER
+
+  @@schema("public")
 }
 
 enum MedicalReportCategory {
@@ -41,6 +60,8 @@ enum MedicalReportCategory {
   VACCINATION
   SURGERY
   OTHER
+
+  @@schema("public")
 }
 
 enum SubscriptionStatus {
@@ -48,12 +69,16 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
   TRIALING
+
+  @@schema("public")
 }
 
 enum CareRelationshipStatus {
   ACTIVE
   PAUSED
   ARCHIVED
+
+  @@schema("public")
 }
 
 enum AppointmentType {
@@ -61,6 +86,8 @@ enum AppointmentType {
   VIDEO_CALL
   VISIT
   FOLLOW_UP
+
+  @@schema("public")
 }
 
 enum AppointmentStatus {
@@ -69,12 +96,16 @@ enum AppointmentStatus {
   COMPLETED
   CANCELED
   NO_SHOW
+
+  @@schema("public")
 }
 
 enum AiContext {
   GENERAL
   HEALTH_DATA
   REPORT_EXPLANATION
+
+  @@schema("public")
 }
 
 enum NotificationType {
@@ -83,6 +114,8 @@ enum NotificationType {
   PAYMENT
   SYSTEM
   AI
+
+  @@schema("public")
 }
 
 enum InvitationStatus {
@@ -90,11 +123,15 @@ enum InvitationStatus {
   ACCEPTED
   EXPIRED
   REVOKED
+
+  @@schema("public")
 }
 
 enum CheckInStatus {
   PENDING
   REVIEWED
+
+  @@schema("public")
 }
 
 /// PRESCRIBED = written by a DOCTOR, part of the patient's "Percorso"
@@ -104,6 +141,8 @@ enum CheckInStatus {
 enum TherapyKind {
   PRESCRIBED
   SELF
+
+  @@schema("public")
 }
 
 // Days of week for scheduling self-managed therapy items (SELF kind).
@@ -117,6 +156,8 @@ enum DayOfWeek {
   FRI
   SAT
   SUN
+
+  @@schema("public")
 }
 
 // Meal categorization for the patient nutrition diary. Free of business
@@ -128,6 +169,8 @@ enum MealSlot {
   AFTERNOON_SNACK
   DINNER
   EVENING_SNACK
+
+  @@schema("public")
 }
 
 // ============================================================
@@ -149,6 +192,7 @@ model Organization {
   subscriptions Subscription[]
 
   @@index([slug])
+  @@schema("public")
 }
 
 // ============================================================
@@ -199,9 +243,9 @@ model User {
   // existing professionals don't disappear after migration. Patients
   // without an existing relationship cannot create one when this is
   // false.
-  bio                String?
-  specialties        String[] @default([])
-  acceptingPatients  Boolean  @default(true)
+  bio               String?
+  specialties       String[] @default([])
+  acceptingPatients Boolean  @default(true)
 
   // IANA timezone, used by server-side reminder schedulers to interpret
   // user-set HH:MM (e.g. supplement reminders) in the patient's locale.
@@ -212,6 +256,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Mirrors the FK from public.User.id -> auth.users.id installed by
+  // Supabase. Optional because the row is created server-side after
+  // auth signup and is technically nullable until the trigger fires.
+  authUser auth_users @relation(fields: [id], references: [id], onDelete: Cascade)
 
   // Professional ↔ Patient
   professionalRelations CareRelationship[] @relation("ProfessionalRelations")
@@ -267,6 +316,7 @@ model User {
   @@index([organizationId])
   @@index([role])
   @@index([email])
+  @@schema("public")
 }
 
 // ============================================================
@@ -292,6 +342,7 @@ model CareRelationship {
   @@index([professionalId])
   @@index([patientId])
   @@index([status])
+  @@schema("public")
 }
 
 // ============================================================
@@ -364,6 +415,7 @@ model BiometricLog {
   @@index([patientId])
   @@index([date])
   @@index([patientId, date])
+  @@schema("public")
 }
 
 // Therapy items split into two verticals via `kind`:
@@ -402,6 +454,7 @@ model TherapyItem {
   @@index([patientId, kind, active])
   @@index([patientId, startDate(sort: Desc)])
   @@index([prescribedById])
+  @@schema("public")
 }
 
 // Idempotent delivery log for server-side therapy reminders. The unique
@@ -435,18 +488,23 @@ model TherapyReminderDelivery {
 
   @@unique([itemId, date, channel])
   @@index([patientId, date])
+  @@schema("public")
 }
 
 enum ReminderChannel {
   EMAIL
   SMS
   PUSH
+
+  @@schema("public")
 }
 
 enum ReminderStatus {
   SENT
   FAILED
   SKIPPED
+
+  @@schema("public")
 }
 
 // Daily check-off for self-managed supplements (AT-7 feedback).
@@ -470,6 +528,7 @@ model TherapyIntake {
 
   @@unique([itemId, date])
   @@index([patientId, date])
+  @@schema("public")
 }
 
 // Daily symptom / wellbeing journal (1 row per patient per calendar day).
@@ -490,6 +549,7 @@ model SymptomLog {
 
   @@unique([patientId, date])
   @@index([patientId, date(sort: Desc)])
+  @@schema("public")
 }
 
 // Per-metric personal targets that drive the red/yellow/green grade on
@@ -516,6 +576,7 @@ model MetricTarget {
 
   @@unique([patientId, metricKey])
   @@index([patientId])
+  @@schema("public")
 }
 
 model CheckIn {
@@ -544,6 +605,7 @@ model CheckIn {
   @@index([professionalId])
   @@index([date])
   @@index([status])
+  @@schema("public")
 }
 
 // ============================================================
@@ -575,6 +637,7 @@ model Appointment {
   @@index([professionalId])
   @@index([patientId])
   @@index([startTime])
+  @@schema("public")
 }
 
 // ============================================================
@@ -601,6 +664,7 @@ model AvailabilitySlot {
   @@index([professionalId])
   @@index([professionalId, dayOfWeek])
   @@index([professionalId, date])
+  @@schema("public")
 }
 
 // ============================================================
@@ -626,6 +690,7 @@ model Subscription {
   @@index([userId])
   @@index([organizationId])
   @@index([status])
+  @@schema("public")
 }
 
 // ============================================================
@@ -644,6 +709,7 @@ model AiConversation {
 
   @@index([userId])
   @@index([context])
+  @@schema("public")
 }
 
 model Notification {
@@ -661,6 +727,7 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@index([createdAt])
+  @@schema("public")
 }
 
 // ============================================================
@@ -688,6 +755,7 @@ model MedicalReport {
   @@index([patientId])
   @@index([patientId, uploadedAt])
   @@index([category])
+  @@schema("public")
 }
 
 model ReportPermission {
@@ -704,6 +772,7 @@ model ReportPermission {
   @@unique([reportId, granteeId])
   @@index([granteeId])
   @@index([reportId])
+  @@schema("public")
 }
 
 // ============================================================
@@ -737,6 +806,7 @@ model Invitation {
   @@index([professionalId])
   @@index([status])
   @@index([expiresAt])
+  @@schema("public")
 }
 
 // ============================================================
@@ -764,6 +834,7 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@schema("public")
 }
 
 // ============================================================
@@ -783,6 +854,7 @@ model Conversation {
   messages Message[]
 
   @@index([updatedAt])
+  @@schema("public")
 }
 
 model ConversationMember {
@@ -799,6 +871,7 @@ model ConversationMember {
 
   @@id([conversationId, userId])
   @@index([userId])
+  @@schema("public")
 }
 
 model Message {
@@ -813,6 +886,7 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+  @@schema("public")
 }
 
 // ============================================================
@@ -860,6 +934,7 @@ model NutritionPlan {
   @@index([patientId])
   @@index([authorId])
   @@index([patientId, archivedAt])
+  @@schema("public")
 }
 
 model NutritionDiaryEntry {
@@ -879,4 +954,5 @@ model NutritionDiaryEntry {
   patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId, consumedAt])
+  @@schema("public")
 }
