@@ -5,7 +5,6 @@ export const APPOINTMENT_TYPES = [
   "VIDEO_CALL",
   "VISIT",
   "FOLLOW_UP",
-  "COACHING_SESSION",
 ] as const;
 
 export const APPOINTMENT_STATUSES = [
@@ -29,7 +28,6 @@ export const APPOINTMENT_TYPE_LABELS: Record<
   VIDEO_CALL: "Video call",
   VISIT: "Visita",
   FOLLOW_UP: "Follow-up",
-  COACHING_SESSION: "Sessione coaching",
 };
 
 /**
