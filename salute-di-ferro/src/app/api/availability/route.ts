@@ -50,18 +50,45 @@ export async function GET(req: Request) {
     }
     const durationMin = Number(searchParams.get("durationMin") ?? "30");
 
-    // Patients can only request slots for a professional they have an
-    // active CareRelationship with. Professionals / admin unrestricted.
+    // Patients can request slots either for a professional they already
+    // have an ACTIVE CareRelationship with, or — first-contact path —
+    // for any same-org, non-deleted professional that is accepting new
+    // patients. This mirrors the authorization in POST /api/appointments
+    // so the "Team di Ferro" directory flow (book without prior link)
+    // can actually display the slots needed to complete the booking.
     if (me.role === "PATIENT") {
-      const rel = await prisma.careRelationship.findFirst({
-        where: {
-          professionalId,
-          patientId: me.id,
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
-      if (!rel) {
+      const [rel, target, meRow] = await Promise.all([
+        prisma.careRelationship.findFirst({
+          where: {
+            professionalId,
+            patientId: me.id,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        }),
+        prisma.user.findUnique({
+          where: { id: professionalId },
+          select: {
+            role: true,
+            deletedAt: true,
+            organizationId: true,
+            acceptingPatients: true,
+          },
+        }),
+        prisma.user.findUnique({
+          where: { id: me.id },
+          select: { organizationId: true },
+        }),
+      ]);
+      const isProfessional =
+        target?.role === "DOCTOR" || target?.role === "COACH";
+      const sameOrg =
+        !!target &&
+        !target.deletedAt &&
+        target.organizationId === meRow?.organizationId;
+      const firstContactAllowed =
+        isProfessional && sameOrg && target.acceptingPatients;
+      if (!rel && !firstContactAllowed) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
