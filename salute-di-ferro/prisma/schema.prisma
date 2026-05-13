@@ -252,6 +252,12 @@ model User {
   // Defaults to Europe/Rome since the product is Italy-first.
   timezone String @default("Europe/Rome")
 
+  // Opaque token that authorizes read-only access to this user's
+  // appointment calendar feed at /api/calendar/feed/<token>. Null until
+  // the user opts in from their profile; rotated/revoked from the same
+  // place. Treat the token as a credential.
+  calendarFeedToken String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

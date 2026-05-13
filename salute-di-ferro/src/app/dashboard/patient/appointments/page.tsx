@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarPlus, Clock, Plus } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -15,6 +15,7 @@ import {
 import { APPOINTMENT_TYPE_LABELS } from "@/lib/validators/appointment";
 import { AppointmentForm } from "@/components/calendar/appointment-form";
 import { AppointmentDetail } from "@/components/calendar/appointment-detail";
+import { AddToCalendarButtons } from "@/components/calendar/add-to-calendar-buttons";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "In attesa",
@@ -149,16 +150,7 @@ export default function PatientAppointmentsPage() {
                       {a.professionalName ?? "—"} · {APPOINTMENT_TYPE_LABELS[a.type]}
                     </span>
                   </span>
-                  <a
-                    href={`/api/appointments/${a.id}/ics`}
-                    download
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="Aggiungi al calendario"
-                    className="focus-ring inline-flex h-8 items-center gap-1 rounded-md border border-border/60 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
-                    .ics
-                  </a>
+                  <AddToCalendarButtons appointment={a} compact />
                 </button>
               </li>
             ))}

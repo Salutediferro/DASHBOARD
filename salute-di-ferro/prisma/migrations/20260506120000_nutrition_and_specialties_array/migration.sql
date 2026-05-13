@@ -4,6 +4,10 @@
 --    Existing values are split on commas, trimmed, with empty fragments
 --    dropped. NULL becomes the empty array. Default is the empty array,
 --    column becomes NOT NULL so the app never has to handle null vs [].
+--    The transform uses a temp SQL function instead of an inline
+--    subquery — Postgres rejects subqueries inside ALTER COLUMN's
+--    USING expression, so the original SQL would fail to replay on a
+--    fresh shadow DB.
 -- 2. Create the MealSlot enum, the NutritionPlan model (doctor-authored,
 --    one active per patient via a partial unique index on archivedAt),
 --    and the NutritionDiaryEntry model (patient-authored daily food log).
@@ -22,16 +26,24 @@ BEGIN
       AND column_name = 'specialties'
       AND data_type = 'text'
   ) THEN
+    -- Session-scoped helper. SQL functions are legal in USING clauses;
+    -- the original migration inlined the equivalent SELECT and Postgres
+    -- refused with "cannot use subquery in transform expression".
+    CREATE OR REPLACE FUNCTION pg_temp.__split_specialties(src TEXT) RETURNS TEXT[] AS $f$
+      SELECT COALESCE(
+        array_agg(btrim(s) ORDER BY ord)
+          FILTER (WHERE btrim(s) <> ''),
+        ARRAY[]::TEXT[]
+      )
+      FROM unnest(string_to_array(src, ',')) WITH ORDINALITY AS x(s, ord);
+    $f$ LANGUAGE sql IMMUTABLE;
+
     ALTER TABLE "User"
       ALTER COLUMN "specialties" DROP DEFAULT,
       ALTER COLUMN "specialties" TYPE TEXT[] USING (
         CASE
           WHEN "specialties" IS NULL OR btrim("specialties") = '' THEN ARRAY[]::TEXT[]
-          ELSE (
-            SELECT array_agg(btrim(s) ORDER BY ord)
-            FROM unnest(string_to_array("specialties", ',')) WITH ORDINALITY AS x(s, ord)
-            WHERE btrim(s) <> ''
-          )
+          ELSE pg_temp.__split_specialties("specialties")
         END
       );
     ALTER TABLE "User"

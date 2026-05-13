@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { CalendarSyncCard } from "@/components/profile/calendar-sync-card";
 import { CompletenessCard } from "@/components/profile/completeness-card";
 import { DangerZone } from "@/components/profile/danger-zone";
 import { MetricPreferencesCard } from "@/components/profile/metric-preferences-card";
@@ -52,6 +53,7 @@ export default function PatientProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
           <ProfileForm showClinical hideHeader bottomSection={<MetricPreferencesCard />} />
+          <CalendarSyncCard />
           <DangerZone />
         </div>
         <aside className="order-first lg:order-last">

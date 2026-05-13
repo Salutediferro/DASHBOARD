@@ -4,7 +4,6 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   CalendarClock,
-  CalendarPlus,
   Check,
   CheckCircle2,
   Loader2,
@@ -42,6 +41,7 @@ import {
   type AppointmentDTO,
 } from "@/lib/hooks/use-appointments";
 import { APPOINTMENT_TYPE_LABELS } from "@/lib/validators/appointment";
+import { AddToCalendarButtons } from "@/components/calendar/add-to-calendar-buttons";
 import { cn } from "@/lib/utils";
 
 function toLocalInput(iso: string): string {
@@ -243,14 +243,7 @@ export function AppointmentDetail({
         </a>
       )}
       {appointment.status === "SCHEDULED" && (
-        <a
-          className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-          href={`/api/appointments/${appointment.id}/ics`}
-          download
-        >
-          <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
-          Aggiungi al calendario
-        </a>
+        <AddToCalendarButtons appointment={appointment} />
       )}
     </div>
   ) : null;
