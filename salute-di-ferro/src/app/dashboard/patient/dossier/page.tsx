@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { DossierPrintButton } from "@/components/patient/dossier-print-button";
+import { APPOINTMENT_TYPE_LABELS } from "@/lib/validators/appointment";
 
 function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
@@ -334,7 +335,7 @@ export default async function PatientDossierPage() {
                 <span className="font-medium">
                   {fmtDateTime(a.startTime)}
                 </span>{" "}
-                · {a.type} · {a.status} ·{" "}
+                · {APPOINTMENT_TYPE_LABELS[a.type] ?? a.type} · {a.status} ·{" "}
                 {a.professional?.fullName ?? "—"}
                 {a.notes && (
                   <span className="text-muted-foreground">

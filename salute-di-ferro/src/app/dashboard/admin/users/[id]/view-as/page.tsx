@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { APPOINTMENT_TYPE_LABELS } from "@/lib/validators/appointment";
 import { AdminCardsSkeleton } from "@/components/admin/admin-skeletons";
 
 type Professional = { id: string; fullName: string; role?: UserRole };
@@ -383,7 +384,9 @@ function PatientView({ data }: { data: PatientPayload }) {
                 {formatDateTime(a.startTime)}
               </span>
               <Badge variant="outline" className="text-xs">
-                {a.type}
+                {APPOINTMENT_TYPE_LABELS[
+                  a.type as keyof typeof APPOINTMENT_TYPE_LABELS
+                ] ?? a.type}
               </Badge>
               <Badge variant="secondary" className="text-xs">
                 {a.status}
@@ -575,7 +578,9 @@ function ProView({ data }: { data: ProPayload }) {
                 {formatDateTime(a.startTime)}
               </span>
               <Badge variant="outline" className="text-xs">
-                {a.type}
+                {APPOINTMENT_TYPE_LABELS[
+                  a.type as keyof typeof APPOINTMENT_TYPE_LABELS
+                ] ?? a.type}
               </Badge>
               <Badge variant="secondary" className="text-xs">
                 {a.status}

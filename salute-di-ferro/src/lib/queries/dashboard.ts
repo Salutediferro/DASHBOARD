@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getUnreadCount as getUnreadNotifications } from "@/lib/services/notifications";
+import { APPOINTMENT_TYPE_LABELS } from "@/lib/validators/appointment";
 
 // ---------- Shared types ---------- //
 
@@ -308,8 +309,8 @@ export async function getPatientKpis(patientId: string): Promise<PatientKpis> {
         kind: "appointment",
         id: nextApp.id,
         title: nextApp.professional?.fullName
-          ? `${nextApp.type} · ${nextApp.professional.fullName}`
-          : nextApp.type,
+          ? `${APPOINTMENT_TYPE_LABELS[nextApp.type] ?? nextApp.type} · ${nextApp.professional.fullName}`
+          : APPOINTMENT_TYPE_LABELS[nextApp.type] ?? nextApp.type,
         whenLabel: nextApp.startTime.toLocaleString("it-IT", {
           weekday: "long",
           day: "numeric",
@@ -502,7 +503,7 @@ export async function getProfessionalActivity(
       id: `app:${a.id}`,
       kind: "APPOINTMENT",
       date: a.startTime.toISOString(),
-      title: `${a.type} · ${a.patient?.fullName ?? "Cliente"}`,
+      title: `${APPOINTMENT_TYPE_LABELS[a.type] ?? a.type} · ${a.patient?.fullName ?? "Cliente"}`,
       description: null,
       href: "#",
     });
@@ -551,7 +552,9 @@ export async function getProfessionalNextEvent(professionalId: string): Promise<
   return {
     kind: "appointment",
     id: next.id,
-    title: next.patient?.fullName ? `${next.type} · ${next.patient.fullName}` : next.type,
+    title: next.patient?.fullName
+      ? `${APPOINTMENT_TYPE_LABELS[next.type] ?? next.type} · ${next.patient.fullName}`
+      : APPOINTMENT_TYPE_LABELS[next.type] ?? next.type,
     whenLabel: next.startTime.toLocaleString("it-IT", {
       weekday: "long",
       day: "numeric",
