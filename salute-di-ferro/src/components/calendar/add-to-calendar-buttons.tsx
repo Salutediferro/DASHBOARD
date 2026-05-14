@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 
 import {
   appointmentToCalendarEvent,
@@ -57,14 +58,10 @@ export function AddToCalendarButtons({ appointment, variant = "full" }: Props) {
           title="Aggiungi a Google Calendar"
           tone="google"
         >
-          <GoogleCalendarLogo className="h-8 w-8" />
+          <BrandIcon src={GOOGLE_ICON} alt="Google Calendar" size={32} />
         </IconButton>
-        <IconButton
-          href={outlook}
-          title="Aggiungi a Outlook"
-          tone="outlook"
-        >
-          <OutlookLogo className="h-8 w-8" />
+        <IconButton href={outlook} title="Aggiungi a Outlook" tone="outlook">
+          <BrandIcon src={OUTLOOK_ICON} alt="Outlook" size={32} />
         </IconButton>
       </span>
     );
@@ -78,11 +75,11 @@ export function AddToCalendarButtons({ appointment, variant = "full" }: Props) {
       aria-label="Aggiungi al calendario"
     >
       <FullButton href={gcal} tone="google">
-        <GoogleCalendarLogo className="h-5 w-5" />
+        <BrandIcon src={GOOGLE_ICON} alt="" size={20} />
         Google Calendar
       </FullButton>
       <FullButton href={outlook} tone="outlook">
-        <OutlookLogo className="h-5 w-5" />
+        <BrandIcon src={OUTLOOK_ICON} alt="" size={20} />
         Outlook
       </FullButton>
     </div>
@@ -157,65 +154,48 @@ function FullButton({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Inline brand SVGs — kept here so a missing CDN/icon-pack can't break
-// the most visible CTA in the patient flow.
+// Official brand marks served as static files from /public/icons. We
+// don't inline the SVGs because the Outlook artwork uses ~10 gradient
+// defs with global ids (linear0, radial1, …) — inlining the same SVG
+// multiple times on the page would collide id refs across instances
+// and break the rendering. Files also let the browser cache them
+// after the first paint.
+//
+// Served through next/image with `unoptimized` because the Next image
+// optimizer refuses SVGs unless `dangerouslyAllowSVG: true` is set
+// globally in next.config (risky if user uploads are ever piped
+// through the same loader). `unoptimized` bypasses the loader for
+// these two icons only; everything else still benefits from
+// optimization. See node_modules/next/dist/docs/01-app/03-api-reference
+// /02-components/image.md §unoptimized.
 // ─────────────────────────────────────────────────────────────────────
 
-function GoogleCalendarLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 48 48"
-      className={className}
-      aria-hidden
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Card body */}
-      <rect
-        x="8"
-        y="10"
-        width="32"
-        height="32"
-        rx="3"
-        fill="#fff"
-        stroke="#dadce0"
-        strokeWidth="1"
-      />
-      {/* Top blue strip */}
-      <path d="M8 13a3 3 0 013-3h26a3 3 0 013 3v3H8v-3z" fill="#1a73e8" />
-      {/* Binder rings */}
-      <rect x="13" y="6" width="3" height="10" rx="1.5" fill="#185abc" />
-      <rect x="32" y="6" width="3" height="10" rx="1.5" fill="#185abc" />
-      {/* "31" date */}
-      <text
-        x="24"
-        y="35"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
-        fontSize="13"
-        fontWeight="700"
-        fill="#1a73e8"
-      >
-        31
-      </text>
-    </svg>
-  );
-}
+const GOOGLE_ICON = "/icons/google-calendar.svg";
+const OUTLOOK_ICON = "/icons/outlook.svg";
 
-function OutlookLogo({ className }: { className?: string }) {
+function BrandIcon({
+  src,
+  alt,
+  size,
+}: {
+  src: string;
+  alt: string;
+  /** Pixel size — used for both width and height. Both icons are
+   *  intentionally rendered in a square box; the Outlook viewBox is
+   *  near-square (≈1.05:1), so the SVG's preserveAspectRatio adds an
+   *  imperceptible ~1px letterbox that uniforms the button column. */
+  size: number;
+}) {
   return (
-    <svg
-      viewBox="0 0 48 48"
-      className={className}
-      aria-hidden
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Blue background */}
-      <rect x="4" y="4" width="40" height="40" rx="6" fill="#0078d4" />
-      {/* Stylised "O" — two concentric rings + white inner */}
-      <ellipse cx="22" cy="24" rx="10" ry="11" fill="#fff" />
-      <ellipse cx="22" cy="24" rx="5" ry="6" fill="#0078d4" />
-      {/* Right-side accent stripe suggesting the calendar fold */}
-      <rect x="34" y="10" width="6" height="28" rx="1" fill="#50d9ff" />
-    </svg>
+    <Image
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      unoptimized
+      draggable={false}
+      className={cn("select-none")}
+      aria-hidden={alt === "" ? true : undefined}
+    />
   );
 }
