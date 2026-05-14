@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ExternalLink,
   Loader2,
   UserX,
   Video,
@@ -74,6 +75,16 @@ const STATUS_TONE: Record<AppointmentStatus, string> = {
 type Props = {
   appointment: AppointmentDTO | null;
   onClose: () => void;
+  /**
+   * Called when a mutation produces a new appointment state that should
+   * keep the dialog/sheet open (e.g. after the professional accepts a
+   * pending request, so they can add it to their calendar and paste
+   * the Meet link). The parent should update its `selected` state so
+   * the detail re-renders with the new appointment. If omitted, the
+   * detail falls back to closing on every successful mutation —
+   * preserving the previous behaviour for callers that don't care.
+   */
+  onUpdated?: (next: AppointmentDTO) => void;
   /** When true, show COMPLETED/NO_SHOW actions (professional view). */
   professional?: boolean;
   /** Render as side Sheet instead of centered Dialog (pro calendar). */
@@ -83,6 +94,7 @@ type Props = {
 export function AppointmentDetail({
   appointment,
   onClose,
+  onUpdated,
   professional,
   asSheet,
 }: Props) {
@@ -92,12 +104,20 @@ export function AppointmentDetail({
   const decline = useDeclineAppointmentRequest();
   const [rescheduling, setRescheduling] = React.useState(false);
   const [newStart, setNewStart] = React.useState("");
+  // Local draft for the meeting URL field shown to the professional
+  // after they accept. Mirrors `appointment.meetingUrl`; the "Salva"
+  // button is enabled only when the input diverges from the persisted
+  // value.
+  const [meetingUrlInput, setMeetingUrlInput] = React.useState("");
 
   React.useEffect(() => {
     if (!appointment) {
       setRescheduling(false);
       setNewStart("");
+      setMeetingUrlInput("");
+      return;
     }
+    setMeetingUrlInput(appointment.meetingUrl ?? "");
   }, [appointment]);
 
   async function saveReschedule() {
@@ -140,9 +160,31 @@ export function AppointmentDetail({
   async function doAccept() {
     if (!appointment) return;
     try {
-      await accept.mutateAsync(appointment.id);
+      const next = await accept.mutateAsync(appointment.id);
       toast.success("Richiesta accettata");
-      onClose();
+      // Keep the sheet open on the professional side so the doctor
+      // can immediately add the appointment to their calendar and
+      // paste the generated Meet link. If the caller didn't wire
+      // `onUpdated`, fall back to the old close-on-success behaviour.
+      if (onUpdated) {
+        onUpdated(next);
+      } else {
+        onClose();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  async function saveMeetingUrl() {
+    if (!appointment) return;
+    const value = meetingUrlInput.trim();
+    try {
+      const next = await update.mutateAsync({
+        meetingUrl: value === "" ? null : value,
+      });
+      toast.success(value === "" ? "Link rimosso" : "Link salvato");
+      if (onUpdated) onUpdated(next);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore");
     }
@@ -231,18 +273,87 @@ export function AppointmentDetail({
           </div>
         )}
       </dl>
-      {appointment.meetingUrl && (
-        <a
-          className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-          href={appointment.meetingUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Video className="h-3.5 w-3.5" aria-hidden />
-          Apri meeting
-        </a>
+      {/* Patient + non-pro callers see a quick "Apri meeting" link when
+          a URL is set. The professional gets a richer panel below that
+          includes both the link and an editor, so we hide the simple
+          link in that case to avoid duplication. */}
+      {appointment.meetingUrl &&
+        !(professional && appointment.status === "SCHEDULED") && (
+          <a
+            className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+            href={appointment.meetingUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Video className="h-3.5 w-3.5" aria-hidden />
+            Apri meeting
+          </a>
+        )}
+
+      {/* Professional, status SCHEDULED — the post-accept workspace:
+          add to calendar (which generates the Meet) and paste the
+          resulting link so the patient sees it on their side. */}
+      {professional && appointment.status === "SCHEDULED" && (
+        <div className="flex flex-col gap-3 rounded-xl border border-primary-500/30 bg-primary-500/5 p-3">
+          <p className="text-xs leading-relaxed text-foreground/85">
+            Aggiungi l&apos;appuntamento al tuo calendario e attiva Google
+            Meet per generare il link. Poi incollalo qui sotto e salva —
+            il cliente lo vedrà subito nel suo dettaglio appuntamento.
+          </p>
+          <AddToCalendarButtons appointment={appointment} />
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="meet-url-input"
+              className="text-[11px] uppercase tracking-wide text-muted-foreground"
+            >
+              Link meeting da condividere col cliente
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="meet-url-input"
+                type="url"
+                value={meetingUrlInput}
+                onChange={(e) => setMeetingUrlInput(e.target.value)}
+                placeholder="https://meet.google.com/…"
+                className="focus-ring text-xs"
+                disabled={update.isPending}
+              />
+              {appointment.meetingUrl && (
+                <a
+                  href={appointment.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="focus-ring inline-flex h-9 items-center justify-center rounded-md border border-border/60 bg-card px-2 text-xs font-medium transition-colors hover:bg-muted"
+                  aria-label="Apri link salvato"
+                  title="Apri link salvato"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                </a>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveMeetingUrl}
+                disabled={
+                  update.isPending ||
+                  meetingUrlInput.trim() === (appointment.meetingUrl ?? "")
+                }
+              >
+                {update.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Salva"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
-      {appointment.status === "SCHEDULED" && (
+
+      {/* Patient view, status SCHEDULED — same calendar affordance,
+          without the Meet-link editor (the patient consumes the link
+          but doesn't set it). */}
+      {!professional && appointment.status === "SCHEDULED" && (
         <AddToCalendarButtons appointment={appointment} />
       )}
     </div>

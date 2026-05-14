@@ -11,16 +11,21 @@ export type CalendarEvent = {
 
 export function appointmentToCalendarEvent(a: AppointmentDTO): CalendarEvent {
   const typeLabel = APPOINTMENT_TYPE_LABELS[a.type] ?? a.type;
+  const patientName = a.patientName ?? "Cliente";
+  const professionalName = a.professionalName ?? "Professionista";
   const descLines = [
-    `Cliente: ${a.patientName ?? "—"}`,
-    `Professionista: ${a.professionalName ?? "—"}`,
+    `Cliente: ${patientName}`,
+    `Professionista: ${professionalName}`,
     `Tipo: ${typeLabel}`,
   ];
   if (a.notes) descLines.push(`Note: ${a.notes}`);
   if (a.meetingUrl) descLines.push(`Link: ${a.meetingUrl}`);
 
   return {
-    title: `Salute di Ferro · ${typeLabel}`,
+    // Title format chosen for marketing/branding: appears in both
+    // participants' calendars on Google/Outlook/Apple after subscribing
+    // or clicking "Aggiungi al calendario".
+    title: `Visita di Ferro | ${patientName} e ${professionalName}`,
     startISO: a.startTime,
     endISO: a.endTime,
     description: descLines.join("\n"),

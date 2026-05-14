@@ -54,10 +54,15 @@ export function appointmentVEvent(a: AppointmentLike): string[] {
   const typeLabel =
     APPOINTMENT_TYPE_LABELS[a.type as keyof typeof APPOINTMENT_TYPE_LABELS] ??
     a.type;
-  const summary = `Salute di Ferro · ${typeLabel}`;
+  const patientName = a.patient?.fullName ?? "Cliente";
+  const professionalName = a.professional?.fullName ?? "Professionista";
+  // Title format kept in sync with the Google/Outlook deep-link helper
+  // in @/lib/calendar/external-links so subscribers and one-off
+  // downloads land on the same event name.
+  const summary = `Visita di Ferro | ${patientName} e ${professionalName}`;
   const descLines = [
-    `Cliente: ${a.patient?.fullName ?? "—"}`,
-    `Professionista: ${a.professional?.fullName ?? "—"}`,
+    `Cliente: ${patientName}`,
+    `Professionista: ${professionalName}`,
     `Tipo: ${typeLabel}`,
     `Stato: ${a.status}`,
   ];

@@ -60,6 +60,18 @@ export function useAppointments(params: ListParams = {}) {
       }
       return res.json();
     },
+    // Keep the patient's "In attesa" → "Confermato" transition visible
+    // without a manual refresh. The professional accepting happens in a
+    // different session, so no in-app mutation can invalidate the
+    // patient's cache — we have to poll. The global QueryClient sets
+    // staleTime: 60s and refetchOnWindowFocus: false, so we override
+    // both here for this specific query: poll every 30s, and refetch
+    // immediately when the patient returns to the tab. React Query
+    // pauses the interval on hidden tabs by default, so background
+    // tabs aren't wasted.
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 

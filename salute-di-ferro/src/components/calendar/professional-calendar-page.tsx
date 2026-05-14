@@ -71,6 +71,7 @@ export function ProfessionalCalendarPage({ role }: Props) {
       <AppointmentDetail
         appointment={selected}
         onClose={() => setSelected(null)}
+        onUpdated={setSelected}
         professional
         asSheet
       />
