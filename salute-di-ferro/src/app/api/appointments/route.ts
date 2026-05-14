@@ -108,21 +108,21 @@ export async function GET(req: Request) {
  * Creates an appointment in one of two modes:
  *   - PATIENT booking:
  *       body provides professionalId + professionalRole; server sets
- *       patientId = me.id.
- *       * If an ACTIVE CareRelationship already exists, the appointment
- *         is created directly with status=SCHEDULED — the patient is
- *         already on the pro's roster and the booking is part of
- *         ongoing care.
- *       * If no ACTIVE relationship exists, the appointment is created
- *         with status=PENDING. The CareRelationship is NOT created
- *         here — booking is only a request, and the pro must accept
- *         (via POST /api/appointments/[id]/accept) before the patient
- *         is enrolled. Decline via /decline.
+ *       patientId = me.id. The appointment is ALWAYS created with
+ *       status=PENDING — including when the patient already has an
+ *       ACTIVE CareRelationship with the pro. Each slot is a discrete
+ *       request the pro must accept (via POST /[id]/accept) before
+ *       reminders fire, the meeting link is exposed, or the patient's
+ *       calendar shows it as confirmed. Decline via /decline.
+ *       First-contact requests still respect the pro's
+ *       `acceptingPatients` flag.
  *   - DOCTOR/COACH manual creation:
  *       body provides patientId; server sets professionalId = me.id and
  *       derives professionalRole from the caller's role. Pros still
  *       require an ACTIVE relationship — they can't unilaterally pull
- *       patients into their roster.
+ *       patients into their roster. Pro-initiated appointments skip
+ *       PENDING and go straight to SCHEDULED (the pro is by definition
+ *       confirming their own availability).
  *
  * All creations run a conflict check against existing non-CANCELED
  * appointments on the same professional (PENDING blocks the slot) and
@@ -173,10 +173,11 @@ export async function POST(req: Request) {
     professionalRole = me.role as ProfessionalRole;
   }
 
-  // Patient bookings: an existing ACTIVE CareRelationship determines
-  // whether this is a direct booking (status=SCHEDULED) or a request
-  // awaiting pro approval (status=PENDING). Captured here so both the
-  // validation block below and the create transaction can see it.
+  // Patient bookings ALWAYS go through the pro's approval — there is no
+  // auto-promotion to SCHEDULED even when a CareRelationship is already
+  // ACTIVE. Each appointment is a discrete request the pro must accept,
+  // so the patient's calendar / reminders / meeting link never become
+  // visible before the pro confirms availability for that specific slot.
   let isRequest = false;
   if (me.role === "PATIENT") {
     // First-contact path: validate the target is a real, non-deleted
@@ -236,7 +237,11 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-    isRequest = !existingRel;
+    // `existingRel` is read above purely to drive the `acceptingPatients`
+    // gate (first-contact bookings respect the pause). It does NOT
+    // change the resulting status: every patient-initiated booking is
+    // a PENDING request awaiting the pro's accept.
+    isRequest = true;
   } else {
     // Pro-initiated booking: still require an ACTIVE relationship —
     // pros must not be able to add a patient to their roster without

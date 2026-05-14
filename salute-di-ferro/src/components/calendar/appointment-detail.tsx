@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  Clock,
   ExternalLink,
   Loader2,
   UserX,
@@ -273,12 +274,29 @@ export function AppointmentDetail({
           </div>
         )}
       </dl>
-      {/* Patient + non-pro callers see a quick "Apri meeting" link when
-          a URL is set. The professional gets a richer panel below that
-          includes both the link and an editor, so we hide the simple
+      {/* PENDING — show an explicit "awaiting approval" banner instead
+          of meeting / calendar affordances. Until the pro accepts, the
+          appointment is a request; the patient must not be encouraged
+          to treat it as confirmed, and the pro must see at a glance
+          that this slot is still waiting on them. */}
+      {appointment.status === "PENDING" && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            {professional
+              ? "Richiesta in attesa: accetta per confermare lo slot al cliente e abilitare promemoria, link meeting e calendari."
+              : "In attesa che il professionista accetti la tua richiesta. Riceverai promemoria e link meeting solo dopo la conferma."}
+          </span>
+        </div>
+      )}
+
+      {/* "Apri meeting" link is gated on SCHEDULED — never expose the
+          meeting URL for a PENDING request. The professional gets a
+          richer panel below (link + editor) so we hide the simple
           link in that case to avoid duplication. */}
       {appointment.meetingUrl &&
-        !(professional && appointment.status === "SCHEDULED") && (
+        appointment.status === "SCHEDULED" &&
+        !professional && (
           <a
             className="focus-ring inline-flex w-fit items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
             href={appointment.meetingUrl}
