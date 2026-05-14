@@ -882,7 +882,7 @@ function ProfessionalCreateDialog({
 }: Pick<Props, "open" | "onOpenChange" | "initialStart" | "initialDurationMin">) {
   const create = useCreateAppointment();
 
-  const [type, setType] = React.useState<AppointmentType>("VISIT");
+  const [type, setType] = React.useState<AppointmentType>("IN_PERSON");
   const [notes, setNotes] = React.useState("");
   const [meetingUrl, setMeetingUrl] = React.useState("");
   const [pickedPatientId, setPickedPatientId] = React.useState<string>("");
@@ -895,7 +895,7 @@ function ProfessionalCreateDialog({
       setMeetingUrl("");
       setPickedPatientId("");
       setStartLocal("");
-      setType("VISIT");
+      setType("IN_PERSON");
       return;
     }
     if (initialStart) {

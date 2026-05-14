@@ -84,8 +84,6 @@ enum CareRelationshipStatus {
 enum AppointmentType {
   IN_PERSON
   VIDEO_CALL
-  VISIT
-  FOLLOW_UP
 
   @@schema("public")
 }

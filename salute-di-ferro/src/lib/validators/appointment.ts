@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-export const APPOINTMENT_TYPES = [
-  "IN_PERSON",
-  "VIDEO_CALL",
-  "VISIT",
-  "FOLLOW_UP",
-] as const;
+export const APPOINTMENT_TYPES = ["IN_PERSON", "VIDEO_CALL"] as const;
 
 export const APPOINTMENT_STATUSES = [
   "PENDING",
@@ -25,10 +20,8 @@ export const APPOINTMENT_TYPE_LABELS: Record<
   (typeof APPOINTMENT_TYPES)[number],
   string
 > = {
-  IN_PERSON: "In persona",
-  VIDEO_CALL: "Video call",
-  VISIT: "Visita",
-  FOLLOW_UP: "Follow-up",
+  IN_PERSON: "Visita in presenza",
+  VIDEO_CALL: "Visita a distanza (video-call)",
 };
 
 /**
