@@ -12,11 +12,18 @@
  * use the text/plain version as a signal against spam.
  */
 
-const BRAND_COLOR = "#c9a96e"; // primary accent
+// Design tokens — kept in sync with src/app/globals.css :root.
+// Email clients can't read CSS variables, so values are hardcoded here.
 const BG = "#0a0a0a";
-const CARD = "#1a1a1a";
+const CARD = "#2f2f2f";
+const BORDER = "#3a3a3a";
 const TEXT = "#fafafa";
 const MUTED = "#a1a1a1";
+const PRIMARY = "#b22222"; // brand red
+const PRIMARY_DARK = "#7a1717";
+const ACCENT = "#c0c0c0"; // chrome silver
+const FONT_STACK =
+  '"Avenir Next","Avenir","Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
 function escapeHtml(s: string) {
   return s
@@ -27,6 +34,28 @@ function escapeHtml(s: string) {
     .replace(/'/g, "&#39;");
 }
 
+// `SdF` mark — chrome gradient square with the lowercase `d` in brand red.
+// Mirrors src/components/brand/logo.tsx (variant="mark").
+// Outlook strips linear-gradient; the solid `background-color` fallback is
+// the mid-stop of the gradient so the mark still reads as silver.
+function brandMark() {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+      <tr><td align="center" valign="middle"
+        width="44" height="44"
+        style="width:44px;height:44px;background-color:${ACCENT};background-image:linear-gradient(135deg,#e8e8e8 0%,#c0c0c0 40%,#8a8a8a 100%);border-radius:8px;font-family:${FONT_STACK};font-weight:800;font-size:18px;line-height:1;color:#0a0a0a;letter-spacing:-0.01em;">
+        S<span style="color:${PRIMARY};">d</span>F
+      </td></tr>
+    </table>`;
+}
+
+// Full wordmark — SALUTE (silver) DI FERRO (red), uppercase, wide tracking.
+function brandWordmark() {
+  return `<div style="font-family:${FONT_STACK};font-weight:800;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;line-height:1;">
+    <span style="color:${ACCENT};">SALUTE</span>&nbsp;<span style="color:${PRIMARY};">DI FERRO</span>
+  </div>`;
+}
+
 function layout(inner: string) {
   return `<!doctype html>
 <html lang="it">
@@ -35,18 +64,32 @@ function layout(inner: string) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Salute di Ferro</title>
 </head>
-<body style="margin:0;padding:0;background:${BG};color:${TEXT};font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;">
+<body style="margin:0;padding:0;background:${BG};color:${TEXT};font-family:${FONT_STACK};line-height:1.55;-webkit-font-smoothing:antialiased;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:${CARD};border-radius:12px;padding:32px;">
-          <tr><td align="center" style="padding-bottom:16px;">
-            <div style="display:inline-block;width:56px;height:56px;border:1px solid ${BRAND_COLOR}66;border-radius:999px;line-height:54px;color:${BRAND_COLOR};font-weight:700;font-family:monospace;">SDF</div>
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:10px;box-shadow:0 12px 28px -6px rgba(0,0,0,0.6),0 4px 10px -4px rgba(0,0,0,0.45);">
+          <tr><td style="padding:28px 32px 8px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td valign="middle" style="width:44px;padding-right:12px;">${brandMark()}</td>
+                <td valign="middle">${brandWordmark()}</td>
+              </tr>
+            </table>
           </td></tr>
-          ${inner}
-          <tr><td style="padding-top:32px;border-top:1px solid #2a2a2a;color:${MUTED};font-size:11px;text-align:center;">
-            Stai ricevendo questa email perché sei registrato su Salute di Ferro.<br/>
-            Per domande rispondi a info@salutediferro.com.
+          <tr><td style="padding:0 32px;">
+            <div style="height:1px;background:${BORDER};margin:20px 0 4px;"></div>
+          </td></tr>
+          <tr><td style="padding:16px 32px 8px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              ${inner}
+            </table>
+          </td></tr>
+          <tr><td style="padding:24px 32px 28px;">
+            <div style="border-top:1px solid ${BORDER};padding-top:20px;color:${MUTED};font-size:11px;line-height:1.55;text-align:center;">
+              Stai ricevendo questa email perché sei registrato su Salute di Ferro.<br/>
+              Per domande rispondi a <a href="mailto:info@salutediferro.com" style="color:${ACCENT};text-decoration:none;">info@salutediferro.com</a>.
+            </div>
           </td></tr>
         </table>
       </td>
@@ -56,8 +99,11 @@ function layout(inner: string) {
 </html>`;
 }
 
+// Brand-red gradient CTA. The solid `background-color` is the fallback for
+// Outlook (which strips background-image); the gradient renders on every
+// other client (Gmail, Apple Mail, iOS, Android).
 function button(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;background:${BRAND_COLOR};color:${BG};padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">${label}</a>`;
+  return `<a href="${href}" style="display:inline-block;background-color:${PRIMARY};background-image:linear-gradient(135deg,${PRIMARY} 0%,${PRIMARY_DARK} 100%);color:${TEXT};padding:13px 26px;border-radius:8px;text-decoration:none;font-family:${FONT_STACK};font-weight:600;font-size:14px;letter-spacing:0.01em;box-shadow:0 1px 0 rgba(192,192,192,0.10),0 4px 10px -2px rgba(0,0,0,0.5);">${label}</a>`;
 }
 
 // ── Invitation ────────────────────────────────────────────────────────
@@ -257,23 +303,30 @@ export function appointmentReminderEmail(params: {
   const ctaHref = params.meetingUrl ?? `${params.appUrl}/dashboard`;
 
   const html = layout(`
-    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${headline}</td></tr>
-    <tr><td style="color:${MUTED};padding-bottom:16px;">
+    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">${headline}</td></tr>
+    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
       Ciao ${escapeHtml(params.recipientName)}, ricordati del tuo appuntamento con
-      <strong style="color:${TEXT};">${escapeHtml(params.counterpartName)}</strong>.
+      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.counterpartName)}</strong>.
     </td></tr>
-    <tr><td style="padding-bottom:16px;">
-      <div style="background:${BG};border-radius:8px;padding:16px;border:1px solid #2a2a2a;">
-        <div style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Quando</div>
-        <div style="font-size:15px;font-weight:500;padding-top:4px;">${escapeHtml(when)}</div>
-        <div style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:0.05em;padding-top:12px;">Tipo</div>
-        <div style="font-size:15px;padding-top:4px;">${escapeHtml(params.appointmentType)}</div>
-      </div>
+    <tr><td style="padding-bottom:20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
+        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;border-bottom-left-radius:10px;">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
+          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
+        </td></tr>
+        <tr><td style="padding:0 18px;">
+          <div style="height:1px;background:${BORDER};"></div>
+        </td></tr>
+        <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
+          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
+        </td></tr>
+      </table>
     </td></tr>
-    <tr><td align="center" style="padding:8px 0 24px;">
+    <tr><td align="center" style="padding:4px 0 24px;">
       ${button(ctaHref, ctaLabel)}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;">
+    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
       Se non puoi partecipare, annulla dal tuo calendario in app così l&apos;altra persona viene avvisata.
     </td></tr>
   `);
