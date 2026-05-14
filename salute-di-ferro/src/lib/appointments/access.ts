@@ -135,7 +135,10 @@ export async function notifyAppointment(params: {
     CANCELED: `appuntamento annullato con ${params.professionalName} — ${whenFmt}`,
     COMPLETED: `appuntamento completato con ${params.professionalName} — ${whenFmt}`,
     REQUEST_CREATED: `richiesta inviata a ${params.professionalName} — ${whenFmt}`,
-    REQUEST_ACCEPTED: `${params.professionalName} ha accettato la tua richiesta — ${whenFmt}`,
+    // Wording is intentionally CTA-shaped because tapping the notification
+    // deep-links to /dashboard/patient/appointments, where the prominent
+    // Google/Outlook buttons live on each upcoming row.
+    REQUEST_ACCEPTED: `Il tuo appuntamento con ${params.professionalName} è stato accettato! Per aggiungere la visita al tuo calendario clicca qui — ${whenFmt}`,
     REQUEST_DECLINED: `${params.professionalName} ha rifiutato la tua richiesta — ${whenFmt}`,
   };
   const professionalBody: Record<typeof params.action, string> = {

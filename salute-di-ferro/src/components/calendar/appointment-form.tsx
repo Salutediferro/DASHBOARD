@@ -184,17 +184,13 @@ function PatientBookingDialog({
     },
   });
 
-  // Skip the "professional" step if there's only one linked. Don't
-  // run when the parent already pre-selected one — that pick wins.
-  React.useEffect(() => {
-    if (!open) return;
-    if (initialProState) return;
-    if (step !== "professional") return;
-    if (professionals.length === 1 && !professional) {
-      setProfessional(professionals[0]);
-      setStep("date");
-    }
-  }, [professionals, open, step, professional, initialProState]);
+  // We deliberately do NOT auto-skip the professional picker when the
+  // patient has a single linked pro. The previous behaviour made it
+  // look like the wizard had silently pre-selected someone — confusing
+  // when opening the dialog from /dashboard/patient/appointments,
+  // where the user expects to actively choose. The pre-selected path
+  // is now reserved for callers that pass `initialProfessional`
+  // explicitly (e.g. the Team di Ferro directory).
 
   const submit = useMutation({
     mutationFn: async () => {

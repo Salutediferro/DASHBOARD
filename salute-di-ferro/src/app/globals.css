@@ -312,6 +312,20 @@
   75% { transform: translateX(-2px); }
 }
 
+/* Gentle rightward nudge — used by the "clicca l'icona →" arrow on the
+   patient appointments page to draw the eye toward the Google/Outlook
+   add-to-calendar buttons. Respects prefers-reduced-motion. */
+@keyframes sdf-nudge-right {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+.animate-nudge-right {
+  animation: sdf-nudge-right 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-nudge-right { animation: none; }
+}
+
 @layer components {
   /* Flat card: subtle border, no elevation. */
   .surface-1 {

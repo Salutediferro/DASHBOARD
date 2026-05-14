@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Clock, Plus } from "lucide-react";
+import { ArrowRight, Clock, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -126,7 +126,7 @@ export default function PatientAppointmentsPage() {
           <AppointmentsEmptyState />
         ) : (
           <ul className="flex flex-col gap-2">
-            {upcoming.map((a) => (
+            {upcoming.map((a, i) => (
               <li key={a.id}>
                 <button
                   type="button"
@@ -150,7 +150,22 @@ export default function PatientAppointmentsPage() {
                       {a.professionalName ?? "—"} · {APPOINTMENT_TYPE_LABELS[a.type]}
                     </span>
                   </span>
-                  <AddToCalendarButtons appointment={a} compact />
+                  {/* First upcoming row gets an inline hint + animated
+                      arrow pointing at the Google/Outlook icons. This
+                      is the row a patient lands on after tapping the
+                      "Richiesta accettata" notification, so the
+                      affordance has to be unmistakable. Subsequent rows
+                      stay clean — the user has already seen the cue. */}
+                  {i === 0 && (
+                    <span className="hidden items-center gap-1.5 text-[11px] font-medium text-muted-foreground md:inline-flex">
+                      Per aggiungere la visita al tuo calendario clicca l&apos;icona
+                      <ArrowRight
+                        className="animate-nudge-right h-4 w-4 text-primary"
+                        aria-hidden
+                      />
+                    </span>
+                  )}
+                  <AddToCalendarButtons appointment={a} variant="compact" />
                 </button>
               </li>
             ))}
