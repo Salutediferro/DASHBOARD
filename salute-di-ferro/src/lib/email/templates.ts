@@ -403,3 +403,195 @@ export function therapyReminderEmail(params: {
 
   return { html, text, subject };
 }
+
+// ── Appointment accepted (patient-facing) ─────────────────────────────
+//
+// Sent to the patient the moment the professional taps "Accetta" on a
+// PENDING request. Mirrors the visual language of appointmentReminderEmail
+// — same when/type/cta layout — so the inbox thread feels like one
+// continuous conversation about the same appointment.
+
+export function appointmentAcceptedEmail(params: {
+  patientName: string;
+  professionalName: string;
+  appointmentStart: Date;
+  appointmentType: string;
+  meetingUrl: string | null;
+  notes: string | null;
+  appUrl: string;
+}): { html: string; text: string; subject: string } {
+  const when = params.appointmentStart.toLocaleString("it-IT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const subject = `Appuntamento confermato — ${params.appointmentType} con ${params.professionalName}`;
+
+  const ctaLabel = params.meetingUrl
+    ? "Entra nella videochiamata"
+    : "Vedi i dettagli";
+  const ctaHref = params.meetingUrl ?? `${params.appUrl}/dashboard`;
+
+  const meetingRow = params.meetingUrl
+    ? `<tr><td style="padding:0 18px;">
+        <div style="height:1px;background:${BORDER};"></div>
+      </td></tr>
+      <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
+        <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Videochiamata</div>
+        <div style="font-size:14px;color:${TEXT};padding-top:6px;word-break:break-all;">
+          <a href="${params.meetingUrl}" style="color:${TEXT};text-decoration:none;">${escapeHtml(params.meetingUrl)}</a>
+        </div>
+      </td></tr>`
+    : "";
+
+  const notesRow = params.notes
+    ? `<tr><td style="color:${MUTED};font-size:14px;padding:0 0 20px;">
+        <strong style="color:${TEXT};font-weight:600;">Note:</strong> ${escapeHtml(params.notes)}
+      </td></tr>`
+    : "";
+
+  const html = layout(`
+    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">Appuntamento confermato</td></tr>
+    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
+      Ciao ${escapeHtml(params.patientName)},
+      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.professionalName)}</strong>
+      ha accettato la tua richiesta di appuntamento.
+    </td></tr>
+    <tr><td style="padding-bottom:20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
+        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;${params.meetingUrl ? "" : "border-bottom-left-radius:10px;"}">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
+          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
+        </td></tr>
+        <tr><td style="padding:0 18px;">
+          <div style="height:1px;background:${BORDER};"></div>
+        </td></tr>
+        <tr><td style="padding:14px 18px ${params.meetingUrl ? "14px" : "18px"};border-left:3px solid ${PRIMARY};${params.meetingUrl ? "" : "border-bottom-left-radius:10px;"}">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
+          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
+        </td></tr>
+        ${meetingRow}
+      </table>
+    </td></tr>
+    ${notesRow}
+    <tr><td align="center" style="padding:4px 0 24px;">
+      ${button(ctaHref, ctaLabel)}
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
+      Se non puoi più partecipare, annulla dal tuo calendario in app così
+      ${escapeHtml(params.professionalName)} viene avvisato.
+    </td></tr>
+  `);
+
+  const lines = [
+    "Appuntamento confermato",
+    "",
+    `Ciao ${params.patientName},`,
+    `${params.professionalName} ha accettato la tua richiesta di appuntamento.`,
+    "",
+    `Quando: ${when}`,
+    `Tipo: ${params.appointmentType}`,
+  ];
+  if (params.meetingUrl) lines.push(`Videochiamata: ${params.meetingUrl}`);
+  if (params.notes) lines.push(`Note: ${params.notes}`);
+  lines.push("", "— Salute di Ferro");
+
+  return { html, text: lines.join("\n"), subject };
+}
+
+// ── Appointment accepted (professional-facing, no Google linked) ──────
+//
+// Sent to the pro only when they accepted a request without having
+// linked their Google account. The patient already got the same
+// appointment info via appointmentAcceptedEmail; this one is half a
+// confirmation, half a nudge to connect Google so future acceptances
+// auto-mint a Meet link.
+
+export function appointmentAcceptedProEmail(params: {
+  professionalName: string;
+  patientName: string;
+  appointmentStart: Date;
+  appointmentType: string;
+  notes: string | null;
+  connectGoogleUrl: string;
+}): { html: string; text: string; subject: string } {
+  const when = params.appointmentStart.toLocaleString("it-IT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const subject = `Hai accettato l'appuntamento con ${params.patientName}`;
+
+  const notesRow = params.notes
+    ? `<tr><td style="color:${MUTED};font-size:14px;padding:0 0 20px;">
+        <strong style="color:${TEXT};font-weight:600;">Note:</strong> ${escapeHtml(params.notes)}
+      </td></tr>`
+    : "";
+
+  const html = layout(`
+    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">Richiesta accettata</td></tr>
+    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
+      Ciao ${escapeHtml(params.professionalName)}, hai confermato l&apos;appuntamento con
+      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.patientName)}</strong>.
+    </td></tr>
+    <tr><td style="padding-bottom:20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
+        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
+          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
+        </td></tr>
+        <tr><td style="padding:0 18px;">
+          <div style="height:1px;background:${BORDER};"></div>
+        </td></tr>
+        <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
+          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
+          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
+        </td></tr>
+      </table>
+    </td></tr>
+    ${notesRow}
+    <tr><td style="padding:0 0 16px;">
+      <div style="background:${BG};border:1px solid ${BORDER};border-radius:10px;padding:16px;">
+        <div style="font-size:14px;font-weight:600;color:${TEXT};padding-bottom:6px;">Collega Google Calendar per generare un link Meet automatico</div>
+        <div style="color:${MUTED};font-size:13px;padding-bottom:12px;line-height:1.5;">
+          Per gli appuntamenti futuri, collegando il tuo account Google creiamo
+          un link Meet e aggiungiamo l&apos;evento al tuo calendario non appena
+          accetti una richiesta.
+        </div>
+        ${button(params.connectGoogleUrl, "Collega Google Calendar")}
+      </div>
+    </td></tr>
+    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
+      Per questo appuntamento, condividi tu il link della videochiamata con
+      ${escapeHtml(params.patientName)} (puoi incollarlo nei dettagli
+      dell&apos;appuntamento in app).
+    </td></tr>
+  `);
+
+  const lines = [
+    "Richiesta accettata",
+    "",
+    `Ciao ${params.professionalName},`,
+    `hai confermato l'appuntamento con ${params.patientName}.`,
+    "",
+    `Quando: ${when}`,
+    `Tipo: ${params.appointmentType}`,
+  ];
+  if (params.notes) lines.push(`Note: ${params.notes}`);
+  lines.push(
+    "",
+    "Collega Google Calendar per generare un link Meet automatico:",
+    params.connectGoogleUrl,
+    "",
+    "— Salute di Ferro",
+  );
+
+  return { html, text: lines.join("\n"), subject };
+}

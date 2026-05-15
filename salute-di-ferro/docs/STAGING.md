@@ -82,6 +82,9 @@ set the environment scope to **Preview** (NOT production):
 | `NEXT_PUBLIC_SENTRY_DSN`      | same DSN, Sentry auto-tags by env    |
 | `SENTRY_DSN`                  | same                                 |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`| `staging.salutediferro.com`          |
+| `GOOGLE_CLIENT_ID`            | staging OAuth client id              |
+| `GOOGLE_CLIENT_SECRET`        | staging OAuth client secret          |
+| `GOOGLE_OAUTH_REDIRECT_URI`   | `https://<staging-url>/api/google/oauth/callback` |
 
 Save and redeploy the staging branch.
 

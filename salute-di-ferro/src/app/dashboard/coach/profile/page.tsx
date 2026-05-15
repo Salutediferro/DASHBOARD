@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { CalendarSyncCard } from "@/components/profile/calendar-sync-card";
 import { DangerZone } from "@/components/profile/danger-zone";
+import { GoogleCalendarCard } from "@/components/profile/google-calendar-card";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ProfileHero } from "@/components/profile/profile-hero";
 import { CompletenessCard } from "@/components/profile/completeness-card";
@@ -48,6 +49,7 @@ export default function CoachProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-6">
           <ProfileForm showProfessional hideHeader />
+          <GoogleCalendarCard />
           <CalendarSyncCard />
           <DangerZone />
         </div>
