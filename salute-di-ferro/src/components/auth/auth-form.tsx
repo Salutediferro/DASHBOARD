@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,33 @@ export function AuthForm({ variant }: Props) {
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
   const inviteToken = searchParams.get("invite");
   const supabase = createClient();
+
+  // Translate Supabase / callback-flow errors that arrive as ?error=… on
+  // the URL into a toast on mount, then strip the param so a refresh
+  // doesn't re-fire it.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (!err) return;
+    const messages: Record<string, string> = {
+      "google-needs-consent":
+        "Per registrarti con Google devi prima accettare privacy, termini e trattamento dei dati sanitari.",
+      "google-email-exists":
+        "Esiste già un account con questa email. Accedi con la password e collega Google dal profilo.",
+      "google-no-email":
+        "Google non ha restituito un'email per questo account.",
+      "signup-failed":
+        "Registrazione fallita. Riprova tra qualche minuto.",
+      "org-missing": "Configurazione mancante. Contatta il supporto.",
+      callback: "Sessione non valida. Effettua di nuovo l'accesso.",
+    };
+    const message = messages[err];
+    if (message) toast.error(message);
+    params.delete("error");
+    const next = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`;
+    window.history.replaceState(null, "", next);
+  }, []);
 
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -347,6 +375,35 @@ export function AuthForm({ variant }: Props) {
       {!isLogin && inviteToken && (
         <InviteStatus checking={inviteChecking} invite={invite} error={inviteError} />
       )}
+
+      <GoogleAuthButton
+        variant={variant}
+        redirectTo={redirectTo}
+        inviteToken={inviteToken}
+        consentsAccepted={
+          isLogin
+            ? true
+            : Boolean(
+                registerForm.watch("acceptTerms") &&
+                  registerForm.watch("acceptHealthDataProcessing"),
+              )
+        }
+      />
+      {!isLogin &&
+        !(
+          registerForm.watch("acceptTerms") &&
+          registerForm.watch("acceptHealthDataProcessing")
+        ) && (
+          <p className="text-muted-foreground -mt-2 text-[11px]">
+            Per registrarti con Google, accetta prima i consensi qui sotto.
+          </p>
+        )}
+
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span className="h-px flex-1 bg-border" aria-hidden />
+        oppure {isLogin ? "con email" : "con password"}
+        <span className="h-px flex-1 bg-border" aria-hidden />
+      </div>
 
       {isLogin ? (
         <form

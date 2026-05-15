@@ -256,6 +256,12 @@ model User {
   // place. Treat the token as a credential.
   calendarFeedToken String? @unique
 
+  // Connected Google account used to mint Meet links and write
+  // appointments into the professional's Google Calendar. Only DOCTOR
+  // and COACH ever populate this row, but the relation lives on User
+  // because the OAuth subject ties to whoever pressed "Connetti".
+  googleAccount GoogleAccount?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -346,6 +352,52 @@ model CareRelationship {
   @@index([professionalId])
   @@index([patientId])
   @@index([status])
+  @@schema("public")
+}
+
+// ============================================================
+// GOOGLE ACCOUNT (per-pro OAuth — used for Meet links + Calendar sync)
+// ============================================================
+
+/// OAuth refresh token + most-recent access token for a User who linked
+/// their Google account. Only doctors/coaches use it today: when one
+/// accepts an appointment request we hit Calendar API events.insert
+/// with `conferenceDataVersion: 1` so Google mints a real meet.google.com
+/// link, and we keep the resulting eventId on Appointment so reschedules
+/// (PATCH /api/appointments/[id]) and cancels (DELETE …) can patch/delete
+/// the same Google event.
+///
+/// Tokens are stored as plain text — matching `User.calendarFeedToken`
+/// and the rest of the codebase's secret handling. The Postgres row is
+/// the only place they exist; Supabase RLS keeps them server-side.
+model GoogleAccount {
+  /// Single-row-per-user: deleting the User cascades, and a user can
+  /// only have one Google linkage at a time. Acts as both PK and FK.
+  userId       String   @id @db.Uuid
+  /// Stable Google subject identifier (`sub` claim) — survives the user
+  /// changing their primary email at Google. Unique so we never confuse
+  /// two SdF accounts that linked the same Google identity.
+  googleSub    String   @unique
+  /// The Google account's email at the moment of linking. Shown back in
+  /// the UI as "Connesso come <email>"; not used for lookup.
+  email        String
+  /// Long-lived offline refresh token. Required (we only complete the
+  /// OAuth flow when Google returns one; see oauth.ts callback handler).
+  refreshToken String
+  /// Most-recent access token. Optional because we'll lazily refresh on
+  /// expiry; storing it here just avoids one round trip per call.
+  accessToken  String?
+  /// Epoch-millis expiry of `accessToken`. Null when no access token is
+  /// cached yet. We treat anything within 60s of `now` as expired.
+  expiryDate   DateTime?
+  /// Scopes Google granted us. Stored space-separated, mirroring the
+  /// `scope` field in Google's token response.
+  scope        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@schema("public")
 }
 
@@ -632,6 +684,12 @@ model Appointment {
   /// yet for this appointment.
   reminder24SentAt DateTime?
   reminder1SentAt  DateTime?
+  /// ID of the Google Calendar event that mirrors this appointment in
+  /// the accepting professional's calendar. Set when the pro has a
+  /// linked GoogleAccount at acceptance time; null when they don't or
+  /// when the API call failed (acceptance still succeeds either way).
+  /// Used by PATCH/DELETE to keep the Google event in sync.
+  googleEventId    String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 

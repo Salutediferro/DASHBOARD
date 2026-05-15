@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { updateAppointmentSchema } from "@/lib/validators/appointment";
+import {
+  APPOINTMENT_TYPE_LABELS,
+  updateAppointmentSchema,
+} from "@/lib/validators/appointment";
 import {
   checkAppointmentAccess,
   findConflict,
   notifyAppointment,
   resolveCaller,
 } from "@/lib/appointments/access";
+import { cancelMeetEvent, updateMeetEvent } from "@/lib/google/calendar";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -22,6 +26,7 @@ const DETAIL_SELECT = {
   status: true,
   notes: true,
   meetingUrl: true,
+  googleEventId: true,
   patient: { select: { fullName: true } },
   professional: { select: { fullName: true } },
 } as const;
@@ -193,6 +198,37 @@ export async function PATCH(req: Request, { params }: Ctx) {
     });
   }
 
+  // Keep the linked Google Calendar event in sync. We only have an
+  // eventId if the pro had Google linked at acceptance time — otherwise
+  // updateMeetEvent is a no-op. Failures are logged, not raised: the
+  // appointment row is the source of truth and the patient still got
+  // (and will get further) emails reflecting the new time.
+  if (updated.googleEventId && (hasReschedule || patch.notes !== undefined)) {
+    try {
+      const patientName = updated.patient?.fullName ?? "Cliente";
+      const appointmentTypeLabel =
+        APPOINTMENT_TYPE_LABELS[updated.type] ?? updated.type;
+      await updateMeetEvent({
+        professionalUserId: updated.professionalId,
+        eventId: updated.googleEventId,
+        startTime: hasReschedule ? updated.startTime : undefined,
+        endTime: hasReschedule ? updated.endTime : undefined,
+        summary: `${appointmentTypeLabel} — ${patientName}`,
+        description:
+          patch.notes !== undefined
+            ? [
+                `Appuntamento Salute di Ferro con ${patientName}.`,
+                updated.notes ? `\nNote: ${updated.notes}` : "",
+              ]
+                .filter(Boolean)
+                .join("")
+            : undefined,
+      });
+    } catch (e) {
+      console.error("[appointment-patch] Google Calendar update failed", e);
+    }
+  }
+
   return NextResponse.json({
     id: updated.id,
     professionalId: updated.professionalId,
@@ -250,6 +286,21 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     when: updated.startTime,
     action: "CANCELED",
   });
+
+  // Delete the mirrored Google event so the pro's Calendar reflects
+  // the cancellation. No-op when there's no eventId (pro hadn't linked
+  // Google when the appointment was accepted) or when the pro has since
+  // disconnected — cancelMeetEvent handles both paths quietly.
+  if (updated.googleEventId) {
+    try {
+      await cancelMeetEvent({
+        professionalUserId: updated.professionalId,
+        eventId: updated.googleEventId,
+      });
+    } catch (e) {
+      console.error("[appointment-delete] Google Calendar cancel failed", e);
+    }
+  }
 
   return NextResponse.json({ canceled: true });
 }
