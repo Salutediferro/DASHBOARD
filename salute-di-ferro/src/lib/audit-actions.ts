@@ -50,6 +50,9 @@ export const AUDIT_ACTIONS = [
   "NUTRITION_DIARY_UPDATE",
   "NUTRITION_DIARY_DELETE",
   "NUTRITION_DIARY_COPY",
+  // AI · Agente di Ferro events (Art. 30 GDPR · UE AI Act compliance)
+  "AI_MESSAGE",
+  "AI_BLOCKED",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
