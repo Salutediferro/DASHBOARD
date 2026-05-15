@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { GoogleIdentityCard } from "@/components/security/google-identity-card";
 import { SecuritySettings } from "./security-settings";
 import { TwoFactorRequiredBanner } from "./two-factor-required-banner";
 
@@ -12,7 +13,8 @@ export default function SecuritySettingsPage() {
           Sicurezza
         </h1>
         <p className="text-muted-foreground text-sm">
-          Gestisci l&apos;autenticazione a due fattori (2FA).
+          Gestisci l&apos;autenticazione a due fattori (2FA) e gli account
+          collegati.
         </p>
       </header>
       {/* Suspense required by Next's static-prerender pass — the banner
@@ -21,6 +23,7 @@ export default function SecuritySettingsPage() {
         <TwoFactorRequiredBanner />
       </Suspense>
       <SecuritySettings />
+      <GoogleIdentityCard />
     </div>
   );
 }
