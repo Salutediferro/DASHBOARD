@@ -390,6 +390,14 @@ function ProfessionalCard({
             <Button
               type="button"
               size="sm"
+              onClick={() => onRequestAppointment(prof)}
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Richiedi appuntamento
+            </Button>
+            <Button
+              type="button"
+              size="sm"
               variant="outline"
               onClick={() => onSendMessage(prof)}
               disabled={busy}
