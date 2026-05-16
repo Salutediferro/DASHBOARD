@@ -17,7 +17,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { isAgenteFerroEnabled } from "@/features/agente-ferro/lib";
+import {
+  isAgenteFerroChatEnabled,
+  isAgenteFerroEnabled,
+} from "@/features/agente-ferro/lib";
 import { AgenteFerroChat } from "@/features/agente-ferro/components";
 
 export const metadata = {
@@ -33,6 +36,12 @@ export default async function AgenteFerroChatPage({
   await searchParams;
 
   if (!isAgenteFerroEnabled()) redirect("/dashboard/patient");
+
+  // Chat gating separato dalla dashboard: in produzione la chat resta OFF
+  // finché AI Gateway + audit log + DPA Anthropic non sono in posizione.
+  // Atterriamo l'utente sulla dashboard proattiva, dove l'AgentCTA mostra
+  // un placeholder che invita a contattare il Coach.
+  if (!isAgenteFerroChatEnabled()) redirect("/dashboard/patient/agente");
 
   const isDevBypass =
     process.env.NODE_ENV === "development" &&

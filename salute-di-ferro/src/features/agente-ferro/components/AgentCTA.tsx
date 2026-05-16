@@ -13,11 +13,12 @@
  */
 
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { HeartHandshake, MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { isAgenteFerroChatEnabled } from "@/features/agente-ferro/lib";
 import type { BriefingSummary } from "@/lib/data/types";
 
 type Props = {
@@ -49,7 +50,53 @@ function chipHref(chip: string): string {
   return `/dashboard/patient/agente/chat?q=${encodeURIComponent(chip)}`;
 }
 
+/**
+ * Placeholder mostrato quando la chat AI è disabilitata via feature flag
+ * (`NEXT_PUBLIC_ENABLE_AGENTE_CHAT !== "1"`). Indirizza l'utente al Coach
+ * umano per qualunque domanda — coerente con UE AI Act human-oversight.
+ */
+function ChatDisabledPlaceholder() {
+  return (
+    <section aria-labelledby="agent-cta-heading">
+      <Card className="p-6">
+        <div className="mb-3 flex items-center gap-2">
+          <HeartHandshake
+            aria-hidden="true"
+            className="size-5 text-primary"
+          />
+          <h2
+            id="agent-cta-heading"
+            className="text-base font-semibold text-foreground"
+          >
+            Hai una domanda?
+          </h2>
+        </div>
+        <p className="mb-5 text-sm text-muted-foreground">
+          La chat con l&apos;Agente di Ferro arriverà nelle prossime settimane.
+          Per ora, qualunque dubbio sul tuo percorso passa direttamente dal tuo
+          Coach umano.
+        </p>
+        <Button
+          variant="outline"
+          render={
+            <Link
+              href="/dashboard/patient/team"
+              aria-label="Vai al Team di Ferro per parlare con il Coach"
+            >
+              Parla con il Coach <span aria-hidden="true">→</span>
+            </Link>
+          }
+        />
+      </Card>
+    </section>
+  );
+}
+
 export function AgentCTA({ briefing }: Props) {
+  if (!isAgenteFerroChatEnabled()) {
+    return <ChatDisabledPlaceholder />;
+  }
+
   const chips = buildChips(briefing);
 
   return (

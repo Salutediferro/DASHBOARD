@@ -52,7 +52,23 @@ export const AGENTE_FERRO_MODEL =
 /**
  * Feature flag · rispetta DECISIONI_BETA.md (AI fuori scope beta workout team Leone).
  * In sviluppo locale: 1. In production: solo dopo merge approvato + decisione SDF.
+ *
+ * `isAgenteFerroEnabled` gate la dashboard proattiva (greeting cached + mission +
+ * stats + action plan + body system grid + onboarding state). Funziona senza chiavi
+ * AI in mock mode (greeting via mockGreeting deterministico).
+ *
+ * `isAgenteFerroChatEnabled` gate separatamente la chat conversazionale a
+ * /dashboard/patient/agente/chat e i CTA chip in dashboard. Permette go-live
+ * della dashboard proattiva mentre la chat resta interna in attesa di:
+ *  - Setup AI Gateway / API key Anthropic
+ *  - Audit log AI_MESSAGE persistenza
+ *  - Penetration test prompt injection
+ *  - DPA Anthropic / SCC EU
  */
 export function isAgenteFerroEnabled(): boolean {
   return process.env.NEXT_PUBLIC_ENABLE_AGENTE_FERRO === "1";
+}
+
+export function isAgenteFerroChatEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_ENABLE_AGENTE_CHAT === "1";
 }
