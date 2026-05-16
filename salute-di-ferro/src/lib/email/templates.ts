@@ -10,20 +10,37 @@
  *
  * All templates expose both `html` and `text` variants — inbox providers
  * use the text/plain version as a signal against spam.
+ *
+ * Visual language mirrors the dashboard (`src/app/globals.css`):
+ *   chrome-silver + brand-red on near-black, chrome gradient accents.
+ *   Outlook strips `background-image` (gradients) and `border-radius`,
+ *   so every gradient has a solid `background-color` fallback and the
+ *   layout still reads cleanly as flat blocks.
  */
 
 // Design tokens — kept in sync with src/app/globals.css :root.
 // Email clients can't read CSS variables, so values are hardcoded here.
 const BG = "#0a0a0a";
-const CARD = "#2f2f2f";
+const CARD = "#1a1a1a"; // outer card — deeper than dashboard `--card` so
+//                         the inner info blocks (which use `--card`) lift.
+const CARD_INNER = "#2f2f2f";
 const BORDER = "#3a3a3a";
+const BORDER_FAINT = "#2a2a2a";
 const TEXT = "#fafafa";
 const MUTED = "#a1a1a1";
 const PRIMARY = "#b22222"; // brand red
 const PRIMARY_DARK = "#7a1717";
 const ACCENT = "#c0c0c0"; // chrome silver
+const ACCENT_DEEP = "#8a8a8a";
 const FONT_STACK =
   '"Avenir Next","Avenir","Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+
+// Brand assets — absolute URL so inbox image proxies (Gmail, Yahoo) can
+// fetch and cache. SVG renders crisp on Apple Mail / iOS / Gmail; Outlook
+// desktop falls back to the `alt` text inside a styled chrome box.
+const LOGO_URL = "https://my.salutediferro.com/logo-sdf.svg";
+const SITE_URL = "https://salutediferro.com";
+const TAGLINE = "Allena la tua forza, cura la tua salute.";
 
 function escapeHtml(s: string) {
   return s
@@ -34,26 +51,89 @@ function escapeHtml(s: string) {
     .replace(/'/g, "&#39;");
 }
 
-// `SdF` mark — chrome gradient square with the lowercase `d` in brand red.
-// Mirrors src/components/brand/logo.tsx (variant="mark").
-// Outlook strips linear-gradient; the solid `background-color` fallback is
-// the mid-stop of the gradient so the mark still reads as silver.
-function brandMark() {
+// Hero brand block — full SVG logo + wordmark, centered. The logo is
+// fetched from `my.salutediferro.com` so inbox proxies cache it once.
+// Clients that block remote images show the alt text inside a chrome
+// gradient pill — still recognizable as the brand.
+function brandHero() {
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-      <tr><td align="center" valign="middle"
-        width="44" height="44"
-        style="width:44px;height:44px;background-color:${ACCENT};background-image:linear-gradient(135deg,#e8e8e8 0%,#c0c0c0 40%,#8a8a8a 100%);border-radius:8px;font-family:${FONT_STACK};font-weight:800;font-size:18px;line-height:1;color:#0a0a0a;letter-spacing:-0.01em;">
-        S<span style="color:${PRIMARY};">d</span>F
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+      <tr><td align="center" style="padding:36px 24px 8px;">
+        <img src="${LOGO_URL}" alt="Salute di Ferro" width="64" height="auto"
+          style="display:block;width:64px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />
+      </td></tr>
+      <tr><td align="center" style="padding:14px 24px 0;">
+        <div style="font-family:${FONT_STACK};font-weight:800;font-size:14px;letter-spacing:0.16em;text-transform:uppercase;line-height:1;">
+          <span style="color:${ACCENT};">SALUTE</span>&nbsp;<span style="color:${PRIMARY};">DI FERRO</span>
+        </div>
       </td></tr>
     </table>`;
 }
 
-// Full wordmark — SALUTE (silver) DI FERRO (red), uppercase, wide tracking.
-function brandWordmark() {
-  return `<div style="font-family:${FONT_STACK};font-weight:800;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;line-height:1;">
-    <span style="color:${ACCENT};">SALUTE</span>&nbsp;<span style="color:${PRIMARY};">DI FERRO</span>
-  </div>`;
+// Bulletproof-ish CTA. The solid `background-color` is the Outlook
+// fallback (Outlook strips `background-image`); on every other client
+// the chrome-tinted red gradient renders with a subtle inner highlight
+// via the top-edge box-shadow.
+function button(href: string, label: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin:0 auto;">
+    <tr><td align="center" style="background-color:${PRIMARY};background-image:linear-gradient(135deg,${PRIMARY} 0%,${PRIMARY_DARK} 100%);border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 6px 14px -4px rgba(178,34,34,0.45),0 2px 4px -2px rgba(0,0,0,0.6);">
+      <a href="${href}" style="display:inline-block;padding:14px 30px;color:${TEXT};text-decoration:none;font-family:${FONT_STACK};font-weight:700;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;line-height:1;">${label}</a>
+    </td></tr>
+  </table>`;
+}
+
+// Ghost / secondary CTA — used inside nested info cards where a full
+// red button would compete with the primary CTA above it.
+function ghostButton(href: string, label: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+    <tr><td align="center" style="background-color:${BG};border:1px solid ${ACCENT_DEEP};border-radius:8px;">
+      <a href="${href}" style="display:inline-block;padding:10px 20px;color:${ACCENT};text-decoration:none;font-family:${FONT_STACK};font-weight:600;font-size:13px;letter-spacing:0.02em;line-height:1;">${label}</a>
+    </td></tr>
+  </table>`;
+}
+
+// Elegant key/value list with a vertical brand-red rule. Used by the
+// appointment templates to render Quando / Tipo / Videochiamata blocks.
+// Each row collapses cleanly in Outlook (no border-radius, no flex).
+function infoCard(
+  rows: Array<{ label: string; value: string; isLink?: boolean }>,
+) {
+  const inner = rows
+    .map((r, i) => {
+      const isFirst = i === 0;
+      const isLast = i === rows.length - 1;
+      const padTop = isFirst ? 18 : 14;
+      const padBottom = isLast ? 18 : 14;
+      const valueHtml = r.isLink
+        ? `<a href="${r.value}" style="color:${TEXT};text-decoration:none;word-break:break-all;">${escapeHtml(r.value)}</a>`
+        : escapeHtml(r.value);
+      const divider = isLast
+        ? ""
+        : `<tr><td style="padding:0 20px;">
+            <div style="height:1px;background:${BORDER_FAINT};line-height:1px;font-size:0;">&nbsp;</div>
+          </td></tr>`;
+      return `
+        <tr><td style="padding:${padTop}px 20px ${isLast ? padBottom : 10}px 17px;border-left:3px solid ${PRIMARY};">
+          <div style="color:${ACCENT};font-family:${FONT_STACK};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1;">${escapeHtml(r.label)}</div>
+          <div style="font-family:${FONT_STACK};font-size:${r.isLink ? 13 : 16}px;font-weight:600;color:${TEXT};padding-top:8px;line-height:1.4;">${valueHtml}</div>
+        </td></tr>
+        ${divider}`;
+    })
+    .join("");
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BG};border:1px solid ${BORDER};border-radius:12px;border-collapse:separate;">
+    ${inner}
+  </table>`;
+}
+
+// Page heading — display weight, tight tracking, mirrors `.text-display`.
+function heading(text: string) {
+  return `<div style="font-family:${FONT_STACK};font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1.15;color:${TEXT};">${text}</div>`;
+}
+
+// Lead paragraph — slightly larger than body copy, muted.
+function lead(html: string) {
+  return `<div style="font-family:${FONT_STACK};font-size:15px;line-height:1.6;color:${MUTED};">${html}</div>`;
 }
 
 function layout(inner: string) {
@@ -62,48 +142,78 @@ function layout(inner: string) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="supported-color-schemes" content="dark light" />
   <title>Salute di Ferro</title>
 </head>
 <body style="margin:0;padding:0;background:${BG};color:${TEXT};font-family:${FONT_STACK};line-height:1.55;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};padding:32px 16px;">
+  <!-- Preheader space-eater so Gmail doesn't preview the chrome strip's alt text. -->
+  <div style="display:none;font-size:1px;color:${BG};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">&zwnj;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BG};">
     <tr>
-      <td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:10px;box-shadow:0 12px 28px -6px rgba(0,0,0,0.6),0 4px 10px -4px rgba(0,0,0,0.45);">
-          <tr><td style="padding:28px 32px 8px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td valign="middle" style="width:44px;padding-right:12px;">${brandMark()}</td>
-                <td valign="middle">${brandWordmark()}</td>
-              </tr>
+      <!-- 3px chrome→red gradient strip — premium hairline at the very top. -->
+      <td style="background-color:${ACCENT};background-image:linear-gradient(90deg,${ACCENT} 0%,${ACCENT_DEEP} 50%,${PRIMARY} 100%);height:3px;line-height:3px;font-size:0;">&nbsp;</td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:40px 16px 32px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-collapse:separate;">
+
+          <!-- ── Brand hero (logo + wordmark, centered) ───────── -->
+          <tr><td align="center" style="padding-bottom:24px;">
+            ${brandHero()}
+          </td></tr>
+
+          <!-- ── Content card ─────────────────────────────────── -->
+          <tr><td style="background:${CARD};border:1px solid ${BORDER};border-radius:14px;box-shadow:0 1px 0 rgba(192,192,192,0.06),0 18px 36px -10px rgba(0,0,0,0.6),0 6px 14px -6px rgba(0,0,0,0.5);">
+            <!-- Inner padding wrapper so border-radius doesn't clip child borders in Outlook. -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+              <tr><td style="padding:36px 36px 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  ${inner}
+                </table>
+              </td></tr>
             </table>
           </td></tr>
-          <tr><td style="padding:0 32px;">
-            <div style="height:1px;background:${BORDER};margin:20px 0 4px;"></div>
+
+          <!-- ── Tagline ──────────────────────────────────────── -->
+          <tr><td align="center" style="padding:28px 24px 6px;">
+            <div style="font-family:${FONT_STACK};font-size:13px;font-style:italic;color:${ACCENT_DEEP};letter-spacing:0.01em;line-height:1.5;">${TAGLINE}</div>
           </td></tr>
-          <tr><td style="padding:16px 32px 8px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-              ${inner}
-            </table>
-          </td></tr>
-          <tr><td style="padding:24px 32px 28px;">
-            <div style="border-top:1px solid ${BORDER};padding-top:20px;color:${MUTED};font-size:11px;line-height:1.55;text-align:center;">
-              Stai ricevendo questa email perché sei registrato su Salute di Ferro.<br/>
-              Per domande rispondi a <a href="mailto:info@salutediferro.com" style="color:${ACCENT};text-decoration:none;">info@salutediferro.com</a>.
+
+          <!-- ── Footer ───────────────────────────────────────── -->
+          <tr><td align="center" style="padding:18px 24px 8px;">
+            <div style="font-family:${FONT_STACK};font-size:11px;color:${MUTED};line-height:1.6;">
+              <a href="${SITE_URL}/privacy" style="color:${MUTED};text-decoration:none;">Privacy</a>
+              <span style="color:${BORDER};">&nbsp;·&nbsp;</span>
+              <a href="${SITE_URL}/cookie-policy" style="color:${MUTED};text-decoration:none;">Cookie</a>
+              <span style="color:${BORDER};">&nbsp;·&nbsp;</span>
+              <a href="${SITE_URL}/terms" style="color:${MUTED};text-decoration:none;">Termini</a>
+              <span style="color:${BORDER};">&nbsp;·&nbsp;</span>
+              <a href="https://instagram.com/salutediferro" style="color:${MUTED};text-decoration:none;">Instagram</a>
+              <span style="color:${BORDER};">&nbsp;·&nbsp;</span>
+              <a href="https://youtube.com/@salutediferro" style="color:${MUTED};text-decoration:none;">YouTube</a>
             </div>
           </td></tr>
+
+          <tr><td align="center" style="padding:10px 24px 0;">
+            <div style="font-family:${FONT_STACK};font-size:11px;color:${MUTED};line-height:1.6;">
+              Domande? Scrivici a <a href="mailto:info@salutediferro.com" style="color:${ACCENT};text-decoration:none;">info@salutediferro.com</a>
+            </div>
+          </td></tr>
+
+          <tr><td align="center" style="padding:14px 24px 0;">
+            <div style="font-family:${FONT_STACK};font-size:10px;color:${ACCENT_DEEP};letter-spacing:0.06em;text-transform:uppercase;line-height:1.6;">
+              &copy; Salute di Ferro
+            </div>
+          </td></tr>
+
         </table>
       </td>
     </tr>
   </table>
 </body>
 </html>`;
-}
-
-// Brand-red gradient CTA. The solid `background-color` is the fallback for
-// Outlook (which strips background-image); the gradient renders on every
-// other client (Gmail, Apple Mail, iOS, Android).
-function button(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;background-color:${PRIMARY};background-image:linear-gradient(135deg,${PRIMARY} 0%,${PRIMARY_DARK} 100%);color:${TEXT};padding:13px 26px;border-radius:8px;text-decoration:none;font-family:${FONT_STACK};font-weight:600;font-size:14px;letter-spacing:0.01em;box-shadow:0 1px 0 rgba(192,192,192,0.10),0 4px 10px -2px rgba(0,0,0,0.5);">${label}</a>`;
 }
 
 // ── Invitation ────────────────────────────────────────────────────────
@@ -128,21 +238,26 @@ export function invitationEmail(params: {
   });
 
   const html = layout(`
-    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${greeting}</td></tr>
-    <tr><td style="color:${MUTED};padding-bottom:20px;">
-      ${proName} ti ha invitato a entrare su <strong style="color:${TEXT};">Salute di Ferro</strong>
-      come suo cliente. Clicca il bottone qui sotto per completare la registrazione;
-      al termine sarai collegato automaticamente a ${roleLabel}.
+    <tr><td style="padding-bottom:14px;">${heading("Sei stato invitato")}</td></tr>
+    <tr><td style="padding-bottom:8px;">
+      <div style="font-family:${FONT_STACK};font-size:16px;font-weight:600;color:${TEXT};">${greeting}</div>
     </td></tr>
-    <tr><td align="center" style="padding:8px 0 24px;">
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`${proName} ti ha invitato a entrare su <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong> come suo cliente. Completa la registrazione qui sotto — al termine sarai collegato automaticamente a ${roleLabel}.`)}
+    </td></tr>
+    <tr><td align="center" style="padding:4px 0 28px;">
       ${button(params.inviteUrl, "Completa la registrazione")}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
-      Il link scade il ${expiry} ed è a uso singolo. Se non riconosci l'invito puoi ignorare questa email.
+    <tr><td style="padding-bottom:14px;">
+      <div style="font-family:${FONT_STACK};font-size:13px;color:${MUTED};line-height:1.6;">
+        Il link scade il <strong style="color:${TEXT};font-weight:600;">${expiry}</strong> ed è a uso singolo. Se non riconosci l&apos;invito puoi ignorare questa email.
+      </div>
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;word-break:break-all;">
-      Se il bottone non funziona, copia e incolla questo link nel browser:<br/>
-      <span style="color:${TEXT};">${escapeHtml(params.inviteUrl)}</span>
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:11px;color:${MUTED};line-height:1.55;word-break:break-all;">
+        Se il bottone non funziona, copia e incolla nel browser:<br/>
+        <span style="color:${ACCENT};">${escapeHtml(params.inviteUrl)}</span>
+      </div>
     </td></tr>
   `);
 
@@ -158,6 +273,7 @@ export function invitationEmail(params: {
     "Se non riconosci l'invito, ignora questa email.",
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   ].join("\n");
 
   return { html, text };
@@ -177,30 +293,36 @@ export function welcomeProfessionalEmail(params: {
   const subject = `Benvenuto in Salute di Ferro — imposta la tua password`;
 
   const html = layout(`
-    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">Ciao ${firstName},</td></tr>
-    <tr><td style="color:${MUTED};padding-bottom:20px;">
-      Il tuo account <strong style="color:${TEXT};">${roleLabel}</strong> su
-      <strong style="color:${TEXT};">Salute di Ferro</strong> è stato creato.
-      Per attivarlo devi impostare una password personale — scegli qualcosa
-      di robusto e che solo tu conosci.
+    <tr><td style="padding-bottom:14px;">${heading(`Benvenuto, ${firstName}`)}</td></tr>
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`Il tuo account <strong style="color:${TEXT};font-weight:600;">${roleLabel}</strong> su <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong> è stato creato. Per attivarlo imposta una password personale — scegli qualcosa di robusto e che solo tu conosci.`)}
     </td></tr>
-    <tr><td align="center" style="padding:8px 0 24px;">
-      ${button(params.setupUrl, "Imposta la password e accedi")}
+    <tr><td align="center" style="padding:4px 0 28px;">
+      ${button(params.setupUrl, "Imposta la password")}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
-      Per motivi di sicurezza il link scade entro 24 ore. Se scade, scrivici
-      a info@salutediferro.com e te ne invieremo uno nuovo.
+    <tr><td style="padding:0 0 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BG};border:1px solid ${BORDER};border-radius:12px;border-collapse:separate;">
+        <tr><td style="padding:18px 20px;">
+          <div style="font-family:${FONT_STACK};font-size:10px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:0.14em;padding-bottom:10px;">Due cose importanti</div>
+          <div style="font-family:${FONT_STACK};font-size:13.5px;color:${TEXT};line-height:1.6;padding-bottom:8px;">
+            <strong style="color:${PRIMARY};font-weight:700;">1.</strong>&nbsp; Attiva l&apos;autenticazione a due fattori (2FA) dal tuo profilo appena entri — è obbligatoria per chi gestisce dati clinici.
+          </div>
+          <div style="font-family:${FONT_STACK};font-size:13.5px;color:${TEXT};line-height:1.6;">
+            <strong style="color:${PRIMARY};font-weight:700;">2.</strong>&nbsp; Se hai ricevuto questa email senza averla richiesta, ignorala e segnalaci il problema.
+          </div>
+        </td></tr>
+      </table>
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
-      <strong style="color:${TEXT};">Due consigli importanti</strong>:<br/>
-      1. Attiva l'autenticazione a due fattori (2FA) dal tuo profilo appena
-      sei dentro — obbligatoria per chi gestisce dati clinici.<br/>
-      2. Se hai ricevuto questa email senza averla richiesta, ignorala e
-      segnalaci il problema.
+    <tr><td style="padding-bottom:14px;">
+      <div style="font-family:${FONT_STACK};font-size:13px;color:${MUTED};line-height:1.6;">
+        Per motivi di sicurezza il link scade entro <strong style="color:${TEXT};font-weight:600;">24 ore</strong>. Se scade, scrivici a <a href="mailto:info@salutediferro.com" style="color:${ACCENT};text-decoration:none;">info@salutediferro.com</a> e te ne invieremo uno nuovo.
+      </div>
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;word-break:break-all;">
-      Se il bottone non funziona, copia e incolla questo link nel browser:<br/>
-      <span style="color:${TEXT};">${escapeHtml(params.setupUrl)}</span>
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:11px;color:${MUTED};line-height:1.55;word-break:break-all;">
+        Se il bottone non funziona, copia e incolla nel browser:<br/>
+        <span style="color:${ACCENT};">${escapeHtml(params.setupUrl)}</span>
+      </div>
     </td></tr>
   `);
 
@@ -218,6 +340,7 @@ export function welcomeProfessionalEmail(params: {
     "- Se non ti aspettavi questa email, ignorala.",
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   ].join("\n");
 
   return { html, text, subject };
@@ -234,22 +357,26 @@ export function passwordResetEmail(params: {
   const subject = `Reset della password — Salute di Ferro`;
 
   const html = layout(`
-    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">Ciao ${firstName},</td></tr>
-    <tr><td style="color:${MUTED};padding-bottom:20px;">
-      Un amministratore di <strong style="color:${TEXT};">Salute di Ferro</strong>
-      ha avviato un reset della tua password. Clicca il bottone qui sotto per
-      scegliere una nuova password e rientrare nel tuo account.
+    <tr><td style="padding-bottom:14px;">${heading("Reset della password")}</td></tr>
+    <tr><td style="padding-bottom:8px;">
+      <div style="font-family:${FONT_STACK};font-size:16px;font-weight:600;color:${TEXT};">Ciao ${firstName},</div>
     </td></tr>
-    <tr><td align="center" style="padding:8px 0 24px;">
-      ${button(params.resetUrl, "Imposta una nuova password")}
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`un amministratore di <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong> ha avviato un reset della tua password. Clicca qui sotto per sceglierne una nuova e rientrare nel tuo account.`)}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:13px;padding-bottom:16px;">
-      Il link scade entro 24 ore. Se non hai richiesto tu il reset ma riconosci
-      questa email, rispondi a info@salutediferro.com così verifichiamo.
+    <tr><td align="center" style="padding:4px 0 28px;">
+      ${button(params.resetUrl, "Imposta nuova password")}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;word-break:break-all;">
-      Se il bottone non funziona, copia e incolla questo link nel browser:<br/>
-      <span style="color:${TEXT};">${escapeHtml(params.resetUrl)}</span>
+    <tr><td style="padding-bottom:14px;">
+      <div style="font-family:${FONT_STACK};font-size:13px;color:${MUTED};line-height:1.6;">
+        Il link scade entro <strong style="color:${TEXT};font-weight:600;">24 ore</strong>. Se non hai richiesto tu il reset ma riconosci questa email, rispondi a <a href="mailto:info@salutediferro.com" style="color:${ACCENT};text-decoration:none;">info@salutediferro.com</a> così verifichiamo.
+      </div>
+    </td></tr>
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:11px;color:${MUTED};line-height:1.55;word-break:break-all;">
+        Se il bottone non funziona, copia e incolla nel browser:<br/>
+        <span style="color:${ACCENT};">${escapeHtml(params.resetUrl)}</span>
+      </div>
     </td></tr>
   `);
 
@@ -264,6 +391,7 @@ export function passwordResetEmail(params: {
     "Se non hai richiesto tu il reset, scrivi a info@salutediferro.com.",
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   ].join("\n");
 
   return { html, text, subject };
@@ -292,9 +420,7 @@ export function appointmentReminderEmail(params: {
     minute: "2-digit",
   });
   const headline =
-    params.hoursUntil <= 2
-      ? `Appuntamento tra un'ora`
-      : `Promemoria appuntamento`;
+    params.hoursUntil <= 2 ? `Appuntamento tra un'ora` : `Promemoria appuntamento`;
 
   const subject = `${headline} — ${params.appointmentType} con ${params.counterpartName}`;
   const ctaLabel = params.meetingUrl
@@ -302,32 +428,29 @@ export function appointmentReminderEmail(params: {
     : "Vedi i dettagli";
   const ctaHref = params.meetingUrl ?? `${params.appUrl}/dashboard`;
 
+  const rows: Array<{ label: string; value: string; isLink?: boolean }> = [
+    { label: "Quando", value: when },
+    { label: "Tipo", value: params.appointmentType },
+  ];
+  if (params.meetingUrl) {
+    rows.push({ label: "Videochiamata", value: params.meetingUrl, isLink: true });
+  }
+
   const html = layout(`
-    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">${headline}</td></tr>
-    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
-      Ciao ${escapeHtml(params.recipientName)}, ricordati del tuo appuntamento con
-      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.counterpartName)}</strong>.
+    <tr><td style="padding-bottom:14px;">${heading(headline)}</td></tr>
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`Ciao ${escapeHtml(params.recipientName)}, ricordati del tuo appuntamento con <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.counterpartName)}</strong>.`)}
     </td></tr>
-    <tr><td style="padding-bottom:20px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
-        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;border-bottom-left-radius:10px;">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
-          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
-        </td></tr>
-        <tr><td style="padding:0 18px;">
-          <div style="height:1px;background:${BORDER};"></div>
-        </td></tr>
-        <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
-          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
-        </td></tr>
-      </table>
+    <tr><td style="padding-bottom:24px;">
+      ${infoCard(rows)}
     </td></tr>
-    <tr><td align="center" style="padding:4px 0 24px;">
+    <tr><td align="center" style="padding:0 0 22px;">
       ${button(ctaHref, ctaLabel)}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
-      Se non puoi partecipare, annulla dal tuo calendario in app così l&apos;altra persona viene avvisata.
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:12px;color:${MUTED};line-height:1.6;">
+        Se non puoi partecipare, annulla dal tuo calendario in app così l&apos;altra persona viene avvisata.
+      </div>
     </td></tr>
   `);
 
@@ -339,12 +462,12 @@ export function appointmentReminderEmail(params: {
     "",
     `Quando: ${when}`,
     `Tipo: ${params.appointmentType}`,
-    "",
     params.meetingUrl
       ? `Videochiamata: ${params.meetingUrl}`
       : `Dettagli: ${params.appUrl}/dashboard`,
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   ].join("\n");
 
   return { html, text, subject };
@@ -372,19 +495,20 @@ export function therapyReminderEmail(params: {
     : "Ciao,";
 
   const html = layout(`
-    <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">${subject}</td></tr>
-    <tr><td style="color:${MUTED};padding-bottom:16px;">
-      ${greeting} è il momento del tuo supplemento programmato per le
-      <strong style="color:${TEXT};">${escapeHtml(params.timeLabel)}</strong>.
-      Apri Salute di Ferro per vedere quale e segnare l&apos;assunzione.
+    <tr><td style="padding-bottom:14px;">${heading(subject)}</td></tr>
+    <tr><td style="padding-bottom:8px;">
+      <div style="font-family:${FONT_STACK};font-size:16px;font-weight:600;color:${TEXT};">${greeting}</div>
     </td></tr>
-    <tr><td align="center" style="padding:8px 0 24px;">
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`è il momento del tuo supplemento programmato per le <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.timeLabel)}</strong>. Apri Salute di Ferro per vedere quale e segnare l&apos;assunzione.`)}
+    </td></tr>
+    <tr><td align="center" style="padding:4px 0 28px;">
       ${button(params.deepLinkUrl, "Apri promemoria")}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;">
-      Per privacy non includiamo dettagli del supplemento in questa email.
-      Se non vuoi più ricevere questi promemoria, disattivali nella scheda del
-      supplemento all&apos;interno dell&apos;app.
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:12px;color:${MUTED};line-height:1.6;">
+        Per privacy non includiamo dettagli del supplemento in questa email. Se non vuoi più ricevere questi promemoria, disattivali nella scheda del supplemento all&apos;interno dell&apos;app.
+      </div>
     </td></tr>
   `);
 
@@ -399,6 +523,7 @@ export function therapyReminderEmail(params: {
     "Per privacy non includiamo dettagli del supplemento in questa email.",
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   ].join("\n");
 
   return { html, text, subject };
@@ -436,54 +561,39 @@ export function appointmentAcceptedEmail(params: {
     : "Vedi i dettagli";
   const ctaHref = params.meetingUrl ?? `${params.appUrl}/dashboard`;
 
-  const meetingRow = params.meetingUrl
-    ? `<tr><td style="padding:0 18px;">
-        <div style="height:1px;background:${BORDER};"></div>
-      </td></tr>
-      <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
-        <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Videochiamata</div>
-        <div style="font-size:14px;color:${TEXT};padding-top:6px;word-break:break-all;">
-          <a href="${params.meetingUrl}" style="color:${TEXT};text-decoration:none;">${escapeHtml(params.meetingUrl)}</a>
+  const rows: Array<{ label: string; value: string; isLink?: boolean }> = [
+    { label: "Quando", value: when },
+    { label: "Tipo", value: params.appointmentType },
+  ];
+  if (params.meetingUrl) {
+    rows.push({ label: "Videochiamata", value: params.meetingUrl, isLink: true });
+  }
+
+  const notesRow = params.notes
+    ? `<tr><td style="padding:0 0 24px;">
+        <div style="background:${BG};border:1px solid ${BORDER};border-radius:12px;padding:18px 20px;">
+          <div style="font-family:${FONT_STACK};font-size:10px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:0.14em;padding-bottom:8px;">Note del professionista</div>
+          <div style="font-family:${FONT_STACK};font-size:14px;color:${TEXT};line-height:1.55;">${escapeHtml(params.notes)}</div>
         </div>
       </td></tr>`
     : "";
 
-  const notesRow = params.notes
-    ? `<tr><td style="color:${MUTED};font-size:14px;padding:0 0 20px;">
-        <strong style="color:${TEXT};font-weight:600;">Note:</strong> ${escapeHtml(params.notes)}
-      </td></tr>`
-    : "";
-
   const html = layout(`
-    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">Appuntamento confermato</td></tr>
-    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
-      Ciao ${escapeHtml(params.patientName)},
-      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.professionalName)}</strong>
-      ha accettato la tua richiesta di appuntamento.
+    <tr><td style="padding-bottom:14px;">${heading("Appuntamento confermato")}</td></tr>
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`Ciao ${escapeHtml(params.patientName)}, <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.professionalName)}</strong> ha accettato la tua richiesta di appuntamento.`)}
     </td></tr>
-    <tr><td style="padding-bottom:20px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
-        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;${params.meetingUrl ? "" : "border-bottom-left-radius:10px;"}">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
-          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
-        </td></tr>
-        <tr><td style="padding:0 18px;">
-          <div style="height:1px;background:${BORDER};"></div>
-        </td></tr>
-        <tr><td style="padding:14px 18px ${params.meetingUrl ? "14px" : "18px"};border-left:3px solid ${PRIMARY};${params.meetingUrl ? "" : "border-bottom-left-radius:10px;"}">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
-          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
-        </td></tr>
-        ${meetingRow}
-      </table>
+    <tr><td style="padding-bottom:24px;">
+      ${infoCard(rows)}
     </td></tr>
     ${notesRow}
-    <tr><td align="center" style="padding:4px 0 24px;">
+    <tr><td align="center" style="padding:0 0 22px;">
       ${button(ctaHref, ctaLabel)}
     </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
-      Se non puoi più partecipare, annulla dal tuo calendario in app così
-      ${escapeHtml(params.professionalName)} viene avvisato.
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:12px;color:${MUTED};line-height:1.6;">
+        Se non puoi più partecipare, annulla dal tuo calendario in app così ${escapeHtml(params.professionalName)} viene avvisato.
+      </div>
     </td></tr>
   `);
 
@@ -498,7 +608,7 @@ export function appointmentAcceptedEmail(params: {
   ];
   if (params.meetingUrl) lines.push(`Videochiamata: ${params.meetingUrl}`);
   if (params.notes) lines.push(`Note: ${params.notes}`);
-  lines.push("", "— Salute di Ferro");
+  lines.push("", "— Salute di Ferro", "Allena la tua forza, cura la tua salute.");
 
   return { html, text: lines.join("\n"), subject };
 }
@@ -530,48 +640,42 @@ export function appointmentAcceptedProEmail(params: {
   const subject = `Hai accettato l'appuntamento con ${params.patientName}`;
 
   const notesRow = params.notes
-    ? `<tr><td style="color:${MUTED};font-size:14px;padding:0 0 20px;">
-        <strong style="color:${TEXT};font-weight:600;">Note:</strong> ${escapeHtml(params.notes)}
+    ? `<tr><td style="padding:0 0 24px;">
+        <div style="background:${BG};border:1px solid ${BORDER};border-radius:12px;padding:18px 20px;">
+          <div style="font-family:${FONT_STACK};font-size:10px;font-weight:700;color:${ACCENT};text-transform:uppercase;letter-spacing:0.14em;padding-bottom:8px;">Note</div>
+          <div style="font-family:${FONT_STACK};font-size:14px;color:${TEXT};line-height:1.55;">${escapeHtml(params.notes)}</div>
+        </div>
       </td></tr>`
     : "";
 
   const html = layout(`
-    <tr><td style="font-family:${FONT_STACK};font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${TEXT};padding-bottom:10px;">Richiesta accettata</td></tr>
-    <tr><td style="color:${MUTED};font-size:15px;padding-bottom:20px;">
-      Ciao ${escapeHtml(params.professionalName)}, hai confermato l&apos;appuntamento con
-      <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.patientName)}</strong>.
+    <tr><td style="padding-bottom:14px;">${heading("Richiesta accettata")}</td></tr>
+    <tr><td style="padding-bottom:24px;">
+      ${lead(`Ciao ${escapeHtml(params.professionalName)}, hai confermato l&apos;appuntamento con <strong style="color:${TEXT};font-weight:600;">${escapeHtml(params.patientName)}</strong>.`)}
     </td></tr>
-    <tr><td style="padding-bottom:20px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BG};border:1px solid ${BORDER};border-radius:10px;">
-        <tr><td style="padding:18px 18px 14px;border-left:3px solid ${PRIMARY};border-top-left-radius:10px;">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Quando</div>
-          <div style="font-size:16px;font-weight:600;color:${TEXT};padding-top:6px;">${escapeHtml(when)}</div>
-        </td></tr>
-        <tr><td style="padding:0 18px;">
-          <div style="height:1px;background:${BORDER};"></div>
-        </td></tr>
-        <tr><td style="padding:14px 18px 18px;border-left:3px solid ${PRIMARY};border-bottom-left-radius:10px;">
-          <div style="color:${ACCENT};font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Tipo</div>
-          <div style="font-size:16px;color:${TEXT};padding-top:6px;">${escapeHtml(params.appointmentType)}</div>
+    <tr><td style="padding-bottom:24px;">
+      ${infoCard([
+        { label: "Quando", value: when },
+        { label: "Tipo", value: params.appointmentType },
+      ])}
+    </td></tr>
+    ${notesRow}
+    <tr><td style="padding:0 0 22px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CARD_INNER};border:1px solid ${BORDER};border-radius:12px;border-collapse:separate;">
+        <tr><td style="padding:20px 22px;">
+          <div style="font-family:${FONT_STACK};font-size:10px;font-weight:700;color:${PRIMARY};text-transform:uppercase;letter-spacing:0.14em;padding-bottom:10px;">Suggerimento</div>
+          <div style="font-family:${FONT_STACK};font-size:15px;font-weight:600;color:${TEXT};line-height:1.4;padding-bottom:8px;">Collega Google Calendar per generare un link Meet automatico</div>
+          <div style="font-family:${FONT_STACK};font-size:13px;color:${MUTED};line-height:1.6;padding-bottom:16px;">
+            Per gli appuntamenti futuri, collegando il tuo account Google creiamo un link Meet e aggiungiamo l&apos;evento al tuo calendario non appena accetti una richiesta.
+          </div>
+          ${ghostButton(params.connectGoogleUrl, "Collega Google Calendar")}
         </td></tr>
       </table>
     </td></tr>
-    ${notesRow}
-    <tr><td style="padding:0 0 16px;">
-      <div style="background:${BG};border:1px solid ${BORDER};border-radius:10px;padding:16px;">
-        <div style="font-size:14px;font-weight:600;color:${TEXT};padding-bottom:6px;">Collega Google Calendar per generare un link Meet automatico</div>
-        <div style="color:${MUTED};font-size:13px;padding-bottom:12px;line-height:1.5;">
-          Per gli appuntamenti futuri, collegando il tuo account Google creiamo
-          un link Meet e aggiungiamo l&apos;evento al tuo calendario non appena
-          accetti una richiesta.
-        </div>
-        ${button(params.connectGoogleUrl, "Collega Google Calendar")}
+    <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
+      <div style="font-family:${FONT_STACK};font-size:12px;color:${MUTED};line-height:1.6;">
+        Per questo appuntamento, condividi tu il link della videochiamata con ${escapeHtml(params.patientName)} (puoi incollarlo nei dettagli dell&apos;appuntamento in app).
       </div>
-    </td></tr>
-    <tr><td style="color:${MUTED};font-size:12px;line-height:1.55;">
-      Per questo appuntamento, condividi tu il link della videochiamata con
-      ${escapeHtml(params.patientName)} (puoi incollarlo nei dettagli
-      dell&apos;appuntamento in app).
     </td></tr>
   `);
 
@@ -591,6 +695,7 @@ export function appointmentAcceptedProEmail(params: {
     params.connectGoogleUrl,
     "",
     "— Salute di Ferro",
+    "Allena la tua forza, cura la tua salute.",
   );
 
   return { html, text: lines.join("\n"), subject };
