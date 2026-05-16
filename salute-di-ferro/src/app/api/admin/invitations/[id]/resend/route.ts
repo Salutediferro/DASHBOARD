@@ -53,6 +53,7 @@ export async function POST(
         email: true,
         firstName: true,
         status: true,
+        source: true,
         professionalRole: true,
         professional: { select: { id: true, fullName: true } },
       },
@@ -75,6 +76,22 @@ export async function POST(
         { status: 400 },
       );
     }
+    // STRIPE invites have no `professional` row by construction; the admin
+    // resend UI is for the professional-onboarding flow only. Stripe
+    // resends should go through the marketing site / a dedicated webhook
+    // replay, not this endpoint.
+    if (invite.source !== "PROFESSIONAL" || !invite.professional) {
+      return NextResponse.json(
+        {
+          error:
+            "Reinvio supportato solo per inviti professional. Per inviti Stripe, contatta il supporto.",
+        },
+        { status: 400 },
+      );
+    }
+    // After the guard above TypeScript can narrow `invite.professional`
+    // to non-null inside the rest of this handler.
+    const professional = invite.professional;
 
     const newToken = crypto.randomBytes(32).toString("base64url");
     const newExpiresAt = new Date(
@@ -103,14 +120,14 @@ export async function POST(
     const inviteUrl = `${origin}/register?invite=${updated.token}`;
     const { html, text } = invitationEmail({
       inviteUrl,
-      professionalName: invite.professional.fullName,
+      professionalName: professional.fullName,
       professionalRole: updated.professionalRole,
       expiresAt: updated.expiresAt,
       firstName: updated.firstName,
     });
     const emailRes = await sendEmail({
       to: updated.email ?? invite.email,
-      subject: `${invite.professional.fullName} ti ha invitato su Salute di Ferro`,
+      subject: `${professional.fullName} ti ha invitato su Salute di Ferro`,
       html,
       text,
       tags: [
@@ -128,7 +145,7 @@ export async function POST(
       entityId: id,
       metadata: {
         email: invite.email,
-        professionalId: invite.professional.id,
+        professionalId: professional.id,
         newExpiresAt: updated.expiresAt.toISOString(),
         emailDelivered,
         previousStatus: invite.status,
