@@ -6,7 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators/auth";
 import { rateLimit, requestKey } from "@/lib/rate-limit";
-import { getFeatureFlag } from "@/lib/feature-flags";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeProfessionalEmail } from "@/lib/email/templates";
@@ -14,10 +13,17 @@ import { welcomeProfessionalEmail } from "@/lib/email/templates";
 /**
  * POST /api/auth/register
  *
- * - Public PATIENT signup: anyone may call with role=PATIENT. Creates a
- *   Supabase auth user (password set) + Prisma User row with role PATIENT.
+ * - **Invitation-only PATIENT signup**: the caller must supply
+ *   `inviteToken` matching a PENDING, non-expired Invitation. The
+ *   Invitation can come from two sources:
+ *     - `PROFESSIONAL` — a DOCTOR/COACH onboarded this patient. We
+ *       create the CareRelationship transactionally on accept.
+ *     - `STRIPE`       — the buyer paid for a seat. No professional
+ *       attached yet; the patient picks one inside the app afterward.
+ *
  * - Admin-provisioned DOCTOR / COACH: caller must be an authenticated
- *   ADMIN; the request body selects the target role.
+ *   ADMIN; the request body selects the target role. No invite needed.
+ *
  * - ADMIN creation is NOT exposed here (seed or manual promotion).
  *
  * The role is mirrored into Supabase app_metadata so the middleware can
@@ -64,24 +70,20 @@ export async function POST(req: Request) {
     acceptHealthDataProcessing,
   } = parsed.data;
 
-  // Feature flag: if PATIENT signup is globally closed (e.g. soft-launch
-  // or incident), reject early with a 503 so the client can show the
-  // dedicated "chiuso" message. Admin-provisioned DOCTOR/COACH still
-  // go through — the flag gates public signups only.
-  if (targetRole === "PATIENT") {
-    const registrationOpen = await getFeatureFlag("patient-registration-open");
-    if (!registrationOpen) {
-      return NextResponse.json(
-        {
-          error:
-            "Registrazione pazienti temporaneamente chiusa. Contattare info@salutediferro.com per assistenza.",
-        },
-        { status: 503 },
-      );
-    }
+  // PATIENT signup is invite-only — the registerSchema already enforces
+  // that `inviteToken` is present, but we re-check here defensively to
+  // prevent any future schema drift from silently re-opening self-serve.
+  if (targetRole === "PATIENT" && !inviteToken) {
+    return NextResponse.json(
+      {
+        error:
+          "Per registrarti serve un invito. Se hai pagato, controlla la casella email — ti abbiamo inviato il link. Altrimenti scrivi a info@salutediferro.com.",
+      },
+      { status: 403 },
+    );
   }
 
-  // Authorization: only ADMIN may provision DOCTOR/COACH. PATIENT is public.
+  // Authorization: only ADMIN may provision DOCTOR/COACH. PATIENT is invite-gated.
   if (targetRole !== "PATIENT") {
     const supabase = await createClient();
     const {
@@ -99,14 +101,25 @@ export async function POST(req: Request) {
     }
   }
 
-  // If an invite token was provided, validate it *before* creating any
-  // auth user — avoids orphan accounts from bad tokens. Only PATIENT
-  // self-signup consumes invites.
-  let invite: {
+  // Validate the invite *before* creating any auth user — avoids orphan
+  // accounts from bad tokens. The schema guarantees inviteToken is set
+  // when targetRole === "PATIENT"; the inner branch is the source-aware
+  // expansion (PROFESSIONAL → CareRelationship, STRIPE → user only).
+  type ProfessionalInvite = {
+    kind: "PROFESSIONAL";
     id: string;
     professionalId: string;
     professionalRole: "DOCTOR" | "COACH";
-  } | null = null;
+    stripeCustomerId: null;
+  };
+  type StripeInvite = {
+    kind: "STRIPE";
+    id: string;
+    professionalId: null;
+    professionalRole: null;
+    stripeCustomerId: string | null;
+  };
+  let invite: ProfessionalInvite | StripeInvite | null = null;
   if (inviteToken && targetRole === "PATIENT") {
     const found = await prisma.invitation.findUnique({
       where: { token: inviteToken },
@@ -114,8 +127,10 @@ export async function POST(req: Request) {
         id: true,
         status: true,
         expiresAt: true,
+        source: true,
         professionalId: true,
         professionalRole: true,
+        stripeCustomerId: true,
       },
     });
     if (!found) {
@@ -133,11 +148,31 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    invite = {
-      id: found.id,
-      professionalId: found.professionalId,
-      professionalRole: found.professionalRole,
-    };
+    if (found.source === "PROFESSIONAL") {
+      // DB check constraint guarantees these are non-null when source
+      // is PROFESSIONAL, but narrow explicitly for the type.
+      if (!found.professionalId || !found.professionalRole) {
+        return NextResponse.json(
+          { error: "Invito malformato (professionalId mancante)" },
+          { status: 500 },
+        );
+      }
+      invite = {
+        kind: "PROFESSIONAL",
+        id: found.id,
+        professionalId: found.professionalId,
+        professionalRole: found.professionalRole,
+        stripeCustomerId: null,
+      };
+    } else {
+      invite = {
+        kind: "STRIPE",
+        id: found.id,
+        professionalId: null,
+        professionalRole: null,
+        stripeCustomerId: found.stripeCustomerId,
+      };
+    }
   }
 
   const org = await prisma.organization.findFirst({
@@ -190,9 +225,11 @@ export async function POST(req: Request) {
   const fullName = `${firstName} ${lastName}`.trim();
 
   try {
-    // If this is a PATIENT signup with a valid invite, create the user,
-    // the CareRelationship, and mark the invite consumed in one
-    // transaction. Otherwise just create the user.
+    // PATIENT path: create User + (PROFESSIONAL invite only) the
+    // CareRelationship + mark invite consumed, all in one transaction.
+    // STRIPE invites have no professional — we just stamp the Stripe
+    // customer id onto the User so future Subscription rows can be
+    // joined. DOCTOR/COACH provisioning: just create the User.
     const dbUser = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
         data: {
@@ -205,11 +242,15 @@ export async function POST(req: Request) {
           birthDate: birthDate ? new Date(birthDate) : null,
           role: targetRole,
           organizationId: org.id,
+          // Stamp the Stripe customer id when this accept came from a
+          // STRIPE invite — keeps Subscription joins working.
+          stripeCustomerId:
+            invite?.kind === "STRIPE" ? invite.stripeCustomerId : undefined,
         },
         select: { id: true, email: true, role: true, fullName: true },
       });
 
-      if (invite) {
+      if (invite?.kind === "PROFESSIONAL") {
         await tx.careRelationship.upsert({
           where: {
             professionalId_patientId_professionalRole: {
@@ -226,6 +267,8 @@ export async function POST(req: Request) {
           },
           update: { status: "ACTIVE" },
         });
+      }
+      if (invite) {
         await tx.invitation.update({
           where: { id: invite.id },
           data: {
@@ -307,11 +350,18 @@ export async function POST(req: Request) {
             }
           : {}),
         ...(invite
-          ? {
-              inviteId: invite.id,
-              invitingProfessionalId: invite.professionalId,
-              professionalRole: invite.professionalRole,
-            }
+          ? invite.kind === "PROFESSIONAL"
+            ? {
+                inviteId: invite.id,
+                inviteSource: "PROFESSIONAL" as const,
+                invitingProfessionalId: invite.professionalId,
+                professionalRole: invite.professionalRole,
+              }
+            : {
+                inviteId: invite.id,
+                inviteSource: "STRIPE" as const,
+                stripeCustomerId: invite.stripeCustomerId,
+              }
           : {}),
         ...(isProProvisioning ? { setupEmailStatus } : {}),
       },

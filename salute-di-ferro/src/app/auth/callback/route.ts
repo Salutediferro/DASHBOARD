@@ -16,20 +16,22 @@ import {
  * Three branches once the exchange succeeds:
  *
  * 1. **Existing user** (public.User row already exists) → just audit
- *    a LOGIN and redirect.
+ *    a LOGIN and redirect. This is the *only* way Google sign-in
+ *    succeeds — it implicitly gates Google login on "user paid"
+ *    (because the User row only exists post-invitation).
  *
- * 2. **New Google user with a valid signup cookie** → run the same
- *    invariants as POST /api/auth/register: feature-flag check, create
- *    the public.User as PATIENT, consume any invite, audit
- *    USER_REGISTER with consent flags. The cookie was minted by
- *    /api/auth/google-signup/prepare *before* the OAuth round trip, so
- *    by reaching this branch the user provably ticked both GDPR
- *    consent boxes on the register page.
+ * 2. **New Google user with a valid signup cookie carrying a valid
+ *    invite token** → create the public.User as PATIENT, consume the
+ *    invite (CareRelationship for PROFESSIONAL source, customer-id
+ *    stamp for STRIPE source), audit USER_REGISTER with consent flags.
+ *    The cookie was minted by /api/auth/google-signup/prepare *before*
+ *    the OAuth round trip, which already verified the invite exists.
  *
- * 3. **New auth.users with no signup cookie** → someone hit Google sign-in
- *    from /login (or directly), there's no consent on file. We delete
- *    the orphan auth user and bounce them to /register with an error
- *    toast — the consent gate there is the only legal entry point.
+ * 3. **New auth.users with no signup cookie or no valid invite** →
+ *    someone hit Google sign-in from /login without an account, or
+ *    tried to register via Google without a paid invitation. We
+ *    delete the orphan auth user and bounce them to /login with an
+ *    error toast — paid invite is the only legal entry point.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -180,14 +182,26 @@ export async function GET(request: Request) {
     );
   }
 
-  // Validate the invite (if any) before any writes, mirroring the
-  // password flow.
+  // Validate the invite. After the invite-only refactor an invite is
+  // MANDATORY for Google signups — without one we have no proof the
+  // user paid or was professionally invited, so we reject. Same shape
+  // as /api/auth/register so the branches behave identically.
   const inviteToken = verified.inviteToken;
-  let invite: {
+  type ProfessionalInvite = {
+    kind: "PROFESSIONAL";
     id: string;
     professionalId: string;
     professionalRole: "DOCTOR" | "COACH";
-  } | null = null;
+    stripeCustomerId: null;
+  };
+  type StripeInvite = {
+    kind: "STRIPE";
+    id: string;
+    professionalId: null;
+    professionalRole: null;
+    stripeCustomerId: string | null;
+  };
+  let invite: ProfessionalInvite | StripeInvite | null = null;
   if (inviteToken) {
     const found = await prisma.invitation.findUnique({
       where: { token: inviteToken },
@@ -195,8 +209,10 @@ export async function GET(request: Request) {
         id: true,
         status: true,
         expiresAt: true,
+        source: true,
         professionalId: true,
         professionalRole: true,
+        stripeCustomerId: true,
       },
     });
     if (
@@ -204,15 +220,42 @@ export async function GET(request: Request) {
       found.status === "PENDING" &&
       found.expiresAt.getTime() >= Date.now()
     ) {
-      invite = {
-        id: found.id,
-        professionalId: found.professionalId,
-        professionalRole: found.professionalRole,
-      };
+      if (
+        found.source === "PROFESSIONAL" &&
+        found.professionalId &&
+        found.professionalRole
+      ) {
+        invite = {
+          kind: "PROFESSIONAL",
+          id: found.id,
+          professionalId: found.professionalId,
+          professionalRole: found.professionalRole,
+          stripeCustomerId: null,
+        };
+      } else if (found.source === "STRIPE") {
+        invite = {
+          kind: "STRIPE",
+          id: found.id,
+          professionalId: null,
+          professionalRole: null,
+          stripeCustomerId: found.stripeCustomerId,
+        };
+      }
     }
-    // Expired / consumed invites are silently ignored — the user still
-    // gets an account, just without the auto-link. Same charity as the
-    // password flow when the patient typed a stale URL.
+  }
+
+  // No usable invite → reject. Clean up the orphan auth user so the
+  // visitor can re-try with a fresh link without "email already in use"
+  // errors. The toast on /login explains they need a paid invitation.
+  if (!invite) {
+    const admin = createAdminClient();
+    await admin.auth.admin.deleteUser(user.id).catch(() => undefined);
+    await supabase.auth.signOut().catch(() => undefined);
+    return clearSignupCookie(
+      NextResponse.redirect(
+        new URL("/login?error=invite-required", url.origin),
+      ),
+    );
   }
 
   // Stamp the role into Supabase app_metadata so middleware can
@@ -239,10 +282,12 @@ export async function GET(request: Request) {
           lastName: lastName || null,
           role: "PATIENT",
           organizationId: org.id,
+          stripeCustomerId:
+            invite.kind === "STRIPE" ? invite.stripeCustomerId : undefined,
         },
         select: { id: true, email: true, fullName: true },
       });
-      if (invite) {
+      if (invite.kind === "PROFESSIONAL") {
         await tx.careRelationship.upsert({
           where: {
             professionalId_patientId_professionalRole: {
@@ -259,15 +304,15 @@ export async function GET(request: Request) {
           },
           update: { status: "ACTIVE" },
         });
-        await tx.invitation.update({
-          where: { id: invite.id },
-          data: {
-            status: "ACCEPTED",
-            usedAt: new Date(),
-            usedByUserId: u.id,
-          },
-        });
       }
+      await tx.invitation.update({
+        where: { id: invite.id },
+        data: {
+          status: "ACCEPTED",
+          usedAt: new Date(),
+          usedByUserId: u.id,
+        },
+      });
       return u;
     });
 
@@ -285,13 +330,18 @@ export async function GET(request: Request) {
         acceptedTerms: true,
         acceptedHealthDataProcessing: true,
         consentAt: new Date().toISOString(),
-        ...(invite
+        ...(invite.kind === "PROFESSIONAL"
           ? {
               inviteId: invite.id,
+              inviteSource: "PROFESSIONAL" as const,
               invitingProfessionalId: invite.professionalId,
               professionalRole: invite.professionalRole,
             }
-          : {}),
+          : {
+              inviteId: invite.id,
+              inviteSource: "STRIPE" as const,
+              stripeCustomerId: invite.stripeCustomerId,
+            }),
       },
       request,
     });

@@ -217,40 +217,60 @@ function layout(inner: string) {
 }
 
 // ── Invitation ────────────────────────────────────────────────────────
+//
+// Two variants share the same shell:
+//
+//   1. **Professional-initiated** (`professionalName` + `professionalRole`
+//      both set): a DOCTOR or COACH onboarded a specific patient. The
+//      copy names them and previews the auto-link.
+//   2. **Stripe-purchased** (`professionalName === null`): the buyer
+//      just paid. There's no pro yet — the copy welcomes them, frames
+//      the link as completing the purchase, and explains they'll pick
+//      a pro inside the app afterward.
 
 export function invitationEmail(params: {
   inviteUrl: string;
-  professionalName: string;
-  professionalRole: "DOCTOR" | "COACH";
+  /** Null = Stripe-purchased invite (no professional attached yet). */
+  professionalName: string | null;
+  /** Null when `professionalName` is null. */
+  professionalRole: "DOCTOR" | "COACH" | null;
   expiresAt: Date;
   firstName?: string | null;
 }): { html: string; text: string } {
+  const isStripe = !params.professionalName;
   const greeting = params.firstName
     ? `Ciao ${escapeHtml(params.firstName)},`
     : "Ciao,";
-  const roleLabel =
-    params.professionalRole === "DOCTOR" ? "il professionista" : "il coach";
-  const proName = escapeHtml(params.professionalName);
   const expiry = params.expiresAt.toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 
+  const headingText = isStripe ? "Benvenuto in Salute di Ferro" : "Sei stato invitato";
+
+  const introHtml = isStripe
+    ? `Grazie per esserti unito a <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong>. Completa la registrazione qui sotto per accedere al tuo account — una volta dentro potrai scegliere il professionista o il coach con cui lavorare.`
+    : `${escapeHtml(params.professionalName ?? "")} ti ha invitato a entrare su <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong> come suo cliente. Completa la registrazione qui sotto — al termine sarai collegato automaticamente a ${params.professionalRole === "DOCTOR" ? "il professionista" : "il coach"}.`;
+
+  const introText = isStripe
+    ? "Grazie per esserti unito a Salute di Ferro. Completa la registrazione al link qui sotto per accedere al tuo account — una volta dentro potrai scegliere il professionista o il coach con cui lavorare."
+    : `${params.professionalName} ti ha invitato su Salute di Ferro come suo cliente. Completa la registrazione al link qui sotto — sarai collegato automaticamente al ${params.professionalRole === "DOCTOR" ? "professionista" : "coach"}.`;
+
   const html = layout(`
-    <tr><td style="padding-bottom:14px;">${heading("Sei stato invitato")}</td></tr>
+    <tr><td style="padding-bottom:14px;">${heading(headingText)}</td></tr>
     <tr><td style="padding-bottom:8px;">
       <div style="font-family:${FONT_STACK};font-size:16px;font-weight:600;color:${TEXT};">${greeting}</div>
     </td></tr>
     <tr><td style="padding-bottom:24px;">
-      ${lead(`${proName} ti ha invitato a entrare su <strong style="color:${TEXT};font-weight:600;">Salute di Ferro</strong> come suo cliente. Completa la registrazione qui sotto — al termine sarai collegato automaticamente a ${roleLabel}.`)}
+      ${lead(introHtml)}
     </td></tr>
     <tr><td align="center" style="padding:4px 0 28px;">
       ${button(params.inviteUrl, "Completa la registrazione")}
     </td></tr>
     <tr><td style="padding-bottom:14px;">
       <div style="font-family:${FONT_STACK};font-size:13px;color:${MUTED};line-height:1.6;">
-        Il link scade il <strong style="color:${TEXT};font-weight:600;">${expiry}</strong> ed è a uso singolo. Se non riconosci l&apos;invito puoi ignorare questa email.
+        Il link scade il <strong style="color:${TEXT};font-weight:600;">${expiry}</strong> ed è a uso singolo. Se non riconosci ${isStripe ? "questa email" : "l&apos;invito"} puoi ignorarla.
       </div>
     </td></tr>
     <tr><td style="padding-top:14px;border-top:1px solid ${BORDER_FAINT};">
@@ -264,13 +284,12 @@ export function invitationEmail(params: {
   const text = [
     greeting,
     "",
-    `${params.professionalName} ti ha invitato su Salute di Ferro come suo cliente.`,
+    introText,
     "",
-    "Completa la registrazione al link qui sotto:",
     params.inviteUrl,
     "",
     `Il link scade il ${expiry} ed è a uso singolo.`,
-    "Se non riconosci l'invito, ignora questa email.",
+    `Se non riconosci ${isStripe ? "questa email" : "l'invito"}, ignorala.`,
     "",
     "— Salute di Ferro",
     "Allena la tua forza, cura la tua salute.",

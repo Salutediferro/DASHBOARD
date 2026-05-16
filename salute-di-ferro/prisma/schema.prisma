@@ -125,6 +125,25 @@ enum InvitationStatus {
   @@schema("public")
 }
 
+/// Why an Invitation exists.
+///
+///   PROFESSIONAL — created by a DOCTOR/COACH from inside the app to
+///                  onboard a specific patient of theirs. The invite
+///                  carries professionalId + professionalRole and
+///                  auto-creates a CareRelationship on accept.
+///
+///   STRIPE       — created by the Stripe webhook after a customer
+///                  paid for a seat. There is no professional attached
+///                  yet; the patient picks (or gets matched to) one
+///                  after they sign up. professionalId / professionalRole
+///                  are NULL for these.
+enum InvitationSource {
+  PROFESSIONAL
+  STRIPE
+
+  @@schema("public")
+}
+
 enum CheckInStatus {
   PENDING
   REVIEWED
@@ -838,36 +857,54 @@ model ReportPermission {
 }
 
 // ============================================================
-// PATIENT INVITATIONS (professional → patient onboarding link)
+// PATIENT INVITATIONS (Stripe purchase OR professional → patient)
 // ============================================================
 
-/// A DOCTOR or COACH creates an Invitation to onboard a new patient.
-/// The patient follows the URL (/register?invite=<token>) to sign up;
-/// consuming the invite auto-creates a CareRelationship between the
-/// inviting professional and the new patient. Tokens are one-shot and
-/// expire after the `expiresAt` cutoff.
+/// An invitation is the ONLY way a new patient account can be created.
+/// Two origins are supported:
+///
+/// 1. `source = PROFESSIONAL` — a DOCTOR or COACH onboards a specific
+///    patient. `professionalId` and `professionalRole` are populated and
+///    consuming the invite auto-creates a CareRelationship.
+///
+/// 2. `source = STRIPE` — the Stripe webhook fired
+///    `checkout.session.completed`. `professionalId` and
+///    `professionalRole` are NULL; the patient picks/gets matched to a
+///    professional after sign-up. `stripeCheckoutSessionId` is the
+///    idempotency key — retries from Stripe never double-create.
+///
+/// The patient follows the URL `/register?invite=<token>` to sign up.
+/// Tokens are one-shot and expire after the `expiresAt` cutoff.
 model Invitation {
-  id               String           @id @default(uuid()) @db.Uuid
-  token            String           @unique
-  professionalId   String           @db.Uuid
-  professionalRole ProfessionalRole
-  email            String?
-  firstName        String?
-  lastName         String?
-  note             String?
-  status           InvitationStatus @default(PENDING)
-  expiresAt        DateTime
-  createdAt        DateTime         @default(now())
-  usedAt           DateTime?
-  usedByUserId     String?          @db.Uuid
+  id                       String            @id @default(uuid()) @db.Uuid
+  token                    String            @unique
+  source                   InvitationSource  @default(PROFESSIONAL)
+  professionalId           String?           @db.Uuid
+  professionalRole         ProfessionalRole?
+  email                    String?
+  firstName                String?
+  lastName                 String?
+  note                     String?
+  status                   InvitationStatus  @default(PENDING)
+  expiresAt                DateTime
+  createdAt                DateTime          @default(now())
+  usedAt                   DateTime?
+  usedByUserId             String?           @db.Uuid
+  /// Stripe Checkout Session id — set only when source=STRIPE.
+  /// Unique so the webhook is idempotent against Stripe retries.
+  stripeCheckoutSessionId  String?           @unique
+  /// Stripe Customer id (cus_xxx). Stamped onto the User on accept so
+  /// the Subscription model can be joined back to the right person.
+  stripeCustomerId         String?
 
-  professional User  @relation("ProfessionalInvitations", fields: [professionalId], references: [id], onDelete: Cascade)
-  usedBy       User? @relation("UsedInvitations", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  professional User?  @relation("ProfessionalInvitations", fields: [professionalId], references: [id], onDelete: Cascade)
+  usedBy       User?  @relation("UsedInvitations", fields: [usedByUserId], references: [id], onDelete: SetNull)
 
   @@index([token])
   @@index([professionalId])
   @@index([status])
   @@index([expiresAt])
+  @@index([source])
   @@schema("public")
 }
 

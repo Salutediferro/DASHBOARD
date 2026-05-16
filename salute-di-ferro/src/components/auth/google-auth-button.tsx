@@ -45,20 +45,32 @@ export function GoogleAuthButton({
   const supabase = createClient();
 
   const isRegister = variant === "register";
-  const disabled = loading || (isRegister && !consentsAccepted);
+  // On /register the button is gated on (a) consents being ticked AND
+  // (b) the user arriving via a valid invite link. Without an invite
+  // there's no path to a new account — gray out the button so we don't
+  // bounce them through Google for a guaranteed 400.
+  const disabled =
+    loading || (isRegister && (!consentsAccepted || !inviteToken));
 
   async function onClick() {
     if (disabled) return;
     setLoading(true);
     try {
       if (isRegister) {
+        if (!inviteToken) {
+          toast.error(
+            "Per registrarti con Google serve un invito valido. Usa il link ricevuto dopo il pagamento.",
+          );
+          setLoading(false);
+          return;
+        }
         const prep = await fetch("/api/auth/google-signup/prepare", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             acceptTerms: true,
             acceptHealthDataProcessing: true,
-            inviteToken: inviteToken ?? null,
+            inviteToken,
           }),
         });
         if (!prep.ok) {

@@ -32,7 +32,7 @@ export const FEATURE_FLAGS = {
     default: true,
     label: "Registrazione pazienti aperta",
     description:
-      "Quando OFF, `/api/auth/register` respinge i signup di nuovi PATIENT con 503. Professionisti invitati (flusso admin) non sono coinvolti.",
+      "Master kill-switch per i nuovi iscritti via Stripe. Quando OFF, il webhook `/api/webhooks/stripe` accetta l'evento (2xx, niente retry) ma NON crea l'invito né invia l'email — i pagamenti restano sospesi finché il flag non torna ON (refund manuale se necessario). Inviti professional-side non sono coinvolti, e gli utenti con un invito valido in mano possono ancora completare la registrazione.",
   },
   "ai-analysis-enabled": {
     key: "ai-analysis-enabled",

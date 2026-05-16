@@ -35,8 +35,12 @@ type Props = { variant: "login" | "register" };
 
 type InviteInfo = {
   valid: true;
-  professionalName: string;
-  professionalRole: "DOCTOR" | "COACH";
+  /** PROFESSIONAL — invited by a pro; STRIPE — paid via checkout. */
+  source: "PROFESSIONAL" | "STRIPE";
+  /** Null for STRIPE invites. */
+  professionalName: string | null;
+  /** Null for STRIPE invites. */
+  professionalRole: "DOCTOR" | "COACH" | null;
   email: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -66,6 +70,8 @@ export function AuthForm({ variant }: Props) {
         "Esiste già un account con questa email. Accedi con la password e collega Google dal profilo.",
       "google-no-email":
         "Google non ha restituito un'email per questo account.",
+      "invite-required":
+        "Per accedere serve un account. Acquista un piano su salutediferro.com o chiedi un invito al tuo professionista.",
       "signup-failed":
         "Registrazione fallita. Riprova tra qualche minuto.",
       "org-missing": "Configurazione mancante. Contatta il supporto.",
@@ -354,6 +360,15 @@ export function AuthForm({ variant }: Props) {
         </form>
       </div>
     );
+  }
+
+  // ── Invitation-required gate ─────────────────────────────────
+  // /register is no longer self-serve — every account is minted from
+  // a Stripe purchase or a professional invite. Without `?invite=` in
+  // the URL we never show the form: that prevents users from typing
+  // their email + password and getting a confusing 403 from the API.
+  if (!isLogin && !inviteToken) {
+    return <InvitationRequired />;
   }
 
   // ── Main form view ───────────────────────────────────────────
@@ -646,11 +661,27 @@ function InviteStatus({
     );
   }
   if (invite) {
+    if (invite.source === "STRIPE") {
+      return (
+        <div className="border-primary-500/30 bg-primary-500/5 flex items-start gap-3 rounded-md border p-3 text-sm">
+          <UserCheck className="text-primary-500 mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div className="flex-1">
+            <p className="font-medium">Pagamento confermato</p>
+            <p className="text-muted-foreground text-xs">
+              Completa la registrazione qui sotto. Una volta dentro potrai scegliere il
+              professionista o il coach con cui lavorare.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="border-primary-500/30 bg-primary-500/5 flex items-start gap-3 rounded-md border p-3 text-sm">
         <UserCheck className="text-primary-500 mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="flex-1">
-          <p className="font-medium">Sei stato invitato da {invite.professionalName}</p>
+          <p className="font-medium">
+            Sei stato invitato da {invite.professionalName}
+          </p>
           <p className="text-muted-foreground text-xs">
             {invite.professionalRole === "DOCTOR" ? "Professionista" : "Coach"} · Al termine della
             registrazione sarai assegnato automaticamente.
@@ -666,14 +697,78 @@ function InviteStatus({
         <div className="flex-1">
           <p className="font-medium">Invito non valido</p>
           <p className="text-muted-foreground text-xs">
-            {error}. Puoi comunque registrarti come cliente, ma non verrai collegato automaticamente
-            a un professionista.
+            {error}. Chiedi un nuovo link al tuo professionista o controlla la conferma di
+            pagamento.
           </p>
         </div>
       </div>
     );
   }
   return null;
+}
+
+/** Splash shown on /register when there is no `?invite=` token in the URL.
+ *  The account creation flow is invite-only — direct visits to /register
+ *  used to render the signup form; now they get this gate. */
+function InvitationRequired() {
+  return (
+    <div className="flex flex-col gap-5">
+      <Header
+        title="Per iniziare serve un invito"
+        subtitle="Salute di Ferro è ad accesso riservato. Esistono due modi per ricevere un account:"
+      />
+      <ol className="text-muted-foreground flex flex-col gap-3 text-sm">
+        <li className="surface-1 flex items-start gap-3 rounded-xl p-3">
+          <span
+            aria-hidden
+            className="bg-primary-500/15 text-primary-500 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+          >
+            1
+          </span>
+          <span>
+            <strong className="text-foreground">Acquista un piano</strong> su{" "}
+            <Link
+              href="https://salutediferro.com"
+              target="_blank"
+              className="text-primary-500 underline underline-offset-4"
+            >
+              salutediferro.com
+            </Link>
+            . Dopo il pagamento riceverai il link di registrazione via email.
+          </span>
+        </li>
+        <li className="surface-1 flex items-start gap-3 rounded-xl p-3">
+          <span
+            aria-hidden
+            className="bg-primary-500/15 text-primary-500 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+          >
+            2
+          </span>
+          <span>
+            <strong className="text-foreground">Fatti invitare</strong> dal tuo medico o coach,
+            se collabora già con Salute di Ferro.
+          </span>
+        </li>
+      </ol>
+      <p className="text-muted-foreground text-xs">
+        Hai già un account?{" "}
+        <Link
+          href="/login"
+          className="focus-ring text-primary-500 rounded underline-offset-4 hover:underline"
+        >
+          Accedi
+        </Link>
+        . Problemi col link?{" "}
+        <a
+          href="mailto:info@salutediferro.com"
+          className="focus-ring text-primary-500 rounded underline-offset-4 hover:underline"
+        >
+          info@salutediferro.com
+        </a>
+        .
+      </p>
+    </div>
+  );
 }
 
 // react-hook-form register(...) returns a typed `UseFormRegisterReturn<Name>`
