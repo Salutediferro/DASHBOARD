@@ -38,7 +38,7 @@ function buildChips(briefing: BriefingSummary): string[] {
         (1000 * 60 * 60 * 24),
     );
     if (days <= 7 && briefing.nextAppointment.professional.role === "COACH") {
-      chips.push("Prepara domande per il Coach");
+      chips.push("Prepara domande per i professionisti");
     }
   }
 
@@ -52,8 +52,9 @@ function chipHref(chip: string): string {
 
 /**
  * Placeholder mostrato quando la chat AI è disabilitata via feature flag
- * (`NEXT_PUBLIC_ENABLE_AGENTE_CHAT !== "1"`). Indirizza l'utente al Coach
- * umano per qualunque domanda — coerente con UE AI Act human-oversight.
+ * (`NEXT_PUBLIC_ENABLE_AGENTE_CHAT !== "1"`). Indirizza l'utente al Team di
+ * Ferro (tutti i professionisti) per qualunque domanda — coerente con UE
+ * AI Act human-oversight.
  */
 function ChatDisabledPlaceholder() {
   return (
@@ -73,17 +74,17 @@ function ChatDisabledPlaceholder() {
         </div>
         <p className="mb-5 text-sm text-muted-foreground">
           La chat con l&apos;Agente di Ferro arriverà nelle prossime settimane.
-          Per ora, qualunque dubbio sul tuo percorso passa direttamente dal tuo
-          Coach umano.
+          Per ora, qualunque dubbio sul tuo percorso passa direttamente dai
+          tuoi professionisti.
         </p>
         <Button
           variant="outline"
           render={
             <Link
               href="/dashboard/patient/team"
-              aria-label="Vai al Team di Ferro per parlare con il Coach"
+              aria-label="Vai al Team di Ferro per parlare con i professionisti"
             >
-              Parla con il Coach <span aria-hidden="true">→</span>
+              Parla con i professionisti <span aria-hidden="true">→</span>
             </Link>
           }
         />

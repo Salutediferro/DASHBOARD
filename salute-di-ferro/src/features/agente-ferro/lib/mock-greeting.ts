@@ -47,19 +47,21 @@ export function mockGreeting(summary: BriefingSummary): string {
         const proRole =
           summary.nextAppointment.professional.role === "DOCTOR"
             ? "Medico"
-            : "Coach";
+            : "professionisti";
         const count = nActions > 0 ? nActions : 0;
         const tail =
           count > 0
             ? `${count} ${count === 1 ? "cosa" : "cose"} nel quaderno.`
             : "Tutto pronto.";
+        const connector =
+          proRole === "Medico" ? "col" : "coi";
         return `${firstName}. ${dayName.charAt(0).toUpperCase()}${dayName.slice(
           1,
-        )} col ${proRole}. ${tail}`;
+        )} ${connector} ${proRole}. ${tail}`;
       }
 
       if (attentionMarker) {
-        return `${firstName}. ${attentionMarker.name} vale due minuti col Coach.`;
+        return `${firstName}. ${attentionMarker.name} vale due minuti coi professionisti.`;
       }
 
       if (summary.attentionCount === 0 && nActions <= 1) {

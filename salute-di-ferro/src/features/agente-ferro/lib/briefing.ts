@@ -187,7 +187,7 @@ function summarizeSystem(
         : "Peso allineato all'obiettivo.";
     case "energy":
       return tone === "attention"
-        ? "Un marker fuori intervallo. Sono due minuti col Coach."
+        ? "Un marker fuori intervallo. Sono due minuti coi professionisti."
         : "Energia di laboratorio nei limiti attesi.";
     case "hormones":
       return tone === "attention"

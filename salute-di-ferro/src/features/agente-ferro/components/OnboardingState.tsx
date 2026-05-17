@@ -49,7 +49,7 @@ const STEPS: Step[] = [
   },
   {
     id: "coach-call",
-    label: "Prima chiamata con il Coach",
+    label: "Prima chiamata con i professionisti",
     threshold: 75,
   },
 ];
