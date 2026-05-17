@@ -12,6 +12,12 @@ type Props = {
 export function DashboardShell({ items, quickActions, children }: Props) {
   return (
     <div className="bg-background text-foreground flex h-dvh">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded focus:ring-2 focus:ring-ring"
+      >
+        Salta al contenuto
+      </a>
       <Sidebar items={items} />
 
       <div className="flex min-w-0 flex-1 flex-col">

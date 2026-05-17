@@ -16,6 +16,7 @@ import {
   NotebookPen,
   Pill,
   ScrollText,
+  Sparkles,
   Stethoscope,
   UserRound,
   Users,
@@ -100,6 +101,7 @@ export const patientNav: NavItem[] = [
   { label: "Check-in", href: "/dashboard/patient/check-in", icon: ClipboardCheck, group: G.interactions },
   { label: "Appuntamenti", href: "/dashboard/patient/appointments", icon: Calendar, mobile: true, group: G.interactions },
   { label: "Notifiche", href: "/dashboard/patient/notifications", icon: Bell, group: G.interactions, badge: "unread-notifications" },
+  { label: "Agente di Ferro", href: "/dashboard/patient/agente", icon: Sparkles, mobile: true, group: G.interactions },
   { label: "Messaggi", href: "/dashboard/messages", icon: MessageSquare, mobile: true, group: G.interactions, badge: "unread-messages" },
   { label: "Profilo", href: "/dashboard/patient/profile", icon: UserRound, group: G.account },
 ];
