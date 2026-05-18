@@ -32,7 +32,9 @@ import { AmbientStatsStrip } from "@/features/agente-ferro/components/AmbientSta
 import { ActionPlanList } from "@/features/agente-ferro/components/ActionPlanList";
 import { BodySystemGrid } from "@/features/agente-ferro/components/BodySystemGrid";
 import { AgentCTA } from "@/features/agente-ferro/components/AgentCTA";
-import { OnboardingState } from "@/features/agente-ferro/components/OnboardingState";
+// NOTA: OnboardingState resta in src/features/agente-ferro/components/OnboardingState.tsx
+// ma NON importato dopo l'hotfix 2026-05-18 (vedi commento in ProactiveDashboard).
+// Riusabile come sub-component nel refactor "Centro Agente unificato" (opzione D).
 import {
   GreetingSkeleton,
   MissionSkeleton,
@@ -86,14 +88,16 @@ async function AgenteGreeting({ userId }: { userId: string }) {
 async function ProactiveDashboard({ userId }: { userId: string }) {
   const briefing = await buildBriefing(userId);
 
-  if (briefing.persona === "onboarding") {
-    return (
-      <OnboardingState
-        firstName={briefing.firstName}
-        completeness={briefing.completeness}
-      />
-    );
-  }
+  // HOTFIX 2026-05-18 · feedback cliente: l'OnboardingState 4-step bloccava
+  // pazienti onboarding sul gate "Prima chiamata coi professionisti" (può
+  // avvenire dopo settimane, e la prenotazione pannello non è ancora fattibile
+  // da dashboard). In attesa del refactor "Centro Agente unificato" (opzione D),
+  // l'Agente è aperto da subito a tutti i pazienti, indipendentemente dal
+  // completeness%. Empty states su stats/actions/grid restano gestiti
+  // internamente ai componenti.
+  //
+  // OnboardingState NON rimosso dal codice — resta importato per il refactor
+  // futuro (riusabile come sub-component "personalizza profilo" inline).
 
   return (
     <>
