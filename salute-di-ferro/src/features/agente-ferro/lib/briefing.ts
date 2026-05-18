@@ -1,7 +1,5 @@
 import "server-only";
 
-import { revalidateTag } from "next/cache";
-
 import { dataSource } from "@/lib/data";
 import type {
   AppointmentSummary,
@@ -330,10 +328,17 @@ function buildMission(input: {
 }
 
 // ---------------------------------------------------------------
-// Main entry — cached, deterministic, LLM-safe
+// Main entry — deterministic, LLM-safe.
+// Caching: NON cached ad oggi (vedi TODO sotto). Le Server Action invocano
+// comunque revalidateTag con tag canonici per non rompere quando aggiungeremo
+// 'use cache' + cacheComponents: true.
 // ---------------------------------------------------------------
 
 export async function buildBriefing(userId: string): Promise<BriefingSummary> {
+  // TODO: cache via `'use cache' + cacheLife + cacheTag` quando il progetto
+  // abiliterà `cacheComponents: true` in next.config.ts (PR dedicata con
+  // verifica delle altre 158 route + 27 file che usano cookies/headers/
+  // searchParams). Tag canonici se attivati: `briefing:${userId}`.
 
   const [
     profile,

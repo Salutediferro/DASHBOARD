@@ -73,9 +73,9 @@ export function OnboardingState({ firstName, completeness }: Props) {
 
         <ol role="list" className="mb-6 flex flex-col gap-2">
           {STEPS.map((step, idx) => {
-            const done = safePct > step.threshold;
+            const done = safePct >= step.threshold;
             const prevDone =
-              idx === 0 || safePct > STEPS[idx - 1].threshold;
+              idx === 0 || safePct >= STEPS[idx - 1].threshold;
             const isCurrent = !done && prevDone;
             const stepNumber = idx + 1;
             return (
@@ -124,9 +124,18 @@ export function OnboardingState({ firstName, completeness }: Props) {
         </ol>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            Profilo completo al {safePct}%.
-          </p>
+          <div
+            role="progressbar"
+            aria-valuenow={safePct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={`Profilo completo al ${safePct}%`}
+            aria-label="Avanzamento profilo"
+          >
+            <p className="text-xs text-muted-foreground">
+              Profilo completo al {safePct}%.
+            </p>
+          </div>
           <Button
             size="lg"
             render={

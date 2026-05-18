@@ -5,8 +5,9 @@
  * deve essere percepibile per tutta la durata dell'interazione).
  *
  * A11y (review accessibility-lead 6 mag 2026):
- *  - <aside role="note"> + heading sr-only "Avviso intelligenza artificiale"
- *    → diventa landmark navigation per screen reader.
+ *  - <aside role="note"> + aria-label "Avviso intelligenza artificiale"
+ *    → diventa landmark navigation per screen reader senza iniettare
+ *    un <h2> sr-only PRIMA dell'<h1> di pagina (heading order WCAG 1.3.1).
  *  - NON usare role="alert" o role="status" (è contenuto statico, non dinamico).
  *  - NON usare role="banner" (riservato all'header pagina).
  *  - Icona Info + testo esplicito: WCAG 1.4.1 (uso del colore).
@@ -24,15 +25,12 @@ export function AgenteFerroBanner({ className }: Props) {
   return (
     <aside
       role="note"
-      aria-labelledby="agente-ferro-banner-title"
+      aria-label="Avviso intelligenza artificiale"
       className={cn(
         "border-b border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground",
         className
       )}
     >
-      <h2 id="agente-ferro-banner-title" className="sr-only">
-        Avviso intelligenza artificiale
-      </h2>
       <p className="flex items-start gap-2">
         <Info
           className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70"

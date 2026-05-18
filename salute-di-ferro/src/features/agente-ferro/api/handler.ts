@@ -35,8 +35,9 @@ import {
   buildAgenteFerroSystemPrompt,
   buildAgenteFerroTools,
   detectForbiddenContent,
-  isAgenteFerroEnabled,
+  isAgenteFerroChatEnabled,
 } from "@/features/agente-ferro/lib";
+import { detectAgentReply } from "@/features/agente-ferro/lib/detector";
 
 /**
  * NOTA AUDIT · `AuditLog.action` è uno String free-form in schema Prisma
@@ -206,10 +207,15 @@ function safeReplyResponse(text: string): Response {
 // ============================================================
 
 export async function POST(request: Request) {
-  // ── Feature flag · scope DECISIONI_BETA team Leone ───────────
-  if (!isAgenteFerroEnabled()) {
+  // ── Feature flag · usa il flag CHAT (più ristretto del flag dashboard).
+  // La dashboard può essere ON in prod (`NEXT_PUBLIC_ENABLE_AGENTE_FERRO`)
+  // mentre la chat resta gated separatamente (`NEXT_PUBLIC_ENABLE_AGENTE_CHAT`)
+  // in attesa di: AI Gateway auth + DPA Anthropic + pen-test prompt injection.
+  // Senza questo check, un paziente autenticato potrebbe colpire l'endpoint
+  // direttamente anche con la chat OFF nell'UI, consumando token Anthropic.
+  if (!isAgenteFerroChatEnabled()) {
     return NextResponse.json(
-      { error: "agente-ferro disabled" },
+      { error: "agente-ferro chat disabled" },
       { status: 503 }
     );
   }
@@ -260,8 +266,17 @@ export async function POST(request: Request) {
         );
       }
     } catch (e) {
-      // Se Upstash è giù, log ma NON blocchiamo l'utente (best-effort).
-      console.warn("[agente-ferro] rate limit check error:", (e as Error).message);
+      // Fail-closed: se il rate limiter non risponde non possiamo garantire
+      // protezione contro abuse / cost overrun → blocchiamo. Preferibile
+      // un 503 transitorio rispetto a token Anthropic illimitati.
+      console.warn(
+        "[agente-ferro] rate limit check error · fail-closed:",
+        (e as Error).message
+      );
+      return NextResponse.json(
+        { error: "rate_limit_unavailable", retryAfterSeconds: RATE_LIMIT_WINDOW_S },
+        { status: 503 }
+      );
     }
   }
 
@@ -347,10 +362,46 @@ export async function POST(request: Request) {
       tools,
       // tool calls automatici · max 5 step per evitare loop infiniti tool/model
       stopWhen: ({ steps }) => steps.length >= 5,
-      // Logging non-PII per debug
-      onFinish({ usage }) {
+      // Logging non-PII per debug + detector OUTPUT (UE AI Act + FNOMCeO):
+      // ispeziona il testo finale generato dal modello. Se ha "scavalcato"
+      // il system prompt e prodotto diagnosi/dosaggi mascherati, NON
+      // possiamo retrarre lo stream già inviato — logghiamo evento critico
+      // per audit + review umano. Per blocco hard serve refactor a
+      // non-streaming + risposta differita.
+      async onFinish({ text, usage }) {
         if (process.env.NODE_ENV === "development") {
           console.log("[agente-ferro] usage:", usage);
+        }
+        try {
+          const verdict = detectAgentReply(text);
+          if (verdict.block) {
+            logAgenteEvent("detector.blocked", {
+              userId,
+              category: verdict.category,
+              matchedPattern: verdict.matchedPattern,
+              source: "output",
+            });
+            if (!isDevBypass()) {
+              await logAudit({
+                actorId: userId,
+                action: "AI_BLOCKED",
+                entityType: "AgenteFerroMessage",
+                metadata: {
+                  category: verdict.category,
+                  matchedPattern: verdict.matchedPattern,
+                  source: "output",
+                },
+                request,
+              });
+            }
+          }
+        } catch (detectorErr) {
+          // Detector deve essere best-effort: un crash qui non deve
+          // sporcare la response al client.
+          console.warn(
+            "[agente-ferro] detector(output) error:",
+            (detectorErr as Error).message
+          );
         }
       },
     });

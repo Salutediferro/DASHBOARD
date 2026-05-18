@@ -315,18 +315,19 @@ export function AgenteFerroChat({ className }: Props) {
         {announcedText}
       </div>
 
-      {/* Error state recuperabile */}
+      {/* Error state recuperabile · tono "attention" ambra (decisione cliente:
+          MAI rosso destructive su dati clinici, anche su errori chat). */}
       {isError && (
         <div
           role="alert"
-          className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
+          className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
         >
           <AlertCircle
-            className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-500"
             aria-hidden="true"
           />
           <div className="flex-1">
-            <p className="font-medium">Qualcosa è andato storto.</p>
+            <p className="font-medium text-amber-500">Qualcosa è andato storto.</p>
             <p className="text-muted-foreground">
               {error?.message || "Riprova fra qualche secondo."}
             </p>

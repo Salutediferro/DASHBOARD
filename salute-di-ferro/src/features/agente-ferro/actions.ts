@@ -57,11 +57,13 @@ async function getAuthUserId(): Promise<string> {
 }
 
 function revalidateBriefing(userId: string): void {
-  // Next 16 · `revalidateTag(tag, profile)` con profile "max" forza
-  // refresh immediato per read-your-own-writes dopo l'azione.
-  revalidateTag(`briefing:${userId}`, "max");
-  revalidateTag(`greeting:${userId}`, "max");
-  revalidateTag(`therapy:${userId}`, "max");
+  // Background revalidation (SWR). Per read-your-own-writes "immediato"
+  // serve `updateTag` ma è API legata a `cacheComponents: true` (vedi TODO
+  // in briefing.ts). Finché il flag non è on, queste chiamate sono no-op
+  // sicure: il briefing non è ancora cached.
+  revalidateTag(`briefing:${userId}`);
+  revalidateTag(`greeting:${userId}`);
+  revalidateTag(`therapy:${userId}`);
 }
 
 /**
