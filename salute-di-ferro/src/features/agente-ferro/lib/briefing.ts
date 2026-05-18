@@ -22,15 +22,25 @@ function pickPersona(
   completeness: number,
   daysActive: number,
   onboardingCompleted: boolean,
+  hasBaseProfile: boolean,
 ): Persona {
   // Fix bug 2026-05-18 · "ho completato profilo ma vedo ancora Completa profilo".
-  // Se l'utente ha esplicitamente flaggato `onboardingCompleted=true` (ha
-  // attraversato il flow di onboarding UI), salta la persona "onboarding"
-  // indipendentemente dal valore di completeness (la formula è fragile:
-  // base 30 + 6 campi opzionali per arrivare a 60 → utenti che compilano
-  // solo i campi visibili nel form profile finivano persona "onboarding"
-  // anche dopo aver completato l'onboarding ufficiale).
-  if (!onboardingCompleted && completeness < 60) return "onboarding";
+  //
+  // Storia: la formula `estimateCompleteness` (real.ts:61) è fragile — base 30
+  // se !onboardingCompleted + servono 6 campi opzionali per arrivare a 60.
+  // Inoltre il flow UI ha 2 path distinti:
+  //   - /dashboard/patient/onboarding (wizard ufficiale, chiama POST /api/onboarding
+  //     che setta `onboardingCompleted=true`)
+  //   - /dashboard/patient/profile (form edit campi, NON setta il flag)
+  // Utenti che andavano al form profile pensavano "completato" ma il flag e
+  // la completeness restavano sotto soglia → persona "onboarding" appiccicata.
+  //
+  // Trigger persona "onboarding" SOLO se l'utente NON ha mai messo
+  // nemmeno i dati base di profilo (no flag wizard, no altezza, no sesso,
+  // completeness sotto 40). Una volta che mette qualcosa → passa a "early".
+  const isReallyOnboarding =
+    !onboardingCompleted && !hasBaseProfile && completeness < 40;
+  if (isReallyOnboarding) return "onboarding";
   if (daysActive < 30) return "early";
   return "mature";
 }
@@ -301,7 +311,10 @@ function buildMission(input: {
     return {
       text: "Iniziamo dal profilo — bastano cinque minuti.",
       ctaLabel: "Completa il profilo",
-      ctaHref: "/dashboard/patient/profile",
+      // Punta al WIZARD ufficiale (`/onboarding`), non al form edit (`/profile`).
+      // Solo il wizard chiama POST /api/onboarding che setta
+      // `onboardingCompleted=true` → l'utente esce da persona "onboarding".
+      ctaHref: "/dashboard/patient/onboarding",
     };
   }
   if (input.attentionMarkers > 0) {
@@ -377,7 +390,14 @@ export async function buildBriefing(userId: string): Promise<BriefingSummary> {
   const daysActive = profile?.daysActive ?? 0;
   const firstName = profile?.firstName ?? "";
   const onboardingCompleted = profile?.onboardingCompleted ?? false;
-  const persona = pickPersona(completeness, daysActive, onboardingCompleted);
+  const hasBaseProfile =
+    profile?.heightCm != null || profile?.sex != null;
+  const persona = pickPersona(
+    completeness,
+    daysActive,
+    onboardingCompleted,
+    hasBaseProfile,
+  );
 
   // Overdue check-in
   const now = Date.now();
