@@ -18,8 +18,19 @@ import type {
 // Persona
 // ---------------------------------------------------------------
 
-function pickPersona(completeness: number, daysActive: number): Persona {
-  if (completeness < 60) return "onboarding";
+function pickPersona(
+  completeness: number,
+  daysActive: number,
+  onboardingCompleted: boolean,
+): Persona {
+  // Fix bug 2026-05-18 · "ho completato profilo ma vedo ancora Completa profilo".
+  // Se l'utente ha esplicitamente flaggato `onboardingCompleted=true` (ha
+  // attraversato il flow di onboarding UI), salta la persona "onboarding"
+  // indipendentemente dal valore di completeness (la formula è fragile:
+  // base 30 + 6 campi opzionali per arrivare a 60 → utenti che compilano
+  // solo i campi visibili nel form profile finivano persona "onboarding"
+  // anche dopo aver completato l'onboarding ufficiale).
+  if (!onboardingCompleted && completeness < 60) return "onboarding";
   if (daysActive < 30) return "early";
   return "mature";
 }
@@ -365,7 +376,8 @@ export async function buildBriefing(userId: string): Promise<BriefingSummary> {
   const completeness = profile?.completeness ?? 0;
   const daysActive = profile?.daysActive ?? 0;
   const firstName = profile?.firstName ?? "";
-  const persona = pickPersona(completeness, daysActive);
+  const onboardingCompleted = profile?.onboardingCompleted ?? false;
+  const persona = pickPersona(completeness, daysActive, onboardingCompleted);
 
   // Overdue check-in
   const now = Date.now();
