@@ -19,28 +19,30 @@ import type {
 // ---------------------------------------------------------------
 
 function pickPersona(
-  completeness: number,
+  _completeness: number,
   daysActive: number,
-  onboardingCompleted: boolean,
-  hasBaseProfile: boolean,
+  _onboardingCompleted: boolean,
+  _hasBaseProfile: boolean,
 ): Persona {
-  // Fix bug 2026-05-18 · "ho completato profilo ma vedo ancora Completa profilo".
+  // 2026-05-18 · DISABILITATA persona "onboarding".
   //
-  // Storia: la formula `estimateCompleteness` (real.ts:61) è fragile — base 30
-  // se !onboardingCompleted + servono 6 campi opzionali per arrivare a 60.
-  // Inoltre il flow UI ha 2 path distinti:
-  //   - /dashboard/patient/onboarding (wizard ufficiale, chiama POST /api/onboarding
-  //     che setta `onboardingCompleted=true`)
-  //   - /dashboard/patient/profile (form edit campi, NON setta il flag)
-  // Utenti che andavano al form profile pensavano "completato" ma il flag e
-  // la completeness restavano sotto soglia → persona "onboarding" appiccicata.
+  // Storia tentativi di fix:
+  //   v1: persona "onboarding" = `completeness < 60` -> formula completeness
+  //       (real.ts:61) base 30 senza flag wizard + servono 6 campi accessori
+  //       per arrivare a 60. Utenti che compilavano solo i campi visibili
+  //       del form profile restavano "onboarding".
+  //   v2: aggiunto check `onboardingCompleted=true` -> non aiuta perché
+  //       il form `/profile` NON setta quel flag (solo il wizard
+  //       `/onboarding` lo fa).
+  //   v3: aggiunto check `hasBaseProfile` (heightCm/sex) -> ancora non
+  //       basta se l'utente non ha mai messo nemmeno l'altezza.
+  //   v4 (qui): kill totale -> persona "onboarding" non è più assegnata.
+  //       Tutti gli utenti loggati vedono dashboard piena (con eventuali
+  //       empty states sui singoli componenti dove serve).
   //
-  // Trigger persona "onboarding" SOLO se l'utente NON ha mai messo
-  // nemmeno i dati base di profilo (no flag wizard, no altezza, no sesso,
-  // completeness sotto 40). Una volta che mette qualcosa → passa a "early".
-  const isReallyOnboarding =
-    !onboardingCompleted && !hasBaseProfile && completeness < 40;
-  if (isReallyOnboarding) return "onboarding";
+  // Daysactive-based fallback: `early` primi 30 giorni, poi `mature`.
+  // I parametri completeness/onboardingCompleted/hasBaseProfile sono
+  // mantenuti per compatibilità (call site) e per refactor futuro.
   if (daysActive < 30) return "early";
   return "mature";
 }
