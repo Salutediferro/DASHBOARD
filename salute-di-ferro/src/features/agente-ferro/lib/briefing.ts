@@ -492,6 +492,28 @@ export async function buildBriefing(userId: string): Promise<BriefingSummary> {
   void notifications;
   void subscription;
 
+  // ---- Fase 1 (2026-05-18) · arricchimento dashboard ----
+  // Recent report: ultimo BLOOD_TEST <= 60gg, snippet 1 frase max 200 char.
+  const recentReportRaw = reports
+    .filter((r) => r.category === "BLOOD_TEST" || r.category === "blood_test")
+    .find((r) => {
+      const ageDays = (Date.now() - r.issuedAt.getTime()) / (1000 * 60 * 60 * 24);
+      return ageDays <= 60;
+    });
+  const recentReport = recentReportRaw
+    ? {
+        id: recentReportRaw.id,
+        title: recentReportRaw.title,
+        daysAgo: Math.floor(
+          (Date.now() - recentReportRaw.issuedAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+        snippet:
+          (recentReportRaw.summary ?? "").slice(0, 200) ||
+          "Referto disponibile · apri per dettagli.",
+      }
+    : null;
+
   return {
     persona,
     mission,
@@ -502,6 +524,14 @@ export async function buildBriefing(userId: string): Promise<BriefingSummary> {
     completeness,
     attentionCount: attentionMarkers,
     nextAppointment,
+    therapyAdherence: therapy,
+    recentReport,
+    checkInOverdueDays,
+    conditions: {
+      medical: profile?.medicalConditions ?? null,
+      allergies: profile?.allergies ?? null,
+      medications: profile?.medications ?? null,
+    },
   };
 }
 

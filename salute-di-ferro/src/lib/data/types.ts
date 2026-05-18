@@ -52,6 +52,12 @@ export type UserProfileSummary = {
   ageYears: number | null;
   heightCm: number | null;
   targetWeightKg: number | null;
+  /** Free-text clinical context dichiarato dal paziente (PII —
+   * mai esposto all'LLM. Surface in UI come badge per i professionisti
+   * del paziente stesso). Stringa raw o null. */
+  medicalConditions: string | null;
+  allergies: string | null;
+  medications: string | null;
   missingProfileFields?: ProfileField[];
 };
 
@@ -237,4 +243,25 @@ export type BriefingSummary = {
   attentionCount: number;
   /** Next upcoming appointment within 7 days, if any (for greeting). */
   nextAppointment: AppointmentSummary | null;
+  // ---- Fase 1 (2026-05-18) · arricchimento dashboard ----
+  /** Terapie attive con aderenza ultima settimana (surface dei dati già
+   * usati internamente per buildTopActions, esposti come dashboard widget). */
+  therapyAdherence: TherapyAdherenceItem[];
+  /** Ultimo referto rilevante (BLOOD_TEST max 60gg), null altrimenti. */
+  recentReport: {
+    id: string;
+    title: string;
+    daysAgo: number;
+    /** Plain-text snippet 1 frase (max 200 char), già safe per UI. */
+    snippet: string;
+  } | null;
+  /** Giorni di ritardo sul prossimo check-in pending. 0 se nessuno overdue. */
+  checkInOverdueDays: number;
+  /** Profilo clinico dichiarato dal paziente — surface in UI come badge.
+   * I valori sono stringhe free-text, possono essere null. */
+  conditions: {
+    medical: string | null;
+    allergies: string | null;
+    medications: string | null;
+  };
 };

@@ -128,6 +128,9 @@ export async function getUserProfile(
       ageYears: ageFromBirthDate(u.birthDate),
       heightCm: u.heightCm,
       targetWeightKg: u.targetWeightKg,
+      medicalConditions: u.medicalConditions ?? null,
+      allergies: u.allergies ?? null,
+      medications: u.medications ?? null,
     };
   } catch (err) {
     throw new Error(`fetch_userProfile_failed: ${String(err)}`);

@@ -32,6 +32,7 @@ import { AmbientStatsStrip } from "@/features/agente-ferro/components/AmbientSta
 import { ActionPlanList } from "@/features/agente-ferro/components/ActionPlanList";
 import { BodySystemGrid } from "@/features/agente-ferro/components/BodySystemGrid";
 import { AgentCTA } from "@/features/agente-ferro/components/AgentCTA";
+import { ProactiveHighlights } from "@/features/agente-ferro/components/ProactiveHighlights";
 // NOTA: OnboardingState resta in src/features/agente-ferro/components/OnboardingState.tsx
 // ma NON importato dopo l'hotfix 2026-05-18 (vedi commento in ProactiveDashboard).
 // Riusabile come sub-component nel refactor "Centro Agente unificato" (opzione D).
@@ -108,6 +109,8 @@ async function ProactiveDashboard({ userId }: { userId: string }) {
       <Suspense fallback={<StatsSkeleton />}>
         <AmbientStatsStrip stats={briefing.stats} />
       </Suspense>
+
+      <ProactiveHighlights briefing={briefing} />
 
       <Suspense fallback={<PlanSkeleton />}>
         <ActionPlanList actions={briefing.topActions} />

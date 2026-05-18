@@ -69,6 +69,9 @@ export async function getUserProfile(
     ageYears: 38,
     heightCm: 178,
     targetWeightKg: 80,
+    medicalConditions: "Ipertensione lieve in osservazione",
+    allergies: "Nessuna nota",
+    medications: "Vit D 2000 UI · Magnesio bisglicinato",
   };
   switch (s) {
     case "onboarding":
@@ -81,6 +84,9 @@ export async function getUserProfile(
         onboardingCompleted: false,
         targetWeightKg: null,
         heightCm: null,
+        medicalConditions: null,
+        allergies: null,
+        medications: null,
       };
     case "early":
       return {
