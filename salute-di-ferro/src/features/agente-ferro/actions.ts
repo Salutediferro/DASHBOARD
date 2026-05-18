@@ -57,13 +57,13 @@ async function getAuthUserId(): Promise<string> {
 }
 
 function revalidateBriefing(userId: string): void {
-  // Background revalidation (SWR). Per read-your-own-writes "immediato"
-  // serve `updateTag` ma è API legata a `cacheComponents: true` (vedi TODO
-  // in briefing.ts). Finché il flag non è on, queste chiamate sono no-op
-  // sicure: il briefing non è ancora cached.
-  revalidateTag(`briefing:${userId}`);
-  revalidateTag(`greeting:${userId}`);
-  revalidateTag(`therapy:${userId}`);
+  // Next 16.2.6 require firma 2-arg: `revalidateTag(tag, profile)`. Profile
+  // "max" forza refresh immediato per read-your-own-writes dopo l'azione.
+  // (Tentativo di rimuovere il 2° arg in commit b5d2d17 ha rotto la build
+  // Vercel — TS2554 "Expected 2 arguments". Fix in commit successivo.)
+  revalidateTag(`briefing:${userId}`, "max");
+  revalidateTag(`greeting:${userId}`, "max");
+  revalidateTag(`therapy:${userId}`, "max");
 }
 
 /**
